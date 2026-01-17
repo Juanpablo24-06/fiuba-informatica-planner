@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --color-canvas: 7 11 23;
+  --color-surface: 15 22 40;
+  --color-surface-2: 18 30 54;
+  --color-border: 40 54 82;
+  --color-text: 226 232 240;
+  --color-muted: 148 163 184;
+  --color-accent: 56 189 248;
+  --color-accent-2: 59 130 246;
+  --color-success: 34 197 94;
+  --color-warning: 245 158 11;
+  --color-danger: 248 113 113;
+}
+
+* {
+  @apply border-border;
+}
+
+body {
+  @apply bg-canvas text-text antialiased;
+  font-feature-settings: "ss01" 1, "ss02" 1;
+  background-image:
+    radial-gradient(1200px 800px at 10% -10%, rgba(56, 189, 248, 0.2), transparent 60%),
+    radial-gradient(900px 600px at 90% -20%, rgba(59, 130, 246, 0.18), transparent 55%),
+    linear-gradient(180deg, rgba(7, 11, 23, 0.98) 0%, rgba(7, 13, 28, 0.95) 40%, rgba(7, 11, 23, 1) 100%);
+}
+
+::selection {
+  background: rgba(56, 189, 248, 0.35);
+  color: rgb(var(--color-text));
+}
+
+@layer components {
+  .panel {
+    @apply rounded-2xl border border-border/60 bg-surface/80 shadow-tile backdrop-blur;
+  }
+
+  .panel-header {
+    @apply flex items-center justify-between gap-4 border-b border-border/50 px-6 py-4;
+  }
+
+  .panel-body {
+    @apply px-6 py-5;
+  }
+
+  .subtle-grid {
+    background-image:
+      linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
