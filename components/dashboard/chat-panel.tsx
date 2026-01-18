@@ -83,14 +83,18 @@ export default function ChatPanel({ trigger }: { trigger?: React.ReactNode }) {
     setIsThinking(true);
 
     try {
+      const requestBody: Record<string, unknown> = {
+        message: trimmed,
+        storeHistory: storeHistory && persistenceEnabled
+      };
+      if (threadId) {
+        requestBody.threadId = threadId;
+      }
+
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: trimmed,
-          threadId,
-          storeHistory: storeHistory && persistenceEnabled
-        })
+        body: JSON.stringify(requestBody)
       });
 
       const data = await response.json().catch(() => null);
