@@ -72,4 +72,5 @@ export type CalendarEvent = {
   subject?: string;
   type?: string;
   color?: string;
+  tags?: string[];
 };

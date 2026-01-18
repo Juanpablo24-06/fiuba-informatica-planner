@@ -1,4 +1,5 @@
 import AppBackground from "@/components/layout/app-background";
+import AppShell from "@/components/layout/app-shell";
 import ShortcutHandler from "@/components/layout/shortcut-handler";
 import TopNav from "@/components/layout/top-nav";
 import { getSession } from "@/lib/auth";
@@ -13,9 +14,7 @@ export default async function AppLayout({
       <AppBackground />
       <TopNav role={session?.role} />
       <ShortcutHandler />
-      <main className="mx-auto w-full max-w-6xl px-6 pb-20 pt-8">
-        {children}
-      </main>
+      <AppShell>{children}</AppShell>
     </div>
   );
 }

@@ -49,7 +49,7 @@ export default function LoginForm() {
               className={`flex-1 rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
                 role === item.id
                   ? "border-accent/70 bg-accent/10 text-text"
-                  : "border-border/60 bg-surface text-muted hover:text-text"
+                  : "border-white/[0.12] bg-surface/80 text-muted hover:text-text"
               }`}
             >
               {item.label}
@@ -66,7 +66,7 @@ export default function LoginForm() {
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          className="w-full rounded-2xl border border-border/60 bg-canvas/60 px-4 py-3 text-sm text-text outline-none ring-1 ring-transparent transition focus:ring-accent/60"
+          className="w-full rounded-2xl border border-white/[0.12] bg-surface/80 px-4 py-3 text-sm text-text outline-none ring-1 ring-transparent transition focus:ring-accent/60"
           placeholder="Ingresá la clave compartida"
           required
         />

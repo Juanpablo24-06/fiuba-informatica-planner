@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import type { CalendarEvent } from "@/lib/types";
 import { formatDateTime } from "@/lib/date";
+import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
 
 export default function UpcomingEvents({
   events,
@@ -32,11 +34,10 @@ export default function UpcomingEvents({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <select
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Select
           value={subjectFilter}
           onChange={(event) => setSubjectFilter(event.target.value)}
-          className="rounded-full border border-border/60 bg-canvas/80 px-3 py-1.5 text-xs text-text"
         >
           <option value="all">Todas las materias</option>
           {subjectOptions.map((subject) => (
@@ -44,11 +45,10 @@ export default function UpcomingEvents({
               {subject}
             </option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
           value={typeFilter}
           onChange={(event) => setTypeFilter(event.target.value)}
-          className="rounded-full border border-border/60 bg-canvas/80 px-3 py-1.5 text-xs text-text"
         >
           <option value="all">Todos los tipos</option>
           {types.map((type) => (
@@ -56,7 +56,7 @@ export default function UpcomingEvents({
               {type}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
       <div className="space-y-3">
         {filtered.length === 0 ? (
@@ -65,7 +65,7 @@ export default function UpcomingEvents({
           filtered.map((event) => (
             <div
               key={event.id}
-              className="flex items-start justify-between gap-4 rounded-2xl border border-border/60 bg-surface/70 px-4 py-3 text-sm"
+              className="flex flex-col gap-3 rounded-3xl border border-white/[0.12] bg-surface/80 px-4 py-3 text-sm md:flex-row md:items-center md:justify-between"
             >
               <div>
                 <p className="font-semibold">{event.title}</p>
@@ -74,6 +74,15 @@ export default function UpcomingEvents({
                   {event.type ? `${event.type} · ` : ""}
                   {event.source === "calendar" ? "Google Calendar" : "Plan interno"}
                 </p>
+                {event.tags?.length ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {event.tags.map((tag) => (
+                      <Badge key={tag} className="bg-white/[0.04] text-muted">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
               </div>
               <div className="text-xs text-muted">{formatDateTime(event.startsAt)}</div>
             </div>

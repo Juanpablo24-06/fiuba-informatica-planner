@@ -21,6 +21,9 @@ export default function ShortcutHandler() {
       if (key === "m") {
         router.push("/mapa");
       }
+      if (key === "h") {
+        router.push("/horario");
+      }
       if (key === "l") {
         router.push("/login");
       }

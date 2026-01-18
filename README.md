@@ -12,7 +12,7 @@ Web privada para organizar la carrera de Ingeniería en Informática (FIUBA). In
 
 ### 1) Supabase
 1. Crear proyecto en Supabase.
-2. Ejecutar el SQL de `supabase/migrations/001_init.sql` en el SQL Editor.
+2. Ejecutar las migrations en orden desde `supabase/migrations/` (`001_init.sql` y `002_ai_calendar.sql`).
 3. Copiar la URL y las keys (anon + service role).
 
 ### 2) Variables de entorno
@@ -28,6 +28,11 @@ Copiar `.env.example` a `.env.local` y completar:
 - `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`
 - `GOOGLE_CALENDAR_ID`
 - `GOOGLE_CALENDAR_TIMEZONE`
+- `GEMINI_API_KEY`
+- `GEMINI_MODEL`
+- `GEMINI_API_URL`
+- `CHAT_PERSISTENCE_ENABLED`
+- `NEXT_PUBLIC_CHAT_PERSISTENCE`
 
 **Hash de passwords**
 ```
@@ -48,6 +53,17 @@ openssl rand -base64 32
    - `GOOGLE_SERVICE_ACCOUNT_EMAIL`
    - `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` (reemplazar saltos de línea por `\n`)
    - `GOOGLE_CALENDAR_ID` (ID del calendario compartido)
+
+### 3.1) AI + Chat (opcional)
+1. Setear `GEMINI_API_KEY` (y opcional `GEMINI_MODEL` / `GEMINI_API_URL`).
+2. Poblar `calendar_events_raw` con eventos (manual o via job futuro).
+3. Enriquecer con `POST /api/ai/enrich-calendar` (admin).
+4. Resumir semana con `POST /api/ai/summarize-week` (admin).
+5. Para historial de chat: setear `CHAT_PERSISTENCE_ENABLED=true` y `NEXT_PUBLIC_CHAT_PERSISTENCE=true`.
+
+### 3.2) Webhooks Google Calendar (futuro)
+- Implementar OAuth y watch channels antes de usar `/api/calendar/sync-provider`.
+- Ideal: cron para mantener `calendar_events_raw` actualizado.
 
 ### 4) Seed inicial
 Carga materias y correlativas desde `data/subjects.json`:
@@ -74,12 +90,30 @@ npm run dev
 - `enrollments`: materias activadas por cuatrimestre, estado, color, notas.
 - `events`: evaluaciones/entregas con fecha, nota y estado.
 - `calendar_sources`: configuración y última sincronización de Google Calendar.
+- `calendar_events_raw`: eventos crudos (Google o internos) listos para AI.
+- `calendar_event_enrichments`: clasificaciones AI por evento.
+- `chat_threads` y `chat_messages`: historial opcional del chat.
 
 ## Seguridad
 - Validación de passwords 100% server-side.
 - Cookie HttpOnly cifrada con rol.
 - Middleware protege todo el sitio, bloquea `/admin` si no es admin.
 - Service role key nunca llega al cliente.
+
+## Mapa de correlatividades (UI)
+### Como usar
+- Hover sobre una materia para ver prerequisitos y materias que habilita.
+- Click fija la seleccion (boton limpiar o Escape para liberar).
+- Toggle Electivas para mostrar/ocultar la capa opcional.
+- Arrastrar verticalmente reordena materias dentro del cuatrimestre (no persiste).
+- Busqueda por nombre o codigo con sugerencias.
+- Zoom con rueda / pinch, pan con drag y modo expandido dentro del layout.
+
+### Decisiones de diseno
+- Lanes por cuatrimestre con headers claros y columna reordenable.
+- Colores semanticos para prerequisitos, desbloqueos, electivas y estados.
+- Curvas Bezier para conectar materias, con atenuacion de lo no relacionado.
+- Panel lateral fijo para detalles y listas de correlativas/desbloqueos.
 
 ## Inspiración
 El mapa de correlatividades toma inspiración del proyecto **FIUBA-Map**:

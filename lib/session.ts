@@ -1,6 +1,7 @@
 import crypto from "crypto";
+import { SESSION_COOKIE_NAME } from "@/lib/session-constants";
 
-export const SESSION_COOKIE_NAME = "fiuba_session";
+export { SESSION_COOKIE_NAME };
 
 export type Role = "admin" | "viewer";
 

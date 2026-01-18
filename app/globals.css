@@ -4,17 +4,42 @@
 
 :root {
   color-scheme: dark;
-  --color-canvas: 7 11 23;
-  --color-surface: 15 22 40;
-  --color-surface-2: 18 30 54;
-  --color-border: 40 54 82;
-  --color-text: 226 232 240;
-  --color-muted: 148 163 184;
-  --color-accent: 56 189 248;
-  --color-accent-2: 59 130 246;
-  --color-success: 34 197 94;
+  --color-canvas: 13 14 18;
+  --color-surface: 19 22 30;
+  --color-surface-2: 28 32 44;
+  --color-border: 78 85 102;
+  --color-text: 232 237 247;
+  --color-muted: 155 163 183;
+  --color-accent: 154 92 255;
+  --color-accent-2: 56 189 248;
+  --color-accent-3: 34 211 238;
+  --color-accent-4: 251 191 36;
+  --color-prereq: 52 211 153;
+  --color-unlock: 96 165 250;
+  --color-elective: 251 146 60;
+  --color-success: 16 185 129;
   --color-warning: 245 158 11;
-  --color-danger: 248 113 113;
+  --color-danger: 244 63 94;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --color-canvas: 248 250 252;
+  --color-surface: 255 255 255;
+  --color-surface-2: 241 245 249;
+  --color-border: 203 213 225;
+  --color-text: 15 23 42;
+  --color-muted: 100 116 139;
+  --color-accent: 147 51 234;
+  --color-accent-2: 37 99 235;
+  --color-accent-3: 14 165 233;
+  --color-accent-4: 234 88 12;
+  --color-prereq: 13 148 136;
+  --color-unlock: 37 99 235;
+  --color-elective: 234 88 12;
+  --color-success: 22 163 74;
+  --color-warning: 217 119 6;
+  --color-danger: 239 68 68;
 }
 
 * {
@@ -25,9 +50,8 @@ body {
   @apply bg-canvas text-text antialiased;
   font-feature-settings: "ss01" 1, "ss02" 1;
   background-image:
-    radial-gradient(1200px 800px at 10% -10%, rgba(56, 189, 248, 0.2), transparent 60%),
-    radial-gradient(900px 600px at 90% -20%, rgba(59, 130, 246, 0.18), transparent 55%),
-    linear-gradient(180deg, rgba(7, 11, 23, 0.98) 0%, rgba(7, 13, 28, 0.95) 40%, rgba(7, 11, 23, 1) 100%);
+    radial-gradient(880px 520px at 12% -12%, rgba(154, 92, 255, 0.09), transparent 60%),
+    linear-gradient(180deg, rgba(12, 13, 18, 0.98) 0%, rgba(12, 14, 20, 0.97) 45%, rgba(13, 14, 18, 1) 100%);
 }
 
 ::selection {
@@ -35,13 +59,26 @@ body {
   color: rgb(var(--color-text));
 }
 
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+}
+
 @layer components {
   .panel {
-    @apply rounded-2xl border border-border/60 bg-surface/80 shadow-tile backdrop-blur;
+    @apply rounded-[2rem] border border-white/[0.08] bg-surface/75 shadow-tile backdrop-blur;
   }
 
   .panel-header {
-    @apply flex items-center justify-between gap-4 border-b border-border/50 px-6 py-4;
+    @apply flex items-center justify-between gap-4 border-b border-white/[0.1] px-6 py-4;
   }
 
   .panel-body {
@@ -53,6 +90,20 @@ body {
       linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
       linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
     background-size: 32px 32px;
+  }
+
+  .map-canvas {
+    background-image:
+      radial-gradient(720px 420px at 10% -12%, rgb(var(--color-accent) / 0.22), transparent 60%),
+      radial-gradient(620px 360px at 92% -10%, rgb(var(--color-accent-2) / 0.18), transparent 55%),
+      radial-gradient(520px 360px at 70% 110%, rgb(var(--color-accent-3) / 0.14), transparent 60%);
+  }
+
+  [data-theme="light"] .map-canvas {
+    background-image:
+      radial-gradient(700px 420px at 12% -8%, rgb(var(--color-accent) / 0.12), transparent 60%),
+      radial-gradient(640px 360px at 92% -12%, rgb(var(--color-accent-2) / 0.1), transparent 55%),
+      radial-gradient(520px 360px at 70% 110%, rgb(var(--color-accent-3) / 0.08), transparent 60%);
   }
 }
 

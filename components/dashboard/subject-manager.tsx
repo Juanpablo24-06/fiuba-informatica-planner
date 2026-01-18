@@ -65,7 +65,7 @@ export default function SubjectManager({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-border/60 bg-surface/70 p-4">
+      <div className="rounded-3xl border border-white/[0.12] bg-surface/80 p-4">
         <p className="text-sm font-semibold">Crear materia</p>
         <div className="mt-3 grid gap-3 md:grid-cols-4">
           <Input
@@ -113,7 +113,7 @@ export default function SubjectManager({
         {subjects.map((subject) => (
           <div
             key={subject.id}
-            className="grid gap-2 rounded-2xl border border-border/60 bg-surface/70 p-4 md:grid-cols-[1fr_1.2fr_0.6fr_0.7fr_auto]"
+            className="grid gap-2 rounded-3xl border border-white/[0.12] bg-surface/80 p-4 md:grid-cols-[1fr_1.2fr_0.6fr_0.7fr_auto]"
           >
             <Input
               defaultValue={subject.code ?? ""}
