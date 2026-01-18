@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireRoleFromRequest } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { callGeminiJSON } from "@/lib/ai/gemini";
+import { callAIJSON } from "@/lib/ai/provider";
 import { weeklySummarySchema } from "@/lib/ai/schemas";
 import { getWeekRange } from "@/lib/date";
 
@@ -48,11 +48,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Datos invalidos." }, { status: 400 });
   }
 
-  if (!process.env.GEMINI_API_KEY) {
+  if (!process.env.CEREBRAS_API_KEY && !process.env.GEMINI_API_KEY) {
     return NextResponse.json(
       {
         error: "AI no configurada.",
-        instructions: "Define GEMINI_API_KEY en .env.local y reinicia el server."
+        instructions: "Define CEREBRAS_API_KEY (o GEMINI_API_KEY) en .env.local y reinicia el server."
       },
       { status: 501 }
     );
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
     .filter(Boolean);
 
   const prompt = buildPrompt(range, items);
-  const result = await callGeminiJSON(prompt, weeklySummarySchema);
+  const result = await callAIJSON(prompt, weeklySummarySchema);
 
   if (!result.ok) {
     return NextResponse.json(
@@ -138,5 +138,5 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json({ ok: true, summary: result.data });
+  return NextResponse.json({ ok: true, summary: { ...result.data, model: result.model } });
 }

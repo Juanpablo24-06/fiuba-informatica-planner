@@ -5,7 +5,7 @@ import { getSessionFromRequest } from "@/lib/auth";
 import { getCurrentTerm, getEnrollmentsForTerm, getEventsForTerm, getSubjects } from "@/lib/queries";
 import { getWeekRange } from "@/lib/date";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { callGeminiJSON } from "@/lib/ai/gemini";
+import { callAIJSON } from "@/lib/ai/provider";
 import { chatResponseSchema } from "@/lib/ai/schemas";
 
 const payloadSchema = z.object({
@@ -51,11 +51,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Datos invalidos." }, { status: 400 });
   }
 
-  if (!process.env.GEMINI_API_KEY) {
+  if (!process.env.CEREBRAS_API_KEY && !process.env.GEMINI_API_KEY) {
     return NextResponse.json(
       {
         error: "Chat AI deshabilitado.",
-        instructions: "Define GEMINI_API_KEY en .env.local para habilitarlo."
+        instructions: "Define CEREBRAS_API_KEY (o GEMINI_API_KEY) en .env.local para habilitarlo."
       },
       { status: 501 }
     );
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
   };
 
   const prompt = buildPrompt(session.role, parsed.data.message, context);
-  const result = await callGeminiJSON(prompt, chatResponseSchema);
+  const result = await callAIJSON(prompt, chatResponseSchema);
 
   if (!result.ok) {
     return NextResponse.json(
@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    response: result.data,
+    response: { ...result.data, model: result.model },
     threadId,
     stored: shouldStore
   });

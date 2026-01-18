@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireRoleFromRequest } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { callGeminiJSON } from "@/lib/ai/gemini";
+import { callAIJSON } from "@/lib/ai/provider";
 import { calendarEnrichmentBatchSchema } from "@/lib/ai/schemas";
 
 const payloadSchema = z.object({
@@ -70,7 +70,10 @@ const buildFallbackRows = (
     confidence: 0,
     needs_review: true,
     explanation_short: reason,
-    model: process.env.GEMINI_MODEL ?? "gemini-1.5-pro"
+    model:
+      process.env.CEREBRAS_MODEL ??
+      process.env.GEMINI_MODEL ??
+      "unknown"
   }));
 
 export async function POST(request: NextRequest) {
@@ -85,11 +88,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Datos invalidos." }, { status: 400 });
   }
 
-  if (!process.env.GEMINI_API_KEY) {
+  if (!process.env.CEREBRAS_API_KEY && !process.env.GEMINI_API_KEY) {
     return NextResponse.json(
       {
         error: "AI no configurada.",
-        instructions: "Define GEMINI_API_KEY en .env.local y reinicia el server."
+        instructions: "Define CEREBRAS_API_KEY (o GEMINI_API_KEY) en .env.local y reinicia el server."
       },
       { status: 501 }
     );
@@ -138,7 +141,7 @@ export async function POST(request: NextRequest) {
     }))
   );
 
-  const result = await callGeminiJSON(prompt, calendarEnrichmentBatchSchema);
+  const result = await callAIJSON(prompt, calendarEnrichmentBatchSchema);
 
   let rows: Array<{
     event_id: string;
@@ -171,7 +174,7 @@ export async function POST(request: NextRequest) {
           confidence: enrichment.confidence ?? null,
           needs_review: enrichment.needs_review ?? false,
           explanation_short: enrichment.explanation_short ?? null,
-          model: enrichment.model ?? (process.env.GEMINI_MODEL ?? "gemini-1.5-pro")
+          model: enrichment.model ?? result.model
         };
       })
       .filter(Boolean) as typeof rows;

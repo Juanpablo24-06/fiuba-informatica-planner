@@ -20,7 +20,7 @@ const extractJson = (raw: string) => {
 };
 
 export type GeminiResult<T> =
-  | { ok: true; data: T; raw: string }
+  | { ok: true; data: T; raw: string; model: string }
   | { ok: false; error: string; raw?: string; issues?: unknown };
 
 export const callGeminiJSON = async <T>(
@@ -74,5 +74,5 @@ export const callGeminiJSON = async <T>(
     };
   }
 
-  return { ok: true, data: result.data, raw: rawText };
+  return { ok: true, data: result.data, raw: rawText, model: config.model };
 };
