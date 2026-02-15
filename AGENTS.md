@@ -1,17 +1,18 @@
 # Instrucciones para agentes (Planificador FIUBA Informática)
 
-Este repo es una web privada para organizar mi carrera de Ingeniería en Informática (FIUBA): dashboard + mapa de correlatividades + eventos (internos y Google Calendar) + chat con AI.
+Este repo contiene:
+- Una web privada (Next.js) para organizar mi carrera de Ingeniería en Informática (FIUBA): dashboard + mapa de correlatividades + eventos (internos y Google Calendar) + chat con AI.
 
 ## Alcance y reglas generales
-- La app es solo para mí y 1–2 personas más; siempre requiere login (ya implementado).
+- La web es solo para mí y 1–2 personas más; siempre requiere login (ya implementado).
 - Podés refactorizar y cambiar lo necesario, pero con cuidado de no romper features existentes. Si tocás algo sensible, validá con `npm run lint` y `npm run build` antes de terminar.
 - **Nunca** comitees secretos ni escribas keys en el repo. No modifiques `.env.local` con valores reales.
 - Cambios de DB siempre vía migrations en `supabase/migrations/` (no edites datos “a mano” como solución final).
-- Mantener el stack actual: Next.js (App Router) + TypeScript + Tailwind + Supabase.
+- Mantener el stack actual (web): Next.js (App Router) + TypeScript + Tailwind + Supabase.
 - Package manager: usar `npm` (hay `package-lock.json`).
 
 ## Objetivo del producto (1 frase)
-Mostrar de manera clara y precisa la ruta que voy a seguir en la carrera (materias, correlativas, progreso y eventos), con una UX excelente en móvil.
+Mostrar de manera clara y precisa la ruta que voy a seguir en la carrera (materias, correlativas, progreso y eventos), con una UX excelente (mobile-first).
 
 ## Navegación y estructura (decisiones fijas)
 - El mapa vive como **página/sección separada** (`/mapa`). No debe abrirse al inicio como home.
@@ -84,8 +85,8 @@ El código debe quedar listo para integrar, pero sin depender de credenciales re
 
 ### AI: reglas estrictas
 - La AI **no modifica** Google Calendar.
-- La AI no genera “código ejecutable” para la app. Solo devuelve **JSON estructurado** validado (Zod/JSON schema).
-- Si falta la key del proveedor (p.ej. `GEMINI_API_KEY`), los endpoints deben responder “no configurado” sin romper la app.
+- La AI no genera “código ejecutable” para la web. Solo devuelve **JSON estructurado** validado (Zod/JSON schema).
+- Si falta la key del proveedor (p.ej. `GEMINI_API_KEY`), los endpoints deben responder “no configurado” sin romper la web.
 - Guardar `confidence` y `needs_review` para resultados dudosos.
 
 ## Chat con AI
