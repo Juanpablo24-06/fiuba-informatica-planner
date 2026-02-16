@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 
 type ChatMessage = {
@@ -19,6 +19,7 @@ const persistenceEnabled = process.env.NEXT_PUBLIC_CHAT_PERSISTENCE === "true";
 const buildId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
 export default function ChatPanel({ trigger }: { trigger?: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -27,6 +28,7 @@ export default function ChatPanel({ trigger }: { trigger?: React.ReactNode }) {
   const [threadId, setThreadId] = useState<string | null>(null);
   const [storeHistory, setStoreHistory] = useState(persistenceEnabled);
   const streamRef = useRef<number | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     return () => {
@@ -36,6 +38,14 @@ export default function ChatPanel({ trigger }: { trigger?: React.ReactNode }) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: "smooth"
+    });
+  }, [messages, isThinking]);
 
   const startStreaming = (messageId: string) => {
     if (streamRef.current) {
@@ -153,7 +163,7 @@ export default function ChatPanel({ trigger }: { trigger?: React.ReactNode }) {
   };
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger ?? (
           <Button variant="outline" size="sm">
@@ -162,23 +172,32 @@ export default function ChatPanel({ trigger }: { trigger?: React.ReactNode }) {
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="left-auto right-0 top-0 h-[100svh] w-full max-w-none translate-x-0 translate-y-0 rounded-none border-l border-white/[0.12] bg-surface/95 p-0 sm:w-[420px]">
+      <DialogContent className="h-[84svh] w-[94vw] max-w-[920px] overflow-hidden rounded-[2.1rem] border border-border/75 bg-surface p-0">
         <div className="flex h-full flex-col">
-          <DialogHeader className="flex items-center justify-between gap-3 space-y-0 border-b border-white/[0.08] px-5 py-4">
+          <DialogHeader className="flex items-center justify-between gap-3 space-y-0 border-b border-border/60 px-6 py-5">
             <div>
               <DialogTitle>Synapse IA</DialogTitle>
-              <p className="text-xs text-muted">Contexto FIUBA · Respuestas en JSON</p>
+              <p className="text-xs text-muted">Contexto FIUBA · seguimiento académico</p>
             </div>
             {isThinking ? (
-              <div className="flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-[11px] text-accent">
+              <div className="flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-3 py-1 text-[11px] text-accent">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
                 Pensando
               </div>
             ) : null}
+            <DialogClose asChild>
+              <button
+                type="button"
+                className="rounded-full border border-border/70 bg-surface-2 p-2 text-muted transition hover:text-text"
+                aria-label="Cerrar Synapse"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </DialogClose>
           </DialogHeader>
 
-          <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4 text-sm">
-            <div className="rounded-2xl border border-white/[0.12] bg-surface/85 p-3 text-xs text-muted">
+          <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-6 py-5 text-sm">
+            <div className="rounded-2xl border border-border/70 bg-surface-2 p-3 text-xs text-muted">
               {persistenceEnabled ? (
                 <label className="flex items-center gap-2">
                   <input
@@ -194,26 +213,30 @@ export default function ChatPanel({ trigger }: { trigger?: React.ReactNode }) {
             </div>
 
             {messages.length === 0 ? (
-              <div className="rounded-3xl border border-white/[0.12] bg-surface/85 p-4 text-xs text-muted">
+              <div className="rounded-3xl border border-border/70 bg-surface-2 p-4 text-xs text-muted">
                 Preguntá por tu semana, parciales o prioridades. Synapse responde con contexto.
               </div>
             ) : (
               <div className="space-y-3">
-                {messages.map((message) => {
+                {messages.map((message, index) => {
                   const isUser = message.role === "user";
                   const content = message.isStreaming ? message.displayed : message.content;
                   return (
-                    <div key={message.id} className={isUser ? "text-right" : "text-left"}>
+                    <div
+                      key={message.id}
+                      className={isUser ? "text-right" : "text-left"}
+                      style={{ animationDelay: `${index * 45}ms` }}
+                    >
                       <div
                         className={
                           isUser
-                            ? "ml-auto max-w-[85%] rounded-3xl border border-accent/40 bg-accent/10 px-4 py-3 text-text"
-                            : "mr-auto max-w-[85%] rounded-3xl border border-white/[0.12] bg-surface/85 px-4 py-3 text-text"
+                            ? "ml-auto max-w-[85%] animate-message-in rounded-3xl border border-accent/45 bg-accent/18 px-4 py-3 text-text"
+                            : "mr-auto max-w-[85%] animate-message-in rounded-3xl border border-border/70 bg-surface-2 px-4 py-3 text-text"
                         }
                       >
                         <p className="whitespace-pre-wrap">{content}</p>
                         {message.reasoning ? (
-                          <details className="mt-3 rounded-2xl border border-white/[0.12] bg-surface/85 p-2 text-[11px] text-muted">
+                          <details className="mt-3 rounded-2xl border border-border/60 bg-surface/80 p-2 text-[11px] text-muted">
                             <summary className="cursor-pointer select-none text-[10px] uppercase tracking-[0.3em] text-muted">
                               Razonamiento
                             </summary>
@@ -227,14 +250,25 @@ export default function ChatPanel({ trigger }: { trigger?: React.ReactNode }) {
               </div>
             )}
 
+            {isThinking ? (
+              <div className="mr-auto max-w-[85%] rounded-3xl border border-border/70 bg-surface-2 px-4 py-3 text-xs text-muted">
+                <div className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:0ms]" />
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:120ms]" />
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:240ms]" />
+                  Synapse está pensando...
+                </div>
+              </div>
+            ) : null}
+
             {error ? (
-              <div className="rounded-2xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
+              <div className="rounded-2xl border border-warning/50 bg-warning/10 px-3 py-2 text-xs text-warning">
                 {error}
               </div>
             ) : null}
           </div>
 
-          <div className="border-t border-white/[0.08] px-5 py-4">
+          <div className="border-t border-border/60 px-6 py-5">
             <div className="space-y-2">
               <Textarea
                 value={input}

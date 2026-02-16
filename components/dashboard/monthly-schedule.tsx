@@ -65,7 +65,7 @@ export default function MonthlySchedule({
               return (
                 <div
                   key={`empty-${index}`}
-                  className="min-h-[110px] rounded-2xl border border-dashed border-white/[0.08] bg-transparent"
+                  className="min-h-[110px] rounded-2xl border border-dashed border-border/45 bg-transparent"
                 />
               );
             }
@@ -77,7 +77,7 @@ export default function MonthlySchedule({
               <div
                 key={key}
                 className={cn(
-                  "min-h-[110px] rounded-2xl border border-white/[0.12] bg-surface/80 p-2",
+                  "min-h-[110px] rounded-2xl border border-border/60 bg-surface/80 p-2",
                   isToday && "border-accent/60 bg-accent/10"
                 )}
               >

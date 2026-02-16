@@ -39,7 +39,7 @@ export default function WeeklyFocus({ events }: { events: CalendarEvent[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-3xl border border-white/[0.12] bg-surface/80 p-4">
+      <div className="rounded-3xl border border-border/60 bg-surface/80 p-4">
         <p className="text-xs uppercase tracking-[0.3em] text-muted">Próximo</p>
         {nextEvent ? (
           <div className="mt-2 space-y-1">
@@ -55,22 +55,22 @@ export default function WeeklyFocus({ events }: { events: CalendarEvent[] }) {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-3xl border border-white/[0.12] bg-surface/80 p-4">
+        <div className="rounded-3xl border border-border/60 bg-surface/80 p-4">
           <p className="text-xs uppercase tracking-[0.3em] text-muted">Carga semanal</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Badge className="bg-white/[0.04] text-muted">
+            <Badge className="bg-surface-2/70 text-muted">
               Total {events.length}
             </Badge>
             {Object.entries(typeCounts)
               .filter(([, count]) => count > 0)
               .map(([type, count]) => (
-                <Badge key={type} className="bg-white/[0.04] text-muted">
+                <Badge key={type} className="bg-surface-2/70 text-muted">
                   {(TYPE_LABELS[type] ?? type)} {count}
                 </Badge>
               ))}
           </div>
         </div>
-        <div className="rounded-3xl border border-white/[0.12] bg-surface/80 p-4">
+        <div className="rounded-3xl border border-border/60 bg-surface/80 p-4">
           <p className="text-xs uppercase tracking-[0.3em] text-muted">Materias activas</p>
           <div className="mt-3 space-y-2 text-xs text-muted">
             {topSubjects.length ? (

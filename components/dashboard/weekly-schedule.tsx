@@ -83,7 +83,7 @@ export default function WeeklySchedule({ events }: { events: CalendarEvent[] }) 
                       key={event.id}
                       style={style}
                       className={cn(
-                        "rounded-2xl border border-white/[0.12] bg-surface/85 p-2 text-[11px] text-text shadow-tile",
+                        "rounded-2xl border border-border/60 bg-surface/85 p-2 text-[11px] text-text shadow-tile",
                         event.source === "calendar" ? "border-accent/40" : "border-accent-2/40"
                       )}
                     >
@@ -99,7 +99,7 @@ export default function WeeklySchedule({ events }: { events: CalendarEvent[] }) 
                           {event.tags.map((tag) => (
                           <span
                             key={tag}
-                            className="rounded-full border border-white/[0.12] bg-white/[0.03] px-2 py-0.5 text-[9px] font-semibold text-muted"
+                            className="rounded-full border border-border/60 bg-surface-2/70 px-2 py-0.5 text-[9px] font-semibold text-muted"
                           >
                             {tag}
                           </span>

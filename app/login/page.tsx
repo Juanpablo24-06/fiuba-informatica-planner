@@ -10,23 +10,23 @@ export default async function LoginPage() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center px-6 py-12">
-      <div className="absolute inset-0 subtle-grid opacity-50" />
-      <div className="relative grid w-full max-w-4xl gap-8 rounded-3xl border border-white/[0.12] bg-surface/85 p-8 shadow-glow backdrop-blur md:grid-cols-[1.1fr_0.9fr] animate-fade-in">
+      <div className="pointer-events-none absolute inset-0 subtle-grid opacity-35" />
+      <div className="relative grid w-full max-w-5xl gap-8 rounded-[2rem] border border-border/70 bg-surface/95 p-8 shadow-soft md:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-6">
-          <p className="text-xs uppercase tracking-[0.4em] text-muted">Acceso privado</p>
-          <h1 className="text-3xl font-semibold leading-tight text-balance">
-            Organizador personal de Ingeniería en Informática
+          <p className="text-xs uppercase tracking-[0.35em] text-muted">Acceso privado</p>
+          <h1 className="text-4xl font-semibold leading-tight text-balance">
+            Plan Ing Informática
           </h1>
           <p className="text-sm text-muted">
-            Elegí tu rol y validá la contraseña. Todo el contenido queda protegido y
-            se sirve solo desde el servidor.
+            Entrá como admin o visualización. La vista de visualización está pensada para
+            seguimiento rápido y la de admin para gestión completa.
           </p>
-          <div className="rounded-2xl border border-white/[0.12] bg-surface/80 p-4 text-xs text-muted">
+          <div className="rounded-3xl border border-border/70 bg-surface-2/75 p-4 text-xs text-muted">
             <p className="font-semibold text-text">Atajos rápidos</p>
             <div className="mt-2 flex flex-wrap gap-2">
-              <span className="rounded-full border border-white/[0.12] px-2 py-1">Shift + D · Panel</span>
-              <span className="rounded-full border border-white/[0.12] px-2 py-1">Shift + M · Mapa</span>
-              <span className="rounded-full border border-white/[0.12] px-2 py-1">Shift + H · Horario</span>
+              <span className="rounded-full border border-border/70 px-2 py-1">Shift + D · Resumen</span>
+              <span className="rounded-full border border-border/70 px-2 py-1">Shift + M · Mapa</span>
+              <span className="rounded-full border border-border/70 px-2 py-1">Shift + H · Horario</span>
             </div>
           </div>
         </div>

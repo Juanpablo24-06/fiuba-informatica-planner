@@ -1,6 +1,7 @@
 import AppBackground from "@/components/layout/app-background";
 import AppShell from "@/components/layout/app-shell";
 import ShortcutHandler from "@/components/layout/shortcut-handler";
+import SynapseLauncher from "@/components/layout/synapse-launcher";
 import TopNav from "@/components/layout/top-nav";
 import { getSession } from "@/lib/auth";
 
@@ -15,6 +16,7 @@ export default async function AppLayout({
       <TopNav role={session?.role} />
       <ShortcutHandler />
       <AppShell>{children}</AppShell>
+      <SynapseLauncher />
     </div>
   );
 }

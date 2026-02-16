@@ -10,8 +10,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <main
       className={cn(
-        "mx-auto w-full px-6 pb-16 pt-8",
-        isMapa ? "max-w-none px-0 pb-0 pt-0" : "max-w-6xl"
+        "mx-auto w-full px-6 pb-28 pt-8",
+        isMapa ? "max-w-none px-0 pb-0 pt-0" : "max-w-7xl"
       )}
     >
       {children}

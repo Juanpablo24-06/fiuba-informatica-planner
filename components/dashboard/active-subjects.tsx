@@ -209,13 +209,7 @@ export default function ActiveSubjects({
   );
 
   return (
-    <div className="space-y-3">
-      <div className="hidden grid-cols-[1.4fr_0.9fr_0.7fr_0.6fr] gap-3 text-xs uppercase tracking-[0.25em] text-muted md:grid">
-        <span>Materia</span>
-        <span>Progreso</span>
-        <span>Estado</span>
-        <span>Categoría</span>
-      </div>
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
       {sorted.map((enrollment) => {
         const subjectEvents = eventsByEnrollment.get(enrollment.id) ?? [];
         const tpsPlanned = enrollment.subject.template?.tps ?? null;
@@ -233,68 +227,88 @@ export default function ActiveSubjects({
         return (
           <div
             key={enrollment.id}
-            className="grid gap-3 rounded-3xl border border-white/[0.12] bg-surface/80 p-4 text-sm shadow-tile md:grid-cols-[1.4fr_0.9fr_0.7fr_0.6fr]"
+            className="relative overflow-hidden rounded-[1.5rem] border border-border/60 bg-surface p-4 text-sm shadow-soft"
           >
-            <div className="space-y-1">
-              <p className="text-sm font-semibold text-text">{enrollment.subject.name}</p>
-              <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted">
+            <div className="space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <span
+                    className="inline-flex rounded-md px-2 py-1 font-mono text-[11px] font-semibold"
+                    style={{
+                      backgroundColor: `${enrollment.color ?? "#1B7C5A"}22`,
+                      color: enrollment.color ?? "#1B7C5A"
+                    }}
+                  >
+                    {enrollment.subject.code ?? "SIN-COD"}
+                  </span>
+                  <p className="text-base font-semibold leading-tight text-text">
+                    {enrollment.subject.name}
+                  </p>
+                </div>
                 <span
-                  className="h-2 w-2 rounded-full border border-white/[0.2]"
+                  className="mt-1 h-2.5 w-2.5 rounded-full border border-border/70"
                   style={{ backgroundColor: enrollment.color ?? "#a855f7" }}
                 />
-                <span>{enrollment.subject.code ?? "Sin código"}</span>
+              </div>
+
+              <div className="h-1.5 overflow-hidden rounded-full bg-surface-2/75">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${Math.min(100, Math.max(8, ((tpsLogged + parcialesLogged) / Math.max((tpsPlanned ?? 0) + (parcialesPlanned ?? 0), 4)) * 100))}%`,
+                    backgroundColor: enrollment.color ?? "#1B7C5A"
+                  }}
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted">
                 {enrollment.subject.cycle ? (
-                  <Badge className="bg-white/[0.04] text-muted">
+                  <Badge className="bg-surface-2/70 text-muted">
                     {CYCLE_LABELS[enrollment.subject.cycle] ?? enrollment.subject.cycle}
                   </Badge>
                 ) : null}
+                <Badge className="bg-accent/10 text-accent border-accent/40">
+                  TPs {tpsLogged}{tpsPlanned ? `/${tpsPlanned}` : ""}
+                </Badge>
+                <Badge className="bg-accent-2/10 text-accent-2 border-accent-2/40">
+                  Parciales {parcialesLogged}{parcialesPlanned ? `/${parcialesPlanned}` : ""}
+                </Badge>
+                {recupLogged ? (
+                  <Badge className="bg-warning/10 text-warning border-warning/40">
+                    Recup {recupLogged}
+                  </Badge>
+                ) : null}
               </div>
-              {enrollment.notes ? (
-                <p className="text-xs text-muted">{enrollment.notes}</p>
-              ) : null}
+
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <Badge className={STATUS_COLORS[enrollment.status] ?? ""}>
+                  {STATUS_LABELS[enrollment.status] ?? enrollment.status}
+                </Badge>
+                {finalGrade !== null ? (
+                  <span className="rounded-full border border-border/55 bg-surface-2/70 px-2 py-0.5 text-[11px] text-muted">
+                    Final {finalGrade}
+                  </span>
+                ) : null}
+                <span className="rounded-full border border-border/60 bg-surface-2/60 px-2 py-0.5 text-[11px] text-muted">
+                  {category ?? "Sin categoría"}
+                </span>
+              </div>
+
+              {enrollment.notes ? <p className="text-xs text-muted">{enrollment.notes}</p> : null}
               {enrollment.subject.template ? (
                 <p className="text-[11px] text-muted">
                   Plantilla: {formatEvaluationTemplate(enrollment.subject.template)}
                 </p>
               ) : null}
-            </div>
 
-            <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
-              <Badge className="bg-accent/10 text-accent border-accent/40">
-                TPs {tpsLogged}{tpsPlanned ? `/${tpsPlanned}` : ""}
-              </Badge>
-              <Badge className="bg-accent-2/10 text-accent-2 border-accent-2/40">
-                Parciales {parcialesLogged}{parcialesPlanned ? `/${parcialesPlanned}` : ""}
-              </Badge>
-              {recupLogged ? (
-                <Badge className="bg-warning/10 text-warning border-warning/40">
-                  Recup {recupLogged}
-                </Badge>
-              ) : null}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <Badge className={STATUS_COLORS[enrollment.status] ?? ""}>
-                {STATUS_LABELS[enrollment.status] ?? enrollment.status}
-              </Badge>
-              {finalGrade !== null ? (
-                <span className="rounded-full border border-white/[0.1] bg-white/[0.03] px-2 py-0.5 text-[11px] text-muted">
-                  Final {finalGrade}
-                </span>
-              ) : null}
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted md:justify-end">
-              <span className="rounded-full border border-white/[0.12] bg-surface/80 px-2 py-0.5">
-                {category ?? "Sin categoría"}
-              </span>
-              {isAdmin ? (
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      Editar
-                    </Button>
-                  </DialogTrigger>
+              <div className="flex items-center justify-between gap-3">
+                {isAdmin ? (
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        Editar
+                      </Button>
+                    </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
                         <DialogTitle>Editar materia activa</DialogTitle>
@@ -332,7 +346,7 @@ export default function ActiveSubjects({
                             placeholder="Agregar observaciones"
                           />
                         </div>
-                        <div className="rounded-3xl border border-white/[0.12] bg-surface/80 p-4">
+                        <div className="rounded-3xl border border-border/60 bg-surface/80 p-4">
                           <p className="text-xs uppercase tracking-[0.2em] text-muted">
                             Plantilla de evaluación
                           </p>
@@ -352,12 +366,13 @@ export default function ActiveSubjects({
                             Listo
                         </Button>
                       </DialogClose>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              ) : (
-                <span className="text-[11px] text-muted">Solo lectura</span>
-              )}
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                ) : (
+                  <span className="text-[11px] text-muted">Solo lectura</span>
+                )}
+              </div>
             </div>
           </div>
         );

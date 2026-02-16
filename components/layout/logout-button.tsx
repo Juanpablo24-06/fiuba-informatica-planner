@@ -22,7 +22,7 @@ export default function LogoutButton() {
       type="button"
       onClick={handleLogout}
       disabled={pending}
-      className="rounded-full border border-white/[0.12] bg-surface/80 px-3 py-2 text-xs font-semibold text-text transition hover:border-accent/60 hover:text-accent disabled:opacity-60"
+      className="rounded-full border border-border/70 bg-surface px-3 py-2 text-xs font-semibold text-text transition hover:border-accent/60 hover:text-accent disabled:opacity-60"
     >
       {pending ? "Saliendo..." : "Salir"}
     </button>

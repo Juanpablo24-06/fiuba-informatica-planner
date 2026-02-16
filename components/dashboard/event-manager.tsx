@@ -341,7 +341,7 @@ export default function EventManager({
           sorted.map((event) => (
             <div
               key={event.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-white/[0.12] bg-surface/80 px-4 py-3 text-sm"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-border/60 bg-surface/80 px-4 py-3 text-sm"
             >
               <div>
                 <p className="font-semibold">
@@ -361,7 +361,7 @@ export default function EventManager({
                         href={link.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="rounded-full border border-white/[0.12] px-2 py-1 text-[10px] text-accent hover:text-accent-2"
+                        className="rounded-full border border-border/60 px-2 py-1 text-[10px] text-accent hover:text-accent-2"
                       >
                         {link.label}
                       </a>
@@ -399,7 +399,7 @@ export default function EventManager({
           </DialogHeader>
           {editingEvent ? (
             <div className="space-y-4">
-              <div className="rounded-2xl border border-white/[0.12] bg-surface/80 px-4 py-3 text-xs text-muted">
+              <div className="rounded-2xl border border-border/60 bg-surface/80 px-4 py-3 text-xs text-muted">
                 {editingEvent.enrollment?.subject?.name ?? "Materia"} ·{" "}
                 {editingEvent.enrollment?.term?.label ?? "Sin cuatrimestre"}
               </div>

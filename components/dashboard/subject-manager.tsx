@@ -1,12 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { Subject } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 
-const SUBJECT_TYPES = ["obligatoria", "electiva", "cbc"];
+const SUBJECT_TYPES = [
+  { value: "obligatoria", label: "Obligatoria" },
+  { value: "electiva", label: "Electiva" },
+  { value: "cbc", label: "CBC" }
+] as const;
 
 export default function SubjectManager({
   initialSubjects
@@ -20,6 +24,12 @@ export default function SubjectManager({
     term_suggested: "",
     type: "obligatoria"
   });
+
+  const sortedSubjects = useMemo(
+    () => [...subjects].sort((a, b) => a.name.localeCompare(b.name)),
+    [subjects]
+  );
+
   const canCreate = newSubject.name.trim().length > 0;
 
   const handleCreate = async () => {
@@ -64,9 +74,9 @@ export default function SubjectManager({
   };
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-3xl border border-white/[0.12] bg-surface/80 p-4">
-        <p className="text-sm font-semibold">Crear materia</p>
+    <div className="space-y-5">
+      <section className="rounded-2xl border border-border/75 bg-surface-2 p-4">
+        <p className="text-sm font-semibold text-text">Agregar materia al catálogo</p>
         <div className="mt-3 grid gap-3 md:grid-cols-4">
           <Input
             value={newSubject.code}
@@ -85,12 +95,12 @@ export default function SubjectManager({
           <Input
             type="number"
             min={1}
-            max={10}
+            max={12}
             value={newSubject.term_suggested}
             onChange={(event) =>
               setNewSubject((prev) => ({ ...prev, term_suggested: event.target.value }))
             }
-            placeholder="Cuatri"
+            placeholder="Cuatri sugerido"
           />
           <Select
             value={newSubject.type}
@@ -99,25 +109,35 @@ export default function SubjectManager({
             }
           >
             {SUBJECT_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {type}
+              <option key={type.value} value={type.value}>
+                {type.label}
               </option>
             ))}
           </Select>
         </div>
-        <Button onClick={handleCreate} size="sm" className="mt-3" disabled={!canCreate}>
-          Agregar
-        </Button>
-      </div>
-      <div className="space-y-3">
-        {subjects.map((subject) => (
+        <div className="mt-3 flex justify-end">
+          <Button onClick={handleCreate} size="sm" disabled={!canCreate}>
+            Agregar materia
+          </Button>
+        </div>
+      </section>
+
+      <section className="space-y-2">
+        <div className="grid grid-cols-[0.72fr_1.4fr_0.5fr_0.7fr_0.45fr] gap-2 px-3 text-[11px] uppercase tracking-[0.16em] text-muted">
+          <span>Código</span>
+          <span>Materia</span>
+          <span>Cuatri</span>
+          <span>Tipo</span>
+          <span />
+        </div>
+        {sortedSubjects.map((subject) => (
           <div
             key={subject.id}
-            className="grid gap-2 rounded-3xl border border-white/[0.12] bg-surface/80 p-4 md:grid-cols-[1fr_1.2fr_0.6fr_0.7fr_auto]"
+            className="grid gap-2 rounded-2xl border border-border/75 bg-surface p-3 md:grid-cols-[0.72fr_1.4fr_0.5fr_0.7fr_0.45fr]"
           >
             <Input
               defaultValue={subject.code ?? ""}
-              onBlur={(event) => handleUpdate(subject, { code: event.target.value })}
+              onBlur={(event) => handleUpdate(subject, { code: event.target.value || null })}
             />
             <Input
               defaultValue={subject.name}
@@ -126,7 +146,7 @@ export default function SubjectManager({
             <Input
               type="number"
               min={1}
-              max={10}
+              max={12}
               defaultValue={subject.term_suggested ?? ""}
               onBlur={(event) =>
                 handleUpdate(subject, {
@@ -143,8 +163,8 @@ export default function SubjectManager({
               onChange={(event) => handleUpdate(subject, { type: event.target.value })}
             >
               {SUBJECT_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type}
+                <option key={type.value} value={type.value}>
+                  {type.label}
                 </option>
               ))}
             </Select>
@@ -153,7 +173,7 @@ export default function SubjectManager({
             </Button>
           </div>
         ))}
-      </div>
+      </section>
     </div>
   );
 }

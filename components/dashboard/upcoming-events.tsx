@@ -65,7 +65,7 @@ export default function UpcomingEvents({
           filtered.map((event) => (
             <div
               key={event.id}
-              className="flex flex-col gap-3 rounded-3xl border border-white/[0.12] bg-surface/80 px-4 py-3 text-sm md:flex-row md:items-center md:justify-between"
+              className="flex flex-col gap-3 rounded-3xl border border-border/60 bg-surface/80 px-4 py-3 text-sm md:flex-row md:items-center md:justify-between"
             >
               <div>
                 <p className="font-semibold">{event.title}</p>
@@ -77,7 +77,7 @@ export default function UpcomingEvents({
                 {event.tags?.length ? (
                   <div className="mt-2 flex flex-wrap gap-2">
                     {event.tags.map((tag) => (
-                      <Badge key={tag} className="bg-white/[0.04] text-muted">
+                      <Badge key={tag} className="bg-surface-2/70 text-muted">
                         {tag}
                       </Badge>
                     ))}

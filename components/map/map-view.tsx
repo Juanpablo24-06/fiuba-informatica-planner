@@ -73,25 +73,104 @@ const MAX_ZOOM = 1.7;
 const ZOOM_FACTOR = 1.12;
 const DESKTOP_PANEL_WIDTH = 320;
 
-const buildOrderByTerm = (nodes: MapNode[]) => {
+const getNodeTerm = (node?: MapNode) => node?.term ?? 0;
+
+const buildOrderByTerm = (nodes: MapNode[], edges: MapEdge[]) => {
+  const nodesById = new Map(nodes.map((node) => [node.id, node]));
   const order = new Map<number, string[]>();
+  const incomingByNode = new Map<string, string[]>();
+  const outgoingByNode = new Map<string, string[]>();
+
   TERMS.forEach((term) => order.set(term, []));
 
-  nodes.forEach((node) => {
-    const term = node.term ?? 0;
+  for (const node of nodes) {
+    const term = getNodeTerm(node);
     if (!order.has(term)) order.set(term, []);
     order.get(term)?.push(node.id);
-  });
+  }
 
-  const nodesById = new Map(nodes.map((node) => [node.id, node]));
-  order.forEach((list) => {
-    list.sort((a, b) => {
-      const first = nodesById.get(a);
-      const second = nodesById.get(b);
+  for (const [term, ids] of order.entries()) {
+    ids.sort((firstId, secondId) => {
+      const first = nodesById.get(firstId);
+      const second = nodesById.get(secondId);
       if (!first || !second) return 0;
       return first.name.localeCompare(second.name);
     });
-  });
+    order.set(term, ids);
+  }
+
+  for (const edge of edges) {
+    const fromTerm = getNodeTerm(nodesById.get(edge.from));
+    const toTerm = getNodeTerm(nodesById.get(edge.to));
+    if (fromTerm === toTerm) continue;
+
+    if (!incomingByNode.has(edge.to)) incomingByNode.set(edge.to, []);
+    incomingByNode.get(edge.to)?.push(edge.from);
+
+    if (!outgoingByNode.has(edge.from)) outgoingByNode.set(edge.from, []);
+    outgoingByNode.get(edge.from)?.push(edge.to);
+  }
+
+  const sortedTerms = Array.from(order.keys()).sort((a, b) => a - b);
+
+  const buildIndexMap = () => {
+    const map = new Map<string, number>();
+    for (const term of sortedTerms) {
+      const list = order.get(term) ?? [];
+      list.forEach((id, index) => map.set(id, index));
+    }
+    return map;
+  };
+
+  const reorderTerm = (
+    term: number,
+    neighborMap: Map<string, string[]>,
+    compareTerm: (nodeTerm: number, currentTerm: number) => boolean
+  ) => {
+    const list = order.get(term);
+    if (!list || list.length < 2) return;
+    const indexById = buildIndexMap();
+    const currentOrder = new Map(list.map((id, index) => [id, index]));
+    const next = [...list].sort((first, second) => {
+      const firstNeighbors = (neighborMap.get(first) ?? []).filter((neighborId) => {
+        const neighborTerm = getNodeTerm(nodesById.get(neighborId));
+        return compareTerm(neighborTerm, term);
+      });
+      const secondNeighbors = (neighborMap.get(second) ?? []).filter((neighborId) => {
+        const neighborTerm = getNodeTerm(nodesById.get(neighborId));
+        return compareTerm(neighborTerm, term);
+      });
+
+      const average = (items: string[]) => {
+        if (items.length === 0) return Number.NaN;
+        const total = items.reduce((sum, id) => sum + (indexById.get(id) ?? 0), 0);
+        return total / items.length;
+      };
+
+      const firstScore = average(firstNeighbors);
+      const secondScore = average(secondNeighbors);
+      const firstHasScore = Number.isFinite(firstScore);
+      const secondHasScore = Number.isFinite(secondScore);
+
+      if (firstHasScore && secondHasScore && firstScore !== secondScore) {
+        return firstScore - secondScore;
+      }
+      if (firstHasScore !== secondHasScore) return firstHasScore ? -1 : 1;
+
+      return (currentOrder.get(first) ?? 0) - (currentOrder.get(second) ?? 0);
+    });
+
+    order.set(term, next);
+  };
+
+  for (let iteration = 0; iteration < 7; iteration += 1) {
+    for (const term of sortedTerms) {
+      reorderTerm(term, incomingByNode, (neighborTerm, currentTerm) => neighborTerm < currentTerm);
+    }
+    for (const term of [...sortedTerms].reverse()) {
+      reorderTerm(term, outgoingByNode, (neighborTerm, currentTerm) => neighborTerm > currentTerm);
+    }
+  }
 
   return order;
 };
@@ -143,9 +222,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
   const [showElectives, setShowElectives] = useState(true);
   const [search, setSearch] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [orderByTerm, setOrderByTerm] = useState(() => buildOrderByTerm(nodes));
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [draggingTerm, setDraggingTerm] = useState<number | null>(null);
+  const [orderByTerm, setOrderByTerm] = useState(() => buildOrderByTerm(nodes, edges));
   const [panelState, setPanelState] = useState<"collapsed" | "half" | "full">("collapsed");
   const [sheetHeight, setSheetHeight] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
@@ -153,8 +230,8 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
   const [isDraggingSheet, setIsDraggingSheet] = useState(false);
 
   useEffect(() => {
-    setOrderByTerm(buildOrderByTerm(nodes));
-  }, [nodes]);
+    setOrderByTerm(buildOrderByTerm(nodes, edges));
+  }, [edges, nodes]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -433,22 +510,51 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
         };
       });
 
+      const outgoingTotal = new Map<string, number>();
+      const incomingTotal = new Map<string, number>();
+      visibleEdges.forEach((edge) => {
+        outgoingTotal.set(edge.from, (outgoingTotal.get(edge.from) ?? 0) + 1);
+        incomingTotal.set(edge.to, (incomingTotal.get(edge.to) ?? 0) + 1);
+      });
+
+      const outgoingSeen = new Map<string, number>();
+      const incomingSeen = new Map<string, number>();
+
       const nextLines = visibleEdges
         .map((edge) => {
           const from = positions[edge.from];
           const to = positions[edge.to];
           if (!from || !to) return null;
-          const inset = 6;
+
+          const fromTotal = outgoingTotal.get(edge.from) ?? 1;
+          const toTotal = incomingTotal.get(edge.to) ?? 1;
+          const fromOrder = outgoingSeen.get(edge.from) ?? 0;
+          const toOrder = incomingSeen.get(edge.to) ?? 0;
+          outgoingSeen.set(edge.from, fromOrder + 1);
+          incomingSeen.set(edge.to, toOrder + 1);
+
+          const fromLane = ((fromOrder + 1) / (fromTotal + 1) - 0.5) * Math.max(16, from.height * 0.6);
+          const toLane = ((toOrder + 1) / (toTotal + 1) - 0.5) * Math.max(16, to.height * 0.6);
+
+          const inset = 8;
           const x1 = from.x + from.width - inset;
-          const y1 = from.y + from.height / 2;
+          const y1 = from.y + from.height / 2 + fromLane;
           const x2 = to.x + inset;
-          const y2 = to.y + to.height / 2;
+          const y2 = to.y + to.height / 2 + toLane;
           const delta = x2 - x1;
-          const direction = delta >= 0 ? 1 : -1;
-          const offset = Math.max(56, Math.min(180, Math.abs(delta) * 0.3));
-          const c1x = x1 + offset * direction;
-          const c2x = x2 - offset * direction;
-          const d = `M ${x1} ${y1} C ${c1x} ${y1} ${c2x} ${y2} ${x2} ${y2}`;
+
+          if (delta >= 24) {
+            const curve = Math.max(46, Math.min(180, delta * 0.38));
+            const c1x = x1 + curve;
+            const c2x = x2 - curve;
+            const d = `M ${x1} ${y1} C ${c1x} ${y1} ${c2x} ${y2} ${x2} ${y2}`;
+            return { from: edge.from, to: edge.to, d };
+          }
+
+          const backCurve = Math.max(72, Math.min(180, Math.abs(delta) * 0.45 + 70));
+          const midX = x1 + backCurve;
+          const midY = y1 + (y2 - y1) * 0.5;
+          const d = `M ${x1} ${y1} C ${midX} ${y1} ${midX} ${midY} ${midX} ${midY} C ${midX} ${midY} ${x2 - 18} ${y2} ${x2} ${y2}`;
           return { from: edge.from, to: edge.to, d };
         })
         .filter(Boolean) as LinePath[];
@@ -496,55 +602,6 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
       });
     }
   }, [setTransformSafe, worldSize]);
-
-  const moveWithinTerm = (term: number, dragged: string, targetId: string | null) => {
-    setOrderByTerm((prev) => {
-      const current = prev.get(term);
-      if (!current) return prev;
-      const filtered = current.filter((id) => id !== dragged);
-      const next = [...filtered];
-      if (targetId) {
-        const index = next.indexOf(targetId);
-        if (index === -1) return prev;
-        next.splice(index, 0, dragged);
-      } else {
-        next.push(dragged);
-      }
-      const updated = new Map(prev);
-      updated.set(term, next);
-      return updated;
-    });
-  };
-
-  const handleDragStart = (event: React.DragEvent<HTMLButtonElement>, id: string, term: number) => {
-    event.dataTransfer.setData("text/plain", id);
-    event.dataTransfer.effectAllowed = "move";
-    setDraggingId(id);
-    setDraggingTerm(term);
-  };
-
-  const handleDragOver = (
-    event: React.DragEvent<HTMLButtonElement>,
-    id: string,
-    term: number
-  ) => {
-    event.preventDefault();
-    if (!draggingId || draggingId === id || draggingTerm !== term) return;
-    moveWithinTerm(term, draggingId, id);
-  };
-
-  const handleDropOnLane = (event: React.DragEvent<HTMLDivElement>, term: number) => {
-    event.preventDefault();
-    if (!draggingId || draggingTerm !== term) return;
-    moveWithinTerm(term, draggingId, null);
-    setDraggingId(null);
-    setDraggingTerm(null);
-  };
-
-  const handleDragEnd = () => {
-    setDraggingId(null);
-    setDraggingTerm(null);
-  };
 
   const clearSelection = () => {
     setSelectedId(null);
@@ -781,7 +838,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
       </div>
       <div className="grid gap-2 text-sm">
         <p>
-          Código: <span className="text-text">{selectedNode.code ?? "N/A"}</span>
+          Código: <span className="text-text">{selectedNode.code ?? "Sin código"}</span>
         </p>
         <p>
           Horas semanales: <span className="text-text">{selectedNode.weekly_hours ?? "-"}</span>
@@ -793,23 +850,23 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
           Estado: <span className="text-text">{selectedStatusLabel ?? "Sin estado"}</span>
         </p>
       </div>
-      <div className="rounded-2xl border border-white/[0.1] bg-surface/80 p-3">
-        <p className="text-xs font-semibold text-text">Prerequisitos</p>
+      <div className="rounded-2xl border border-border/60 bg-surface/80 p-3">
+        <p className="text-xs font-semibold text-text">Prerrequisitos</p>
         <p className="text-xs text-muted">
           {selectedPrereqs.length ? selectedPrereqs.join(" · ") : "Sin correlativas"}
         </p>
       </div>
-      <div className="rounded-2xl border border-white/[0.1] bg-surface/80 p-3">
+      <div className="rounded-2xl border border-border/60 bg-surface/80 p-3">
         <p className="text-xs font-semibold text-text">Desbloquea</p>
         <p className="text-xs text-muted">
           {selectedUnlocks.length ? selectedUnlocks.join(" · ") : "Sin dependientes"}
         </p>
       </div>
-      <div className="rounded-2xl border border-white/[0.1] bg-surface/80 p-3">
+      <div className="rounded-2xl border border-border/60 bg-surface/80 p-3">
         <p className="text-xs font-semibold text-text">Requisitos</p>
         <p className="text-xs text-muted">{formatList(selectedNode.requirements)}</p>
       </div>
-      <div className="rounded-2xl border border-white/[0.1] bg-surface/80 p-3">
+      <div className="rounded-2xl border border-border/60 bg-surface/80 p-3">
         <p className="text-xs font-semibold text-text">Evaluación</p>
         <p className="text-xs text-muted">
           {formatEvaluationTemplate(selectedNode.template)}
@@ -883,12 +940,8 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
 
               {terms.map((term) => (
                 <div key={term} className="relative z-10 flex w-[220px] flex-col gap-3 pt-2">
-                  <div className="h-1 w-10 rounded-full bg-white/[0.08]" aria-hidden="true" />
-                  <div
-                    className="flex flex-col gap-3"
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={(event) => handleDropOnLane(event, term)}
-                  >
+                  <div className="h-1 w-10 rounded-full bg-border/40" aria-hidden="true" />
+                  <div className="flex flex-col gap-3">
                     {(nodesByTerm.get(term) ?? []).map((node) => {
                       const isActive = activeId === node.id;
                       const isHovered = hoveredId === node.id;
@@ -902,7 +955,6 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
                         : searchNormalized
                         ? !searchMatches.has(node.id)
                         : false;
-                      const isDragging = draggingId === node.id;
                       const statusLabel = node.status ? STATUS_LABELS[node.status] : null;
                       const prereqNames = resolveNodeNames(edgeIndex.prereqMap.get(node.id) ?? []);
                       const unlockNames = resolveNodeNames(edgeIndex.unlockMap.get(node.id) ?? []);
@@ -923,7 +975,6 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
                           key={node.id}
                           type="button"
                           data-node-id={node.id}
-                          draggable
                           aria-pressed={selectedId === node.id}
                           onPointerDown={(event) => event.stopPropagation()}
                           onMouseEnter={() => {
@@ -946,9 +997,6 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
                             setSelectedId(node.id);
                             setHoveredId(null);
                           }}
-                          onDragStart={(event) => handleDragStart(event, node.id, term)}
-                          onDragOver={(event) => handleDragOver(event, node.id, term)}
-                          onDragEnd={handleDragEnd}
                           className={cn(
                             "group relative w-full rounded-2xl border px-3 py-2.5 text-left text-xs font-semibold text-text shadow-tile transition-all duration-200 ease-out",
                             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50",
@@ -960,8 +1008,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
                               "border-elective/50 bg-elective/10",
                             !isActive && !isPrereq && !isUnlock && !isElective &&
                               "border-border/60 bg-surface/80",
-                            isDimmed && "opacity-35",
-                            isDragging && "scale-[0.98] opacity-60"
+                            isDimmed && "opacity-35"
                           )}
                         >
                           <span
@@ -1041,11 +1088,11 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
           </div>
 
           <div className="pointer-events-none absolute inset-0 z-20">
-            <div className="pointer-events-auto absolute left-4 top-4 flex w-[min(360px,calc(100%-2rem))] flex-col gap-3 rounded-3xl border border-white/[0.12] bg-surface/85 p-4 shadow-glow backdrop-blur">
+            <div className="pointer-events-auto absolute left-4 top-4 flex w-[min(360px,calc(100%-2rem))] flex-col gap-3 rounded-3xl border border-border/60 bg-surface/85 p-4 shadow-glow backdrop-blur">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[10px] uppercase tracking-[0.35em] text-muted">Mapa</span>
                 <span className="text-xs font-semibold text-text">Correlativas</span>
-                <span className="text-[10px] text-muted">Hover expande · Click fija</span>
+                <span className="text-[10px] text-muted">Pasar cursor expande · Clic fija</span>
               </div>
               <div className="relative">
                 <Input
@@ -1058,7 +1105,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
                 />
                 {isSearchOpen && searchNormalized ? (
                   <div
-                    className="absolute z-30 mt-2 w-full rounded-2xl border border-white/[0.12] bg-surface/95 p-2 shadow-lg"
+                    className="absolute z-30 mt-2 w-full rounded-2xl border border-border/60 bg-surface/95 p-2 shadow-lg"
                     onMouseDown={(event) => event.preventDefault()}
                   >
                     {searchResults.length ? (
@@ -1068,7 +1115,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
                             key={node.id}
                             type="button"
                             onClick={() => handleSearchSelect(node)}
-                            className="flex w-full items-center justify-between rounded-xl px-2 py-2 text-left text-xs text-text hover:bg-white/[0.04]"
+                            className="flex w-full items-center justify-between rounded-xl px-2 py-2 text-left text-xs text-text hover:bg-surface-2/70"
                           >
                             <span className="font-semibold">{node.name}</span>
                             <span className="text-[10px] text-muted">{node.code ?? ""}</span>
@@ -1100,12 +1147,13 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
                   Limpiar selección
                 </Button>
               </div>
-              <details className="hidden rounded-2xl border border-white/[0.1] bg-surface/80 p-3 text-xs text-muted sm:block">
+              <p className="text-[10px] text-muted">Modo navegación activo: pan, zoom y selección de detalle.</p>
+              <details className="hidden rounded-2xl border border-border/60 bg-surface/80 p-3 text-xs text-muted sm:block">
                 <summary className="cursor-pointer select-none text-[11px] uppercase tracking-[0.3em] text-muted">
                   Leyenda
                 </summary>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <Badge className="bg-prereq/10 text-prereq border-prereq/40">Prerequisito</Badge>
+                  <Badge className="bg-prereq/10 text-prereq border-prereq/40">Prerrequisito</Badge>
                   <Badge className="bg-unlock/10 text-unlock border-unlock/40">Habilita</Badge>
                   <Badge className="bg-elective/10 text-elective border-elective/40">Electiva</Badge>
                   {Object.entries(STATUS_LABELS).map(([key, label]) => (
@@ -1131,7 +1179,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
               <button
                 type="button"
                 onClick={handleZoomIn}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.12] bg-surface/80 text-sm font-semibold text-text shadow-glow"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-border/60 bg-surface/80 text-sm font-semibold text-text shadow-glow"
                 aria-label="Acercar"
               >
                 +
@@ -1139,7 +1187,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
               <button
                 type="button"
                 onClick={handleZoomOut}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.12] bg-surface/80 text-sm font-semibold text-text shadow-glow"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-border/60 bg-surface/80 text-sm font-semibold text-text shadow-glow"
                 aria-label="Alejar"
               >
                 -
@@ -1147,7 +1195,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
               <button
                 type="button"
                 onClick={handleCenter}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.12] bg-surface/80 text-[11px] font-semibold text-text shadow-glow"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-border/60 bg-surface/80 text-[11px] font-semibold text-text shadow-glow"
                 aria-label="Centrar"
               >
                 C
@@ -1155,16 +1203,16 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
               <button
                 type="button"
                 onClick={handleReset}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.12] bg-surface/80 text-[11px] font-semibold text-text shadow-glow"
-                aria-label="Reset"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-border/60 bg-surface/80 text-[11px] font-semibold text-text shadow-glow"
+                aria-label="Reiniciar vista"
               >
                 R
               </button>
             </div>
 
             {selectedNode ? (
-              <aside className="pointer-events-auto absolute right-4 top-4 hidden w-[320px] flex-col rounded-3xl border border-white/[0.12] bg-surface/90 shadow-glow backdrop-blur lg:flex">
-                <div className="flex items-center justify-between border-b border-white/[0.12] px-5 py-4">
+              <aside className="pointer-events-auto absolute right-4 top-4 hidden w-[320px] flex-col rounded-3xl border border-border/60 bg-surface/90 shadow-glow backdrop-blur lg:flex">
+                <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
                   <div>
                     <p className="text-xs uppercase tracking-[0.3em] text-muted">Detalle</p>
                     <h3 className="text-lg font-semibold text-text font-display">
@@ -1189,7 +1237,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
                 onPointerCancel={handleSheetPointerUp}
               >
                 <div
-                  className="rounded-t-3xl border border-white/[0.12] bg-surface/90 shadow-glow backdrop-blur"
+                  className="rounded-t-3xl border border-border/60 bg-surface/90 shadow-glow backdrop-blur"
                   style={{ height: sheetHeight }}
                 >
                   <div className="flex items-center justify-center pt-3">

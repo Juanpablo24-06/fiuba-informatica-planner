@@ -128,7 +128,7 @@ export default function KpiOverview({
             <DialogTitle>Promedio de evaluaciones</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 text-sm text-muted">
-            <div className="rounded-2xl border border-white/[0.12] bg-surface/80 px-4 py-3">
+            <div className="rounded-2xl border border-border/60 bg-surface/80 px-4 py-3">
               <p>
                 {gradeCount ? `Suma ${gradeSum} / ${gradeCount} notas` : "Sin notas registradas"} ·{" "}
                 <span className="text-text font-semibold">Promedio {gradeAverage}</span>
@@ -139,7 +139,7 @@ export default function KpiOverview({
                 {grades.map((item) => (
                   <div
                     key={item.id}
-                    className="rounded-2xl border border-white/[0.08] bg-surface/80 px-4 py-3"
+                    className="rounded-2xl border border-border/45 bg-surface/80 px-4 py-3"
                   >
                     <p className="font-semibold text-text">
                       {item.title} · {item.subject ?? "Materia"}
@@ -181,7 +181,7 @@ export default function KpiOverview({
             <DialogTitle>Créditos activos</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 text-sm text-muted">
-            <div className="rounded-2xl border border-white/[0.12] bg-surface/80 px-4 py-3">
+            <div className="rounded-2xl border border-border/60 bg-surface/80 px-4 py-3">
               Total activo: <span className="text-text font-semibold">{creditsTotal}</span>
             </div>
             {credits.length ? (
@@ -189,10 +189,10 @@ export default function KpiOverview({
                 {credits.map((item) => (
                   <div
                     key={item.id}
-                    className="flex items-center justify-between rounded-2xl border border-white/[0.08] bg-surface/80 px-4 py-3"
+                    className="flex items-center justify-between rounded-2xl border border-border/45 bg-surface/80 px-4 py-3"
                   >
                     <span className="font-semibold text-text">{item.name}</span>
-                    <Badge className="bg-white/[0.04] text-muted">
+                    <Badge className="bg-surface-2/70 text-muted">
                       {item.credits ?? 0} cr
                     </Badge>
                   </div>
@@ -229,7 +229,7 @@ export default function KpiOverview({
             <DialogTitle>Eficiencia del cuatrimestre</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 text-sm text-muted">
-            <div className="rounded-2xl border border-white/[0.12] bg-surface/80 px-4 py-3">
+            <div className="rounded-2xl border border-border/60 bg-surface/80 px-4 py-3">
               {efficiencyItems.length ? (
                 <p>
                   {approvedCount} de {efficiencyItems.length} materias aprobadas ·{" "}
@@ -244,7 +244,7 @@ export default function KpiOverview({
                 {efficiencyItems.map((item) => (
                   <div
                     key={item.id}
-                    className="flex items-center justify-between rounded-2xl border border-white/[0.08] bg-surface/80 px-4 py-3"
+                    className="flex items-center justify-between rounded-2xl border border-border/45 bg-surface/80 px-4 py-3"
                   >
                     <span className="font-semibold text-text">{item.name}</span>
                     <span className="text-xs text-muted">
@@ -284,7 +284,7 @@ export default function KpiOverview({
             <DialogTitle>Finales registrados</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 text-sm text-muted">
-            <div className="rounded-2xl border border-white/[0.12] bg-surface/80 px-4 py-3">
+            <div className="rounded-2xl border border-border/60 bg-surface/80 px-4 py-3">
               Total de finales: <span className="text-text font-semibold">{finalsTotal}</span>
             </div>
             {finals.length ? (
@@ -292,7 +292,7 @@ export default function KpiOverview({
                 {finals.map((item) => (
                   <div
                     key={item.id}
-                    className="rounded-2xl border border-white/[0.08] bg-surface/80 px-4 py-3"
+                    className="rounded-2xl border border-border/45 bg-surface/80 px-4 py-3"
                   >
                     <p className="font-semibold text-text">
                       {item.title} · {item.subject ?? "Materia"}

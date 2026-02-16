@@ -33,6 +33,7 @@ Copiar `.env.example` a `.env.local` y completar:
 - `GEMINI_API_URL`
 - `CHAT_PERSISTENCE_ENABLED`
 - `NEXT_PUBLIC_CHAT_PERSISTENCE`
+- `CRON_SECRET` (recomendado para asegurar cron jobs)
 
 **Hash de passwords**
 ```
@@ -64,6 +65,11 @@ openssl rand -base64 32
 ### 3.2) Webhooks Google Calendar (futuro)
 - Implementar OAuth y watch channels antes de usar `/api/calendar/sync-provider`.
 - Ideal: cron para mantener `calendar_events_raw` actualizado.
+
+### 3.3) Keep-alive Supabase (Vercel Cron)
+- Se agregó `GET /api/cron/keepalive` para tocar una tabla liviana en Supabase.
+- `vercel.json` ejecuta este endpoint 1 vez por día.
+- Si definís `CRON_SECRET`, el endpoint valida `Authorization: Bearer <CRON_SECRET>`.
 
 ### 4) Seed inicial
 Carga materias y correlativas desde `data/subjects.json`:
@@ -105,12 +111,11 @@ npm run dev
 - Hover sobre una materia para ver prerequisitos y materias que habilita.
 - Click fija la seleccion (boton limpiar o Escape para liberar).
 - Toggle Electivas para mostrar/ocultar la capa opcional.
-- Arrastrar verticalmente reordena materias dentro del cuatrimestre (no persiste).
 - Busqueda por nombre o codigo con sugerencias.
 - Zoom con rueda / pinch, pan con drag y modo expandido dentro del layout.
 
 ### Decisiones de diseno
-- Lanes por cuatrimestre con headers claros y columna reordenable.
+- Lanes por cuatrimestre con auto-orden para reducir cruces visuales.
 - Colores semanticos para prerequisitos, desbloqueos, electivas y estados.
 - Curvas Bezier para conectar materias, con atenuacion de lo no relacionado.
 - Panel lateral fijo para detalles y listas de correlativas/desbloqueos.

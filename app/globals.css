@@ -3,43 +3,99 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
-  --color-canvas: 13 14 18;
-  --color-surface: 19 22 30;
-  --color-surface-2: 28 32 44;
-  --color-border: 78 85 102;
-  --color-text: 232 237 247;
-  --color-muted: 155 163 183;
-  --color-accent: 154 92 255;
-  --color-accent-2: 56 189 248;
-  --color-accent-3: 34 211 238;
-  --color-accent-4: 251 191 36;
-  --color-prereq: 52 211 153;
-  --color-unlock: 96 165 250;
-  --color-elective: 251 146 60;
-  --color-success: 16 185 129;
-  --color-warning: 245 158 11;
-  --color-danger: 244 63 94;
+  color-scheme: light;
+  --color-canvas: 246 243 238;
+  --color-surface: 255 255 255;
+  --color-surface-2: 248 245 240;
+  --color-border: 217 208 194;
+  --color-text: 31 40 51;
+  --color-muted: 104 117 132;
+  --color-accent: 216 84 48;
+  --color-accent-contrast: 255 247 241;
+  --color-accent-2: 45 121 160;
+  --color-accent-3: 206 151 77;
+  --color-accent-4: 78 103 136;
+  --color-prereq: 50 139 103;
+  --color-unlock: 88 116 153;
+  --color-elective: 189 121 64;
+  --color-success: 34 135 99;
+  --color-warning: 183 126 58;
+  --color-danger: 188 80 80;
+  --shadow-color: 30 42 59;
+  --radius-panel: 1.5rem;
+  --radius-card: 1.15rem;
+  --panel-head-y: 1rem;
+  --panel-head-x: 1.5rem;
+  --panel-body-y: 1.25rem;
+  --panel-body-x: 1.5rem;
 }
 
-[data-theme="light"] {
-  color-scheme: light;
-  --color-canvas: 248 250 252;
-  --color-surface: 255 255 255;
-  --color-surface-2: 241 245 249;
-  --color-border: 203 213 225;
-  --color-text: 15 23 42;
-  --color-muted: 100 116 139;
-  --color-accent: 147 51 234;
-  --color-accent-2: 37 99 235;
-  --color-accent-3: 14 165 233;
-  --color-accent-4: 234 88 12;
-  --color-prereq: 13 148 136;
-  --color-unlock: 37 99 235;
-  --color-elective: 234 88 12;
-  --color-success: 22 163 74;
-  --color-warning: 217 119 6;
-  --color-danger: 239 68 68;
+[data-theme="dark"] {
+  color-scheme: dark;
+  --color-canvas: 46 47 52;
+  --color-surface: 59 61 68;
+  --color-surface-2: 74 77 86;
+  --color-border: 116 121 136;
+  --color-text: 238 239 244;
+  --color-muted: 194 198 209;
+  --color-accent: 231 135 105;
+  --color-accent-contrast: 55 31 24;
+  --color-accent-2: 127 176 212;
+  --color-accent-3: 214 177 122;
+  --color-accent-4: 164 183 214;
+  --color-prereq: 122 182 154;
+  --color-unlock: 169 189 222;
+  --color-elective: 218 173 123;
+  --color-success: 125 190 161;
+  --color-warning: 229 186 126;
+  --color-danger: 224 143 143;
+  --shadow-color: 0 0 0;
+}
+
+[data-palette="esmeralda"] {
+  --color-accent: 32 132 94;
+  --color-accent-contrast: 243 255 248;
+  --color-accent-2: 75 116 168;
+  --color-accent-3: 194 145 80;
+}
+
+[data-theme="dark"][data-palette="esmeralda"] {
+  --color-accent: 107 193 158;
+  --color-accent-contrast: 18 43 34;
+  --color-accent-2: 149 177 223;
+  --color-accent-3: 211 176 120;
+}
+
+[data-palette="indigo"] {
+  --color-accent: 83 99 175;
+  --color-accent-contrast: 243 246 255;
+  --color-accent-2: 205 111 84;
+  --color-accent-3: 196 157 84;
+}
+
+[data-theme="dark"][data-palette="indigo"] {
+  --color-accent: 149 166 242;
+  --color-accent-contrast: 24 31 64;
+  --color-accent-2: 230 142 116;
+  --color-accent-3: 214 183 118;
+}
+
+[data-density="compacta"] {
+  --radius-panel: 1.1rem;
+  --radius-card: 0.9rem;
+  --panel-head-y: 0.75rem;
+  --panel-head-x: 1rem;
+  --panel-body-y: 1rem;
+  --panel-body-x: 1rem;
+}
+
+[data-density="amplia"] {
+  --radius-panel: 1.9rem;
+  --radius-card: 1.45rem;
+  --panel-head-y: 1.2rem;
+  --panel-head-x: 1.8rem;
+  --panel-body-y: 1.6rem;
+  --panel-body-x: 1.8rem;
 }
 
 * {
@@ -48,14 +104,17 @@
 
 body {
   @apply bg-canvas text-text antialiased;
-  font-feature-settings: "ss01" 1, "ss02" 1;
+  font-family: var(--font-sans), ui-sans-serif, system-ui;
+  font-weight: 500;
+  line-height: 1.5;
   background-image:
-    radial-gradient(880px 520px at 12% -12%, rgba(154, 92, 255, 0.09), transparent 60%),
-    linear-gradient(180deg, rgba(12, 13, 18, 0.98) 0%, rgba(12, 14, 20, 0.97) 45%, rgba(13, 14, 18, 1) 100%);
+    radial-gradient(860px 520px at 6% -16%, rgb(var(--color-accent) / 0.17), transparent 62%),
+    radial-gradient(620px 370px at 92% -12%, rgb(var(--color-accent-4) / 0.12), transparent 62%),
+    linear-gradient(180deg, rgb(var(--color-canvas) / 1) 0%, rgb(var(--color-canvas) / 1) 100%);
 }
 
 ::selection {
-  background: rgba(56, 189, 248, 0.35);
+  background: rgb(var(--color-accent) / 0.25);
   color: rgb(var(--color-text));
 }
 
@@ -68,42 +127,75 @@ body {
   h6,
   .font-display {
     font-family: var(--font-display);
-    letter-spacing: -0.01em;
+    letter-spacing: -0.002em;
+    font-weight: 650;
+  }
+
+  h1 {
+    font-size: clamp(1.95rem, 2.6vw, 3rem);
+    line-height: 1.08;
+  }
+
+  h2 {
+    font-size: clamp(1.5rem, 2.15vw, 2.3rem);
+    line-height: 1.13;
+  }
+
+  h3 {
+    font-size: clamp(1.3rem, 1.75vw, 1.85rem);
+    line-height: 1.18;
+  }
+
+  p,
+  li,
+  button,
+  input,
+  select,
+  textarea {
+    letter-spacing: 0;
+    font-family: var(--font-sans), ui-sans-serif, system-ui;
+  }
+
+  strong,
+  b {
+    font-weight: 650;
   }
 }
 
 @layer components {
   .panel {
-    @apply rounded-[2rem] border border-white/[0.08] bg-surface/75 shadow-tile backdrop-blur;
+    @apply border border-border/80 bg-surface shadow-soft;
+    border-radius: var(--radius-panel);
   }
 
   .panel-header {
-    @apply flex items-center justify-between gap-4 border-b border-white/[0.1] px-6 py-4;
+    @apply flex items-center justify-between gap-4 border-b border-border/70;
+    padding: var(--panel-head-y) var(--panel-head-x);
   }
 
   .panel-body {
-    @apply px-6 py-5;
+    padding: var(--panel-body-y) var(--panel-body-x);
   }
 
   .subtle-grid {
     background-image:
-      linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
-    background-size: 32px 32px;
+      linear-gradient(rgb(var(--color-border) / 0.2) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--color-border) / 0.16) 1px, transparent 1px);
+    background-size: 36px 36px;
   }
 
   .map-canvas {
     background-image:
-      radial-gradient(720px 420px at 10% -12%, rgb(var(--color-accent) / 0.22), transparent 60%),
-      radial-gradient(620px 360px at 92% -10%, rgb(var(--color-accent-2) / 0.18), transparent 55%),
-      radial-gradient(520px 360px at 70% 110%, rgb(var(--color-accent-3) / 0.14), transparent 60%);
+      radial-gradient(760px 430px at 8% -12%, rgb(var(--color-accent) / 0.2), transparent 62%),
+      radial-gradient(660px 380px at 92% -10%, rgb(var(--color-accent-3) / 0.16), transparent 58%),
+      radial-gradient(560px 340px at 74% 108%, rgb(var(--color-accent-4) / 0.12), transparent 60%);
   }
 
-  [data-theme="light"] .map-canvas {
+  [data-theme="dark"] .map-canvas {
     background-image:
-      radial-gradient(700px 420px at 12% -8%, rgb(var(--color-accent) / 0.12), transparent 60%),
-      radial-gradient(640px 360px at 92% -12%, rgb(var(--color-accent-2) / 0.1), transparent 55%),
-      radial-gradient(520px 360px at 70% 110%, rgb(var(--color-accent-3) / 0.08), transparent 60%);
+      radial-gradient(760px 430px at 8% -12%, rgb(var(--color-accent) / 0.26), transparent 62%),
+      radial-gradient(660px 380px at 92% -10%, rgb(var(--color-accent-2) / 0.18), transparent 58%),
+      radial-gradient(560px 340px at 74% 108%, rgb(var(--color-accent-4) / 0.15), transparent 60%);
   }
 }
 

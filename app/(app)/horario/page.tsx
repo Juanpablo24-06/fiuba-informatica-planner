@@ -1,11 +1,11 @@
-import WeeklySchedule from "@/components/dashboard/weekly-schedule";
 import MonthlySchedule from "@/components/dashboard/monthly-schedule";
 import UpcomingEvents from "@/components/dashboard/upcoming-events";
+import WeeklySchedule from "@/components/dashboard/weekly-schedule";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { getCalendarEventEnrichments } from "@/lib/ai/queries";
+import { getWeekRange } from "@/lib/date";
 import { getCalendarEvents } from "@/lib/google-calendar";
 import { getCurrentTerm, getEventsForTerm, getSubjects, getUpcomingEvents } from "@/lib/queries";
-import { getWeekRange } from "@/lib/date";
 import type { CalendarEvent, Event } from "@/lib/types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -133,8 +133,16 @@ export default async function HorarioPage() {
 
   return (
     <div className="space-y-6">
+      <section className="panel p-6">
+        <p className="text-xs uppercase tracking-[0.28em] text-muted">Horario</p>
+        <h1 className="mt-2 text-3xl font-semibold text-text">Agenda semanal y mensual</h1>
+        <p className="mt-2 text-sm text-muted">
+          Vista integrada de Google Calendar + eventos internos del plan.
+        </p>
+      </section>
+
       <div className="grid gap-6 lg:grid-cols-[1.3fr_0.9fr]">
-        <Card className="animate-fade-in">
+        <Card>
           <CardHeader>
             <div>
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Semana actual</p>
@@ -145,7 +153,7 @@ export default async function HorarioPage() {
             <WeeklySchedule events={enrichedScheduleEvents} />
           </CardBody>
         </Card>
-        <Card className="animate-fade-in" style={{ animationDelay: "120ms" }}>
+        <Card>
           <CardHeader>
             <div>
               <p className="text-xs uppercase tracking-[0.3em] text-muted">Esta semana</p>
@@ -157,7 +165,7 @@ export default async function HorarioPage() {
           </CardBody>
         </Card>
       </div>
-      <Card className="animate-fade-in" style={{ animationDelay: "160ms" }}>
+      <Card>
         <CardHeader>
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-muted">Mes actual</p>
@@ -168,7 +176,7 @@ export default async function HorarioPage() {
           <MonthlySchedule events={monthEvents} referenceDate={now} />
         </CardBody>
       </Card>
-      <Card className="animate-fade-in" style={{ animationDelay: "200ms" }}>
+      <Card>
         <CardHeader>
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-muted">Próximos 14 días</p>
