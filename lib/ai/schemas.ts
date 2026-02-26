@@ -39,7 +39,26 @@ const enrollmentStatusSchema = z.enum([
   "recursar"
 ]);
 
+const termDateSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/);
+
 export const chatAdminActionSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("create_term"),
+    term_label: z.string().trim().min(3),
+    start_date: termDateSchema.nullable().optional(),
+    end_date: termDateSchema.nullable().optional(),
+    is_current: z.boolean().optional()
+  }),
+  z.object({
+    type: z.literal("update_term"),
+    term_label: z.string().trim().min(3),
+    start_date: termDateSchema.nullable().optional(),
+    end_date: termDateSchema.nullable().optional(),
+    is_current: z.boolean().optional()
+  }),
   z.object({
     type: z.literal("set_current_term"),
     term_label: z.string().trim().min(3)

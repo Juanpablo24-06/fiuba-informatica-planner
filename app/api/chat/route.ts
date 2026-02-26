@@ -16,7 +16,16 @@ const payloadSchema = z.object({
   threadId: z.string().uuid().optional(),
   storeHistory: z.boolean().optional(),
   allowActions: z.boolean().optional(),
-  reasoningLevel: reasoningLevelSchema.optional()
+  reasoningLevel: reasoningLevelSchema.optional(),
+  history: z
+    .array(
+      z.object({
+        role: z.enum(["user", "assistant"]),
+        content: z.string().trim().min(1).max(1400)
+      })
+    )
+    .max(14)
+    .optional()
 });
 
 const reasoningHintByLevel: Record<z.infer<typeof reasoningLevelSchema>, string> = {
@@ -29,12 +38,14 @@ const buildPrompt = ({
   role,
   message,
   context,
+  recentMessages,
   reasoningLevel,
   allowActions
 }: {
   role: "admin" | "viewer";
   message: string;
   context: Record<string, unknown>;
+  recentMessages: Array<{ role: "user" | "assistant"; content: string }>;
   reasoningLevel: z.infer<typeof reasoningLevelSchema>;
   allowActions: boolean;
 }) => {
@@ -43,6 +54,7 @@ const buildPrompt = ({
     "Sos un asistente para planificar la cursada en FIUBA. Responde en espanol.",
     "Usa solo el contexto entregado, si falta informacion decilo.",
     "No inventes datos de materias, fechas, estados ni cuatrimestres.",
+    "Si el usuario pide crear o actualizar cuatrimestres, usa acciones `create_term` o `update_term` con fechas ISO YYYY-MM-DD.",
     `Nivel de razonamiento solicitado: ${reasoningLevel} (${reasoningHintByLevel[reasoningLevel]}).`,
     `Modo de acciones admin: ${allowActions ? "HABILITADO" : "DESHABILITADO"}.`,
     "Si el usuario pide editar datos y el modo de acciones está habilitado, devuelve acciones en el campo `actions`.",
@@ -56,7 +68,8 @@ const buildPrompt = ({
         warnings: ["string"],
         actions: [
           {
-            type: "set_current_term | add_enrollment | update_enrollment_status | remove_enrollment"
+            type:
+              "create_term | update_term | set_current_term | add_enrollment | update_enrollment_status | remove_enrollment"
           }
         ],
         confidence: 0.0,
@@ -72,9 +85,32 @@ const buildPrompt = ({
     JSON.stringify(assistantRules.base_principles, null, 2),
     "Contexto:",
     JSON.stringify(context, null, 2),
+    "Mensajes recientes de la conversación:",
+    JSON.stringify(recentMessages, null, 2),
     "Pregunta:",
     message
   ].join("\n");
+};
+
+const getPersistedHistory = async (threadId: string | undefined) => {
+  if (!threadId) return [];
+
+  const { data, error } = await supabaseAdmin
+    .from("chat_messages")
+    .select("role,content")
+    .eq("thread_id", threadId)
+    .order("created_at", { ascending: true })
+    .limit(12);
+
+  if (error) return [];
+
+  return (data ?? [])
+    .filter((row: any) => row?.role === "user" || row?.role === "assistant")
+    .map((row: any) => ({
+      role: row.role as "user" | "assistant",
+      content: String(row.content ?? "").slice(0, 1200)
+    }))
+    .filter((row) => row.content.length > 0);
 };
 
 export async function POST(request: NextRequest) {
@@ -174,10 +210,20 @@ export async function POST(request: NextRequest) {
       (assistantRules.roles as Record<string, unknown>)[session.role] ?? null
   };
 
+  const historyFromRequest =
+    parsed.data.history?.map((message) => ({
+      role: message.role,
+      content: message.content.slice(0, 1200)
+    })) ?? [];
+  const historyFromDb = await getPersistedHistory(parsed.data.threadId);
+  const recentMessages =
+    historyFromRequest.length > 0 ? historyFromRequest : historyFromDb;
+
   const prompt = buildPrompt({
     role: session.role,
     message: parsed.data.message,
     context,
+    recentMessages,
     reasoningLevel,
     allowActions
   });

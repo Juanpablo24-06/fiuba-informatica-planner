@@ -15,6 +15,11 @@ type AssistantActionResult = {
   summary: string;
 };
 
+type ChatRequestHistoryItem = {
+  role: "user" | "assistant";
+  content: string;
+};
+
 type ChatMessage = {
   id: string;
   role: "user" | "assistant";
@@ -159,11 +164,24 @@ export default function ChatPanel({
     setIsThinking(true);
 
     try {
+      const recentHistory: ChatRequestHistoryItem[] = [
+        ...messages
+          .filter((message) => message.role === "user" || message.role === "assistant")
+          .map((message) => ({
+            role: message.role,
+            content: message.content.trim()
+          }))
+          .filter((message) => message.content.length > 0)
+          .slice(-13),
+        { role: "user", content: trimmed }
+      ];
+
       const requestBody: Record<string, unknown> = {
         message: trimmed,
         storeHistory: storeHistory && persistenceEnabled,
         reasoningLevel,
-        allowActions: role === "admin" ? allowActions : false
+        allowActions: role === "admin" ? allowActions : false,
+        history: recentHistory.slice(-14)
       };
       if (threadId) {
         requestBody.threadId = threadId;

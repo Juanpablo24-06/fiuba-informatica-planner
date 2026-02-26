@@ -11,6 +11,8 @@
       "description": "Puede leer y editar datos académicos del sistema.",
       "can_edit": true,
       "allowed_actions": [
+        "create_term",
+        "update_term",
         "set_current_term",
         "add_enrollment",
         "update_enrollment_status",
