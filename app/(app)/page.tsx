@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { getSession } from "@/lib/auth";
 import { formatDateTime } from "@/lib/date";
 import { getCalendarEvents } from "@/lib/google-calendar";
-import { getCurrentTerm, getEnrollmentsForTerm, getEventsForTerm, getSubjects } from "@/lib/queries";
+import { getCurrentTerm, getEnrollmentsForTerm, getEventsForTerm, getLatestEnrollmentStatus, getSubjects } from "@/lib/queries";
+import { formatSchedulePreview } from "@/lib/schedule";
 import type { CalendarEvent, Event } from "@/lib/types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -31,6 +32,15 @@ const PHRASES_EDITORIALES = [
   "Menos ruido, más foco en lo que sí suma.",
   "Tu progreso también se construye en días tranquilos."
 ];
+
+const isCbcSubject = (subject: {
+  type?: string | null;
+  cycle?: string | null;
+}) => {
+  const type = subject.type?.toLowerCase();
+  const cycle = subject.cycle?.toLowerCase();
+  return type === "cbc" || cycle === "cbc";
+};
 
 const buildInternalEvents = (events: Event[]): CalendarEvent[] =>
   events.map((event) => ({
@@ -88,6 +98,7 @@ export default async function DashboardPage() {
 
   const currentTerm = await getCurrentTerm();
   const subjects = await getSubjects();
+  const latestStatusMap = await getLatestEnrollmentStatus();
   const enrollments = currentTerm ? await getEnrollmentsForTerm(currentTerm.id) : [];
   const termEvents = currentTerm ? await getEventsForTerm(currentTerm.id) : [];
 
@@ -101,30 +112,48 @@ export default async function DashboardPage() {
     (a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime()
   );
 
-  const approved = enrollments.filter((item) => item.status === "aprobado").length;
-  const progressPct = subjects.length ? Math.round((approved / subjects.length) * 100) : 0;
+  const requiredSubjects = subjects.filter(
+    (subject) => (subject.type ?? "").toLowerCase() !== "electiva"
+  );
+  const approved = requiredSubjects.filter(
+    (subject) => latestStatusMap.get(subject.id)?.status === "aprobado"
+  ).length;
+  const progressPct = requiredSubjects.length
+    ? Math.round((approved / requiredSubjects.length) * 100)
+    : 0;
   const nextEvents = mergedEvents.slice(0, 6);
   const load = calcLoad(mergedEvents);
 
-  const suggestedTerms = subjects
-    .map((subject) => subject.term_suggested)
-    .filter((term): term is number => Boolean(term));
-  const maxPlanTerm = Math.max(10, suggestedTerms.length ? Math.max(...suggestedTerms) : 10);
-  const currentPlanTerm = Math.max(
-    1,
-    Math.min(
-      maxPlanTerm,
-      enrollments.length
-        ? Math.round(
-            enrollments.reduce((sum, item) => sum + (item.subject.term_suggested ?? 1), 0) /
-              enrollments.length
-          )
-        : Math.round((progressPct / 100) * maxPlanTerm)
-    )
+  const cbcSubjects = requiredSubjects.filter((subject) => isCbcSubject(subject));
+  const cbcApproved = cbcSubjects.filter(
+    (subject) => latestStatusMap.get(subject.id)?.status === "aprobado"
+  ).length;
+  const cbcPct = cbcSubjects.length
+    ? Math.round((cbcApproved / cbcSubjects.length) * 100)
+    : 0;
+
+  const professionalSubjects = requiredSubjects.filter(
+    (subject) => !isCbcSubject(subject)
   );
-  const totalYears = Math.max(5, Math.ceil(maxPlanTerm / 2));
-  const currentYear = Math.max(1, Math.min(totalYears, Math.ceil(currentPlanTerm / 2)));
-  const careerProgressPct = Math.max(4, Math.round((currentPlanTerm / maxPlanTerm) * 100));
+  const professionalApproved = professionalSubjects.filter(
+    (subject) => latestStatusMap.get(subject.id)?.status === "aprobado"
+  ).length;
+  const professionalPct = professionalSubjects.length
+    ? Math.round((professionalApproved / professionalSubjects.length) * 100)
+    : 0;
+  const electives = subjects.filter(
+    (subject) => (subject.type ?? "").toLowerCase() === "electiva"
+  );
+  const approvedElectives = electives.filter(
+    (subject) => latestStatusMap.get(subject.id)?.status === "aprobado"
+  ).length;
+  const cbcWeightPct = requiredSubjects.length
+    ? Math.round((cbcSubjects.length / requiredSubjects.length) * 100)
+    : 0;
+  const cbcFillPct = Math.round((cbcWeightPct * cbcPct) / 100);
+  const professionalWeightPct = Math.max(0, 100 - cbcWeightPct);
+  const professionalFillPct = Math.round((professionalWeightPct * professionalPct) / 100);
+  const careerProgressPct = progressPct;
 
   const phraseSeed = Math.floor(now.getTime() / DAY_MS) + approved + enrollments.length;
   const editorialPhrase = PHRASES_EDITORIALES[Math.abs(phraseSeed) % PHRASES_EDITORIALES.length];
@@ -153,35 +182,55 @@ export default async function DashboardPage() {
 
             <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-muted">
               <span className="rounded-full border border-border/60 bg-surface-2/60 px-3 py-1">
-                {approved} de {subjects.length} materias aprobadas
+                {approved} de {requiredSubjects.length} materias obligatorias aprobadas
               </span>
+              {electives.length ? (
+                <span className="rounded-full border border-border/60 bg-surface-2/60 px-3 py-1">
+                  Electivas: {approvedElectives}/{electives.length} aprobadas
+                </span>
+              ) : null}
               <span className="rounded-full border border-border/60 bg-surface-2/60 px-3 py-1">
-                Año estimado: {currentYear}
+                Avance total: {careerProgressPct}%
               </span>
             </div>
 
             <div className="mt-6">
-              <div className="relative h-2 rounded-full bg-border/40">
-                <div className="absolute left-0 top-0 h-full rounded-full bg-accent" style={{ width: `${careerProgressPct}%` }} />
+              <div className="relative h-2.5 overflow-hidden rounded-full bg-border/35">
+                {cbcWeightPct > 0 ? (
+                  <div
+                    className="absolute inset-y-0 left-0 bg-warning/20"
+                    style={{ width: `${cbcWeightPct}%` }}
+                  />
+                ) : null}
+                {cbcFillPct > 0 ? (
+                  <div
+                    className="absolute inset-y-0 left-0 bg-warning"
+                    style={{ width: `${cbcFillPct}%` }}
+                  />
+                ) : null}
+                {professionalFillPct > 0 ? (
+                  <div
+                    className="absolute inset-y-0 bg-accent"
+                    style={{
+                      left: `${cbcWeightPct}%`,
+                      width: `${Math.min(professionalFillPct, professionalWeightPct)}%`
+                    }}
+                  />
+                ) : null}
+                {cbcWeightPct > 0 ? (
+                  <div
+                    className="absolute inset-y-0 w-px bg-warning/70"
+                    style={{ left: `${cbcWeightPct}%` }}
+                  />
+                ) : null}
               </div>
-              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
-                {Array.from({ length: totalYears }).map((_, index) => {
-                  const year = index + 1;
-                  const isCurrent = year === currentYear;
-                  const isPast = year < currentYear;
-                  return (
-                    <div key={year} className="flex items-center gap-2">
-                      <span
-                        className={`h-2.5 w-2.5 rounded-full ${
-                          isCurrent ? "bg-accent" : isPast ? "bg-success/70" : "bg-border/70"
-                        }`}
-                      />
-                      <p className={`text-xs ${isCurrent ? "font-semibold text-text" : "text-muted"}`}>
-                        Año {year}
-                      </p>
-                    </div>
-                  );
-                })}
+              <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted">
+                <span className="rounded-full border border-warning/45 bg-warning/10 px-2.5 py-1 text-warning">
+                  Tramo CBC {cbcPct}%
+                </span>
+                <span className="rounded-full border border-accent/45 bg-accent/10 px-2.5 py-1 text-accent">
+                  Tramo profesional {professionalPct}%
+                </span>
               </div>
             </div>
           </section>
@@ -244,6 +293,9 @@ export default async function DashboardPage() {
                           </div>
 
                           <p className="mt-3 text-xs text-muted">
+                            {formatSchedulePreview(enrollment.schedule, { maxBlocks: 1 })}
+                          </p>
+                          <p className="mt-1 text-xs text-muted">
                             {nextEvent ? `Próximo evento: ${formatDateTime(nextEvent.starts_at)}` : "Sin eventos cargados"}
                           </p>
                           <p className="mt-2 text-xs font-semibold text-accent">Abrir ficha completa</p>

@@ -1,35 +1,50 @@
-import { CalendarClock, FolderKanban, GraduationCap, Layers3, PencilRuler } from "lucide-react";
+import { CalendarClock, FolderKanban, GraduationCap, Layers3 } from "lucide-react";
 import CalendarSync from "@/components/dashboard/calendar-sync";
-import CourseWorkspaceDrawer from "@/components/dashboard/course-workspace-drawer";
 import SubjectManager from "@/components/dashboard/subject-manager";
 import TermManager from "@/components/dashboard/term-manager";
+import TermReviewManager from "@/components/dashboard/term-review-manager";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { getCurrentTerm, getEnrollmentsForTerm, getEventsForTerm, getSubjects, getTerms } from "@/lib/queries";
-
-const statusLabel: Record<string, string> = {
-  cursando: "Cursando",
-  final_pendiente: "Final pendiente",
-  aprobado: "Aprobado",
-  recursar: "Recursar"
-};
+import { getCurrentTerm, getEnrollmentsForTerm, getEventsForTerm, getLatestEnrollmentStatus, getSubjects, getTerms } from "@/lib/queries";
 
 export default async function AdminPage() {
   const currentTerm = await getCurrentTerm();
   const terms = await getTerms();
   const subjects = await getSubjects();
-  const enrollments = currentTerm ? await getEnrollmentsForTerm(currentTerm.id) : [];
-  const termEvents = currentTerm ? await getEventsForTerm(currentTerm.id) : [];
+  const latestStatusMap = await getLatestEnrollmentStatus();
+  const currentEnrollments = currentTerm ? await getEnrollmentsForTerm(currentTerm.id) : [];
+  const currentTermEvents = currentTerm ? await getEventsForTerm(currentTerm.id) : [];
+  const completedSubjectIds = Array.from(latestStatusMap.entries())
+    .filter(([, value]) => value.status === "aprobado")
+    .map(([subjectId]) => subjectId);
+  let reviewTerm = currentTerm ?? terms[0] ?? null;
+  let reviewEnrollments =
+    reviewTerm && reviewTerm.id === currentTerm?.id
+      ? currentEnrollments
+      : reviewTerm
+        ? await getEnrollmentsForTerm(reviewTerm.id)
+        : [];
+  let reviewEvents =
+    reviewTerm && reviewTerm.id === currentTerm?.id
+      ? currentTermEvents
+      : reviewTerm
+        ? await getEventsForTerm(reviewTerm.id)
+        : [];
 
-  const approved = enrollments.filter((item) => item.status === "aprobado").length;
-  const inProgress = enrollments.filter((item) => item.status === "cursando").length;
-
-  const eventsByEnrollment = new Map<string, typeof termEvents>();
-  for (const event of termEvents) {
-    const list = eventsByEnrollment.get(event.enrollment_id) ?? [];
-    list.push(event);
-    eventsByEnrollment.set(event.enrollment_id, list);
+  if (reviewEnrollments.length === 0) {
+    for (const term of terms) {
+      if (term.id === reviewTerm?.id) continue;
+      const candidateEnrollments = await getEnrollmentsForTerm(term.id);
+      if (candidateEnrollments.length === 0) continue;
+      reviewTerm = term;
+      reviewEnrollments = candidateEnrollments;
+      reviewEvents = await getEventsForTerm(term.id);
+      break;
+    }
   }
+
+  const approved = currentEnrollments.filter((item) => item.status === "aprobado").length;
+  const inProgress = currentEnrollments.filter((item) => item.status === "cursando").length;
 
   return (
     <div className="space-y-6">
@@ -66,7 +81,7 @@ export default async function AdminPage() {
             <p className="text-xs uppercase tracking-[0.2em] text-muted">Cursadas activas</p>
             <div className="mt-2 flex items-center gap-2 text-text">
               <GraduationCap className="h-4 w-4 text-accent" />
-              <span className="text-2xl font-semibold">{enrollments.length}</span>
+              <span className="text-2xl font-semibold">{currentEnrollments.length}</span>
             </div>
             <p className="mt-1 text-xs text-muted">En curso: {inProgress}</p>
           </div>
@@ -74,14 +89,14 @@ export default async function AdminPage() {
             <p className="text-xs uppercase tracking-[0.2em] text-muted">Eventos internos</p>
             <div className="mt-2 flex items-center gap-2 text-text">
               <CalendarClock className="h-4 w-4 text-accent" />
-              <span className="text-2xl font-semibold">{termEvents.length}</span>
+              <span className="text-2xl font-semibold">{currentTermEvents.length}</span>
             </div>
             <p className="mt-1 text-xs text-muted">Aprobadas: {approved}</p>
           </div>
         </div>
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[1.05fr_1fr]">
+      <div className="grid gap-6 2xl:grid-cols-[1.05fr_1fr]">
         <Card>
           <CardHeader>
             <div>
@@ -90,49 +105,32 @@ export default async function AdminPage() {
             </div>
           </CardHeader>
           <CardBody>
-            <TermManager currentTerm={currentTerm} terms={terms} subjects={subjects} isAdmin />
+            <TermManager
+              currentTerm={currentTerm}
+              terms={terms}
+              subjects={subjects}
+              completedSubjectIds={completedSubjectIds}
+              isAdmin
+            />
           </CardBody>
         </Card>
 
         <Card>
           <CardHeader>
             <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-muted">Edición por materia</p>
-              <h2 className="text-xl font-semibold">Abrí una ficha y editá todo sin salir del flujo</h2>
+              <p className="text-xs uppercase tracking-[0.24em] text-muted">Revisión post-creación</p>
+              <h2 className="text-xl font-semibold">Ver, agregar, quitar y editar materias por cuatrimestre</h2>
             </div>
           </CardHeader>
           <CardBody>
-            {enrollments.length === 0 ? (
-              <p className="text-sm text-muted">No hay materias activas para editar en este cuatrimestre.</p>
-            ) : (
-              <div className="max-h-[520px] space-y-2 overflow-y-auto pr-1">
-                {enrollments.map((enrollment) => (
-                  <CourseWorkspaceDrawer
-                    key={enrollment.id}
-                    enrollment={enrollment}
-                    events={eventsByEnrollment.get(enrollment.id) ?? []}
-                    isAdmin
-                    trigger={
-                      <button
-                        type="button"
-                        className="w-full rounded-2xl border border-border/75 bg-surface-2 px-4 py-3 text-left transition hover:border-accent/45"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-mono text-[11px] text-muted">{enrollment.subject.code ?? "SIN-COD"}</p>
-                            <p className="mt-1 text-base font-semibold text-text">{enrollment.subject.name}</p>
-                            <p className="mt-1 text-xs text-muted">
-                              Estado: {statusLabel[enrollment.status] ?? enrollment.status}
-                            </p>
-                          </div>
-                          <PencilRuler className="h-4 w-4 text-muted" />
-                        </div>
-                      </button>
-                    }
-                  />
-                ))}
-              </div>
-            )}
+            <TermReviewManager
+              terms={terms}
+              subjects={subjects}
+              initialTermId={reviewTerm?.id ?? null}
+              initialEnrollments={reviewEnrollments}
+              initialEvents={reviewEvents}
+              isAdmin
+            />
           </CardBody>
         </Card>
       </div>

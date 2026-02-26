@@ -1,5 +1,14 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import type { Enrollment, Event, Subject, Term } from "@/lib/types";
+import {
+  ENROLLMENT_FIELDS_NO_SCHEDULE,
+  ENROLLMENT_FIELDS_WITH_SCHEDULE,
+  EVENT_WITH_ENROLLMENT_NO_SCHEDULE,
+  EVENT_WITH_ENROLLMENT_NO_SCHEDULE_AND_TERM,
+  EVENT_WITH_ENROLLMENT_SCHEDULE,
+  EVENT_WITH_ENROLLMENT_SCHEDULE_AND_TERM,
+  isMissingEnrollmentScheduleColumn
+} from "@/lib/enrollment-select";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -16,11 +25,44 @@ const sortTermLabel = (label?: string | null) => {
   return yearNum * 10 + partNum;
 };
 
+const sortTermsByRecency = (a: Term, b: Term) => {
+  const byLabel = sortTermLabel(b.label) - sortTermLabel(a.label);
+  if (byLabel !== 0) return byLabel;
+  const aDate = a.start_date ? new Date(a.start_date).getTime() : 0;
+  const bDate = b.start_date ? new Date(b.start_date).getTime() : 0;
+  return bDate - aDate;
+};
+
+const queryWithScheduleFallback = async <T>({
+  withSchedule,
+  withoutSchedule
+}: {
+  withSchedule: () => any;
+  withoutSchedule: () => any;
+}) => {
+  const first = await withSchedule();
+  if (!first.error) {
+    return { data: first.data ?? [], hasSchedule: true };
+  }
+
+  if (!isMissingEnrollmentScheduleColumn(first.error)) {
+    throw first.error;
+  }
+
+  const second = await withoutSchedule();
+  if (second.error) {
+    throw second.error;
+  }
+
+  return { data: second.data ?? [], hasSchedule: false };
+};
+
 export const getTerms = async (): Promise<Term[]> => {
   const { data, error } = await supabaseAdmin
     .from("terms")
     .select("id,label,start_date,end_date,is_current")
-    .order("start_date", { ascending: false, nullsFirst: false });
+    .order("start_date", { ascending: false, nullsFirst: false })
+    .order("label", { ascending: false });
 
   if (error) {
     throw error;
@@ -30,10 +72,12 @@ export const getTerms = async (): Promise<Term[]> => {
 
 export const getCurrentTerm = async (): Promise<Term | null> => {
   const terms = await getTerms();
-  const current = terms.find((term) => term.is_current);
-  if (current) return current;
+  const current = terms.filter((term) => term.is_current);
+  if (current.length > 0) {
+    return [...current].sort(sortTermsByRecency)[0];
+  }
   if (terms.length === 0) return null;
-  return [...terms].sort((a, b) => sortTermLabel(b.label) - sortTermLabel(a.label))[0];
+  return [...terms].sort(sortTermsByRecency)[0];
 };
 
 export const getSubjects = async (): Promise<Subject[]> => {
@@ -53,17 +97,20 @@ export const getSubjects = async (): Promise<Subject[]> => {
 export const getEnrollmentsForTerm = async (
   termId: string
 ): Promise<Enrollment[]> => {
-  const { data, error } = await supabaseAdmin
-    .from("enrollments")
-    .select(
-      "id,term_id,subject_id,status,color,notes,subject:subjects(id,code,name,credits,weekly_hours,total_hours,term_suggested,cycle,type,requirements,template),term:terms(id,label,start_date,end_date,is_current)"
-    )
-    .eq("term_id", termId)
-    .order("name", { foreignTable: "subjects", ascending: true });
-
-  if (error) {
-    throw error;
-  }
+  const { data, hasSchedule } = await queryWithScheduleFallback<any>({
+    withSchedule: () =>
+      supabaseAdmin
+        .from("enrollments")
+        .select(ENROLLMENT_FIELDS_WITH_SCHEDULE)
+        .eq("term_id", termId)
+        .order("name", { foreignTable: "subjects", ascending: true }),
+    withoutSchedule: () =>
+      supabaseAdmin
+        .from("enrollments")
+        .select(ENROLLMENT_FIELDS_NO_SCHEDULE)
+        .eq("term_id", termId)
+        .order("name", { foreignTable: "subjects", ascending: true })
+  });
 
   return (data ?? []).map((row: any) => {
     const subject = asSingle<Subject>(row.subject);
@@ -75,6 +122,7 @@ export const getEnrollmentsForTerm = async (
       status: row.status,
       color: row.color ?? null,
       notes: row.notes ?? null,
+      schedule: hasSchedule && Array.isArray(row.schedule) ? row.schedule : [],
       subject: subject as Subject,
       term
     } satisfies Enrollment;
@@ -82,17 +130,20 @@ export const getEnrollmentsForTerm = async (
 };
 
 export const getEventsForTerm = async (termId: string): Promise<Event[]> => {
-  const { data, error } = await supabaseAdmin
-    .from("events")
-    .select(
-      "id,enrollment_id,type,title,description,starts_at,ends_at,status,grade,attempt,links,enrollment:enrollments(id,term_id,subject_id,status,color,notes,subject:subjects(id,code,name,credits,weekly_hours,total_hours,term_suggested,cycle,type,requirements,template))"
-    )
-    .eq("enrollment.term_id", termId)
-    .order("starts_at", { ascending: true });
-
-  if (error) {
-    throw error;
-  }
+  const { data, hasSchedule } = await queryWithScheduleFallback<any>({
+    withSchedule: () =>
+      supabaseAdmin
+        .from("events")
+        .select(EVENT_WITH_ENROLLMENT_SCHEDULE)
+        .eq("enrollment.term_id", termId)
+        .order("starts_at", { ascending: true }),
+    withoutSchedule: () =>
+      supabaseAdmin
+        .from("events")
+        .select(EVENT_WITH_ENROLLMENT_NO_SCHEDULE)
+        .eq("enrollment.term_id", termId)
+        .order("starts_at", { ascending: true })
+  });
 
   return (data ?? []).map((row: any) => {
     const enrollmentRaw = asSingle<any>(row.enrollment);
@@ -105,6 +156,10 @@ export const getEventsForTerm = async (termId: string): Promise<Event[]> => {
           status: enrollmentRaw.status,
           color: enrollmentRaw.color ?? null,
           notes: enrollmentRaw.notes ?? null,
+          schedule:
+            hasSchedule && Array.isArray(enrollmentRaw.schedule)
+              ? enrollmentRaw.schedule
+              : [],
           subject: subject as Subject,
           term: null
         }
@@ -128,16 +183,18 @@ export const getEventsForTerm = async (termId: string): Promise<Event[]> => {
 };
 
 export const getAllEvents = async (): Promise<Event[]> => {
-  const { data, error } = await supabaseAdmin
-    .from("events")
-    .select(
-      "id,enrollment_id,type,title,description,starts_at,ends_at,status,grade,attempt,links,enrollment:enrollments(id,term_id,subject_id,status,color,notes,subject:subjects(id,code,name,credits,weekly_hours,total_hours,term_suggested,cycle,type,requirements,template),term:terms(id,label,start_date,end_date,is_current))"
-    )
-    .order("starts_at", { ascending: true });
-
-  if (error) {
-    throw error;
-  }
+  const { data, hasSchedule } = await queryWithScheduleFallback<any>({
+    withSchedule: () =>
+      supabaseAdmin
+        .from("events")
+        .select(EVENT_WITH_ENROLLMENT_SCHEDULE_AND_TERM)
+        .order("starts_at", { ascending: true }),
+    withoutSchedule: () =>
+      supabaseAdmin
+        .from("events")
+        .select(EVENT_WITH_ENROLLMENT_NO_SCHEDULE_AND_TERM)
+        .order("starts_at", { ascending: true })
+  });
 
   return (data ?? []).map((row: any) => {
     const enrollmentRaw = asSingle<any>(row.enrollment);
@@ -151,6 +208,10 @@ export const getAllEvents = async (): Promise<Event[]> => {
           status: enrollmentRaw.status,
           color: enrollmentRaw.color ?? null,
           notes: enrollmentRaw.notes ?? null,
+          schedule:
+            hasSchedule && Array.isArray(enrollmentRaw.schedule)
+              ? enrollmentRaw.schedule
+              : [],
           subject: subject as Subject,
           term
         }
@@ -177,23 +238,36 @@ export const getUpcomingEvents = async (termId?: string) => {
   const now = new Date();
   const until = new Date(now.getTime() + 14 * DAY_MS);
 
-  let query = supabaseAdmin
-    .from("events")
-    .select(
-      "id,enrollment_id,type,title,description,starts_at,ends_at,status,grade,attempt,links,enrollment:enrollments(id,term_id,subject_id,status,color,notes,subject:subjects(id,code,name,credits,weekly_hours,total_hours,term_suggested,cycle,type,requirements,template))"
-    )
-    .gte("starts_at", now.toISOString())
-    .lte("starts_at", until.toISOString())
-    .order("starts_at", { ascending: true });
+  const withSchedule = () => {
+    let query = supabaseAdmin
+      .from("events")
+      .select(EVENT_WITH_ENROLLMENT_SCHEDULE)
+      .gte("starts_at", now.toISOString())
+      .lte("starts_at", until.toISOString())
+      .order("starts_at", { ascending: true });
+    if (termId) {
+      query = query.eq("enrollment.term_id", termId);
+    }
+    return query;
+  };
 
-  if (termId) {
-    query = query.eq("enrollment.term_id", termId);
-  }
+  const withoutSchedule = () => {
+    let query = supabaseAdmin
+      .from("events")
+      .select(EVENT_WITH_ENROLLMENT_NO_SCHEDULE)
+      .gte("starts_at", now.toISOString())
+      .lte("starts_at", until.toISOString())
+      .order("starts_at", { ascending: true });
+    if (termId) {
+      query = query.eq("enrollment.term_id", termId);
+    }
+    return query;
+  };
 
-  const { data, error } = await query;
-  if (error) {
-    throw error;
-  }
+  const { data, hasSchedule } = await queryWithScheduleFallback<any>({
+    withSchedule,
+    withoutSchedule
+  });
 
   return (data ?? []).map((row: any) => {
     const enrollmentRaw = asSingle<any>(row.enrollment);
@@ -206,6 +280,10 @@ export const getUpcomingEvents = async (termId?: string) => {
           status: enrollmentRaw.status,
           color: enrollmentRaw.color ?? null,
           notes: enrollmentRaw.notes ?? null,
+          schedule:
+            hasSchedule && Array.isArray(enrollmentRaw.schedule)
+              ? enrollmentRaw.schedule
+              : [],
           subject: subject as Subject,
           term: null
         }

@@ -3,21 +3,19 @@
 import { cn } from "@/lib/utils";
 
 export const SUBJECT_COLORS = [
-  "#1B7C5A",
-  "#2A8A65",
-  "#3D6A92",
-  "#557FA8",
-  "#C7833A",
-  "#D19047",
-  "#D67252",
-  "#C55E3E",
-  "#6A7A8C",
-  "#3F4E5C",
-  "#7A9A75",
-  "#9F8860",
-  "#7F6EA7",
-  "#4F7E7A",
-  "#94704F"
+  "#1F8F67",
+  "#2EA476",
+  "#2F6F9E",
+  "#4F89B5",
+  "#2F8B89",
+  "#6786A3",
+  "#6DA45F",
+  "#A57D42",
+  "#D08A2F",
+  "#E0A141",
+  "#DE6E4A",
+  "#C85135",
+  "#8F6B43"
 ];
 
 export function ColorPalette({

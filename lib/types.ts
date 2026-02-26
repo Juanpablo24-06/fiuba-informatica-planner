@@ -32,6 +32,15 @@ export type Term = {
   is_current: boolean;
 };
 
+export type EnrollmentScheduleDay = "lun" | "mar" | "mie" | "jue" | "vie" | "sab";
+
+export type EnrollmentScheduleSlot = {
+  day: EnrollmentScheduleDay;
+  start_time: string;
+  end_time: string;
+  location: string | null;
+};
+
 export type Enrollment = {
   id: string;
   term_id: string;
@@ -39,6 +48,7 @@ export type Enrollment = {
   status: string;
   color: string | null;
   notes: string | null;
+  schedule: EnrollmentScheduleSlot[];
   subject: Subject;
   term: Term | null;
 };

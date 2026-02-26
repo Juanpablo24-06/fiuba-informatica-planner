@@ -12,7 +12,7 @@ Web privada para organizar la carrera de Ingeniería en Informática (FIUBA). In
 
 ### 1) Supabase
 1. Crear proyecto en Supabase.
-2. Ejecutar las migrations en orden desde `supabase/migrations/` (`001_init.sql` y `002_ai_calendar.sql`).
+2. Ejecutar las migrations en orden desde `supabase/migrations/` (`001_init.sql`, `002_ai_calendar.sql`, `003_enrollment_schedule.sql` y `004_subject_type_cbc_backfill.sql`).
 3. Copiar la URL y las keys (anon + service role).
 
 ### 2) Variables de entorno
@@ -56,11 +56,15 @@ openssl rand -base64 32
    - `GOOGLE_CALENDAR_ID` (ID del calendario compartido)
 
 ### 3.1) AI + Chat (opcional)
-1. Setear `GEMINI_API_KEY` (y opcional `GEMINI_MODEL` / `GEMINI_API_URL`).
+1. Configurar proveedor AI:
+   - `CEREBRAS_API_KEY` + `CEREBRAS_MODEL` (ej: `gpt-oss-*`) **o**
+   - `GEMINI_API_KEY` (+ opcional `GEMINI_MODEL` / `GEMINI_API_URL`).
 2. Poblar `calendar_events_raw` con eventos (manual o via job futuro).
 3. Enriquecer con `POST /api/ai/enrich-calendar` (admin).
 4. Resumir semana con `POST /api/ai/summarize-week` (admin).
 5. Para historial de chat: setear `CHAT_PERSISTENCE_ENABLED=true` y `NEXT_PUBLIC_CHAT_PERSISTENCE=true`.
+6. Reglas del asistente versionadas: `config/assistant-rules.json`.
+7. El panel permite elegir nivel de razonamiento (`bajo`, `medio`, `alto`).
 
 ### 3.2) Webhooks Google Calendar (futuro)
 - Implementar OAuth y watch channels antes de usar `/api/calendar/sync-provider`.
@@ -93,12 +97,12 @@ npm run dev
 - `subjects`: materias del plan + plantilla de evaluación.
 - `subject_prerequisites`: correlativas.
 - `terms`: cuatrimestres.
-- `enrollments`: materias activadas por cuatrimestre, estado, color, notas.
+- `enrollments`: materias activadas por cuatrimestre, estado, color, notas y horario semanal (`schedule`).
 - `events`: evaluaciones/entregas con fecha, nota y estado.
 - `calendar_sources`: configuración y última sincronización de Google Calendar.
 - `calendar_events_raw`: eventos crudos (Google o internos) listos para AI.
 - `calendar_event_enrichments`: clasificaciones AI por evento.
-- `chat_threads` y `chat_messages`: historial opcional del chat.
+- `chat_threads` y `chat_messages`: historial opcional del chat. Si persistencia está desactivada, los mensajes quedan solo en memoria del navegador.
 
 ## Seguridad
 - Validación de passwords 100% server-side.

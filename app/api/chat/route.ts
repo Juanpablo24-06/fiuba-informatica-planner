@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { z } from "zod";
+import assistantRules from "@/config/assistant-rules.json";
 import { getSessionFromRequest } from "@/lib/auth";
-import { getCurrentTerm, getEnrollmentsForTerm, getEventsForTerm, getSubjects } from "@/lib/queries";
+import { executeAdminActions } from "@/lib/ai/admin-actions";
+import { reasoningLevelSchema } from "@/lib/ai/schemas";
+import { getCurrentTerm, getEnrollmentsForTerm, getEventsForTerm, getSubjects, getTerms } from "@/lib/queries";
 import { getWeekRange } from "@/lib/date";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { callAIJSON } from "@/lib/ai/provider";
@@ -11,13 +14,39 @@ import { chatResponseSchema } from "@/lib/ai/schemas";
 const payloadSchema = z.object({
   message: z.string().trim().min(1),
   threadId: z.string().uuid().optional(),
-  storeHistory: z.boolean().optional()
+  storeHistory: z.boolean().optional(),
+  allowActions: z.boolean().optional(),
+  reasoningLevel: reasoningLevelSchema.optional()
 });
 
-const buildPrompt = (role: string, message: string, context: Record<string, unknown>) => {
+const reasoningHintByLevel: Record<z.infer<typeof reasoningLevelSchema>, string> = {
+  bajo: "rápido y concreto, sin análisis extenso",
+  medio: "equilibrado entre claridad y detalle",
+  alto: "profundo, con validaciones y pasos cuidadosos"
+};
+
+const buildPrompt = ({
+  role,
+  message,
+  context,
+  reasoningLevel,
+  allowActions
+}: {
+  role: "admin" | "viewer";
+  message: string;
+  context: Record<string, unknown>;
+  reasoningLevel: z.infer<typeof reasoningLevelSchema>;
+  allowActions: boolean;
+}) => {
+  const roleRules = (assistantRules.roles as Record<string, unknown>)[role] ?? {};
   return [
     "Sos un asistente para planificar la cursada en FIUBA. Responde en espanol.",
     "Usa solo el contexto entregado, si falta informacion decilo.",
+    "No inventes datos de materias, fechas, estados ni cuatrimestres.",
+    `Nivel de razonamiento solicitado: ${reasoningLevel} (${reasoningHintByLevel[reasoningLevel]}).`,
+    `Modo de acciones admin: ${allowActions ? "HABILITADO" : "DESHABILITADO"}.`,
+    "Si el usuario pide editar datos y el modo de acciones está habilitado, devuelve acciones en el campo `actions`.",
+    "Si no corresponde editar, devuelve `actions: []`.",
     "Responde SOLO JSON valido con este schema:",
     JSON.stringify(
       {
@@ -25,13 +54,22 @@ const buildPrompt = (role: string, message: string, context: Record<string, unkn
         reasoning: "string breve",
         follow_up_questions: ["string"],
         warnings: ["string"],
+        actions: [
+          {
+            type: "set_current_term | add_enrollment | update_enrollment_status | remove_enrollment"
+          }
+        ],
         confidence: 0.0,
-        model: "gemini"
+        model: "string"
       },
       null,
       2
     ),
     `Rol del usuario: ${role}`,
+    "Reglas por rol:",
+    JSON.stringify(roleRules, null, 2),
+    "Reglas globales del asistente:",
+    JSON.stringify(assistantRules.base_principles, null, 2),
     "Contexto:",
     JSON.stringify(context, null, 2),
     "Pregunta:",
@@ -62,9 +100,12 @@ export async function POST(request: NextRequest) {
   }
 
   const now = new Date();
+  const reasoningLevel = parsed.data.reasoningLevel ?? "medio";
+  const allowActions =
+    session.role === "admin" && Boolean(parsed.data.allowActions);
   const weekRange = getWeekRange(now);
   const currentTerm = await getCurrentTerm();
-  const subjects = await getSubjects();
+  const [subjects, terms] = await Promise.all([getSubjects(), getTerms()]);
   const enrollments = currentTerm ? await getEnrollmentsForTerm(currentTerm.id) : [];
   const termEvents = currentTerm ? await getEventsForTerm(currentTerm.id) : [];
 
@@ -104,6 +145,8 @@ export async function POST(request: NextRequest) {
     .slice(0, 40);
 
   const context = {
+    now: now.toISOString(),
+    role: session.role,
     term: currentTerm
       ? {
           label: currentTerm.label,
@@ -111,6 +154,12 @@ export async function POST(request: NextRequest) {
           end_date: currentTerm.end_date
         }
       : null,
+    terms: terms.slice(0, 24).map((term) => ({
+      label: term.label,
+      start_date: term.start_date,
+      end_date: term.end_date,
+      is_current: term.is_current
+    })),
     subjects: subjects.slice(0, 60).map((subject) => ({
       name: subject.name,
       code: subject.code
@@ -120,10 +169,18 @@ export async function POST(request: NextRequest) {
       status: enrollment.status
     })),
     week_events: weekEvents,
-    week_enrichments: enrichments
+    week_enrichments: enrichments,
+    role_capabilities:
+      (assistantRules.roles as Record<string, unknown>)[session.role] ?? null
   };
 
-  const prompt = buildPrompt(session.role, parsed.data.message, context);
+  const prompt = buildPrompt({
+    role: session.role,
+    message: parsed.data.message,
+    context,
+    reasoningLevel,
+    allowActions
+  });
   const result = await callAIJSON(prompt, chatResponseSchema);
 
   if (!result.ok) {
@@ -132,6 +189,12 @@ export async function POST(request: NextRequest) {
       { status: 502 }
     );
   }
+
+  const requestedActions = result.data.actions ?? [];
+  const actionResults =
+    allowActions && requestedActions.length > 0
+      ? await executeAdminActions(requestedActions)
+      : [];
 
   const persistenceEnabled = process.env.CHAT_PERSISTENCE_ENABLED === "true";
   const shouldStore = persistenceEnabled && parsed.data.storeHistory;
@@ -162,8 +225,12 @@ export async function POST(request: NextRequest) {
           role: "assistant",
           content: result.data.answer,
           metadata: {
+            reasoning_level: reasoningLevel,
+            allow_actions: allowActions,
             follow_up_questions: result.data.follow_up_questions,
             warnings: result.data.warnings,
+            actions_requested: requestedActions,
+            action_results: actionResults,
             confidence: result.data.confidence ?? null,
             reasoning: result.data.reasoning ?? null
           }
@@ -175,6 +242,13 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     ok: true,
     response: { ...result.data, model: result.model },
+    actionResults,
+    capabilities: {
+      role: session.role,
+      allowActions,
+      reasoningLevel,
+      rulesVersion: assistantRules.version
+    },
     threadId,
     stored: shouldStore
   });

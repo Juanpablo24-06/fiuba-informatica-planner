@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CalendarDays, LayoutGrid, MapPinned, Settings } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
+import type { CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 import BrandLogo from "@/components/layout/brand-logo";
 import LogoutButton from "@/components/layout/logout-button";
@@ -14,6 +15,20 @@ const baseItems = [
   { href: "/mapa", label: "Mapa", icon: MapPinned },
   { href: "/horario", label: "Agenda", icon: CalendarDays }
 ] as const;
+
+const iconMotionClassByHref: Record<string, string> = {
+  "/": "group-hover:animate-nav-summary-hover group-data-[active=true]:animate-nav-summary-active",
+  "/mapa": "group-hover:animate-nav-map-hover group-data-[active=true]:animate-nav-map-active",
+  "/horario": "group-hover:animate-nav-agenda-hover group-data-[active=true]:animate-nav-agenda-active",
+  "/admin": "group-hover:animate-nav-admin-hover group-data-[active=true]:animate-nav-admin-active"
+};
+
+const iconStyleByHref: Record<string, CSSProperties | undefined> = {
+  "/": undefined,
+  "/mapa": { transformOrigin: "50% 88%" },
+  "/horario": { transformOrigin: "50% 20%" },
+  "/admin": { transformOrigin: "50% 50%" }
+};
 
 export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
   const pathname = usePathname();
@@ -65,16 +80,25 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
               <Link
                 key={item.href}
                 href={item.href}
+                data-active={active ? "true" : "false"}
                 className={cn(
-                  "group relative inline-flex items-center gap-2 pb-1 text-base font-medium transition",
+                  "group relative inline-flex items-center gap-2 pb-1 text-base font-medium transition-colors duration-200",
                   active ? "text-accent" : "text-muted hover:text-text"
                 )}
               >
-                <Icon className="h-4 w-4" strokeWidth={1.9} />
+                <Icon
+                  className={cn(
+                    "h-4 w-4 transition-colors duration-200 motion-reduce:animate-none",
+                    active ? "text-accent" : "group-hover:text-accent",
+                    iconMotionClassByHref[item.href] ?? ""
+                  )}
+                  style={iconStyleByHref[item.href]}
+                  strokeWidth={active ? 2.05 : 1.9}
+                />
                 {item.label}
                 <span
                   className={cn(
-                    "absolute -bottom-0.5 left-0 h-[2px] w-full origin-left rounded-full bg-accent transition",
+                    "absolute -bottom-0.5 left-0 h-[2px] w-full origin-left rounded-full bg-accent transition-transform duration-200",
                     active ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
                   )}
                 />
@@ -98,15 +122,22 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
               <Link
                 key={item.href}
                 href={item.href}
+                data-active={active ? "true" : "false"}
                 className={cn(
-                  "rounded-full border px-3 py-2 text-center text-xs font-semibold transition",
+                  "group rounded-full border px-3 py-2 text-center text-xs font-semibold transition",
                   active
                     ? "border-accent/50 bg-accent text-accent-contrast"
                     : "border-border/70 bg-surface text-muted"
                 )}
               >
                 <span className="inline-flex items-center gap-1">
-                  <Icon className="h-3.5 w-3.5" />
+                  <Icon
+                    className={cn(
+                      "h-3.5 w-3.5 transition-colors duration-200 motion-reduce:animate-none",
+                      iconMotionClassByHref[item.href] ?? ""
+                    )}
+                    style={iconStyleByHref[item.href]}
+                  />
                   {item.label}
                 </span>
               </Link>

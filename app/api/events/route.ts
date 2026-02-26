@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireRoleFromRequest } from "@/lib/auth";
+import {
+  EVENT_WITH_ENROLLMENT_NO_SCHEDULE,
+  EVENT_WITH_ENROLLMENT_SCHEDULE,
+  isMissingEnrollmentScheduleColumn
+} from "@/lib/enrollment-select";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 const linkSchema = z.object({
@@ -34,21 +39,30 @@ export async function GET(request: NextRequest) {
   const termId = request.nextUrl.searchParams.get("termId");
   const enrollmentId = request.nextUrl.searchParams.get("enrollmentId");
 
-  let query = supabaseAdmin
-    .from("events")
-    .select(
-      "id,enrollment_id,type,title,description,starts_at,ends_at,status,grade,attempt,links,enrollment:enrollments(id,term_id,subject_id,status,color,notes,subject:subjects(id,code,name,credits,weekly_hours,total_hours,term_suggested,cycle,type,requirements,template))"
-    )
-    .order("starts_at", { ascending: true });
+  const runQuery = (withSchedule: boolean) => {
+    let query = supabaseAdmin
+      .from("events")
+      .select(withSchedule ? EVENT_WITH_ENROLLMENT_SCHEDULE : EVENT_WITH_ENROLLMENT_NO_SCHEDULE)
+      .order("starts_at", { ascending: true });
 
-  if (termId) {
-    query = query.eq("enrollment.term_id", termId);
-  }
-  if (enrollmentId) {
-    query = query.eq("enrollment_id", enrollmentId);
+    if (termId) {
+      query = query.eq("enrollment.term_id", termId);
+    }
+    if (enrollmentId) {
+      query = query.eq("enrollment_id", enrollmentId);
+    }
+    return query;
+  };
+
+  const firstQuery = await runQuery(true);
+  let data: any = firstQuery.data;
+  let error: any = firstQuery.error;
+  if (error && isMissingEnrollmentScheduleColumn(error)) {
+    const retry = await runQuery(false);
+    data = retry.data;
+    error = retry.error;
   }
 
-  const { data, error } = await query;
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -68,13 +82,33 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Datos inválidos." }, { status: 400 });
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data: inserted, error: insertError } = await supabaseAdmin
     .from("events")
     .insert(parsed.data)
-    .select(
-      "id,enrollment_id,type,title,description,starts_at,ends_at,status,grade,attempt,links,enrollment:enrollments(id,term_id,subject_id,status,color,notes,subject:subjects(id,code,name,credits,weekly_hours,total_hours,term_suggested,cycle,type,requirements,template))"
-    )
+    .select("id")
     .single();
+
+  if (insertError || !inserted?.id) {
+    return NextResponse.json({ error: insertError?.message ?? "No se pudo crear el evento." }, { status: 500 });
+  }
+
+  const firstFetch = await supabaseAdmin
+    .from("events")
+    .select(EVENT_WITH_ENROLLMENT_SCHEDULE)
+    .eq("id", inserted.id)
+    .single();
+  let data: any = firstFetch.data;
+  let error: any = firstFetch.error;
+
+  if (error && isMissingEnrollmentScheduleColumn(error)) {
+    const retry = await supabaseAdmin
+      .from("events")
+      .select(EVENT_WITH_ENROLLMENT_NO_SCHEDULE)
+      .eq("id", inserted.id)
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

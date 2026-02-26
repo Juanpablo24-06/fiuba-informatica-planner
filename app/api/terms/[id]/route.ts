@@ -27,26 +27,36 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json({ error: "Datos inválidos." }, { status: 400 });
   }
+  if (Object.keys(parsed.data).length === 0) {
+    return NextResponse.json({ error: "No hay cambios para guardar." }, { status: 400 });
+  }
 
   if (parsed.data.is_current) {
-    await supabaseAdmin
+    const { error: clearError } = await supabaseAdmin
       .from("terms")
       .update({ is_current: false })
       .neq("id", params.id);
+    if (clearError) {
+      return NextResponse.json({ error: clearError.message }, { status: 500 });
+    }
   }
 
   const { data, error } = await supabaseAdmin
     .from("terms")
     .update(parsed.data)
     .eq("id", params.id)
-    .select()
-    .single();
+    .select("id,label,start_date,end_date,is_current");
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ term: data });
+  const term = Array.isArray(data) ? data[0] ?? null : data ?? null;
+  if (!term) {
+    return NextResponse.json({ error: "No se encontró el cuatrimestre a actualizar." }, { status: 404 });
+  }
+
+  return NextResponse.json({ term });
 }
 
 export async function DELETE(

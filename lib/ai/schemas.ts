@@ -30,11 +30,48 @@ export const weeklySummarySchema = z.object({
   model: z.string().nullable().optional()
 });
 
+export const reasoningLevelSchema = z.enum(["bajo", "medio", "alto"]);
+
+const enrollmentStatusSchema = z.enum([
+  "cursando",
+  "final_pendiente",
+  "aprobado",
+  "recursar"
+]);
+
+export const chatAdminActionSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("set_current_term"),
+    term_label: z.string().trim().min(3)
+  }),
+  z.object({
+    type: z.literal("add_enrollment"),
+    term_label: z.string().trim().min(3),
+    subject_query: z.string().trim().min(2),
+    status: enrollmentStatusSchema.default("cursando"),
+    color: z.string().trim().min(4).max(16).nullable().optional(),
+    notes: z.string().trim().max(400).nullable().optional()
+  }),
+  z.object({
+    type: z.literal("update_enrollment_status"),
+    term_label: z.string().trim().min(3),
+    subject_query: z.string().trim().min(2),
+    status: enrollmentStatusSchema,
+    notes: z.string().trim().max(400).nullable().optional()
+  }),
+  z.object({
+    type: z.literal("remove_enrollment"),
+    term_label: z.string().trim().min(3),
+    subject_query: z.string().trim().min(2)
+  })
+]);
+
 export const chatResponseSchema = z.object({
   answer: z.string().min(1),
   follow_up_questions: z.array(z.string().min(1)).default([]),
   warnings: z.array(z.string().min(1)).default([]),
   reasoning: z.string().min(1).nullable().optional(),
+  actions: z.array(chatAdminActionSchema).max(5).default([]),
   confidence: z.number().min(0).max(1).nullable().optional(),
   model: z.string().nullable().optional()
 });
@@ -42,3 +79,5 @@ export const chatResponseSchema = z.object({
 export type CalendarEnrichmentInput = z.infer<typeof calendarEnrichmentSchema>;
 export type WeeklySummaryOutput = z.infer<typeof weeklySummarySchema>;
 export type ChatResponseOutput = z.infer<typeof chatResponseSchema>;
+export type ChatAdminAction = z.input<typeof chatAdminActionSchema>;
+export type ReasoningLevel = z.infer<typeof reasoningLevelSchema>;

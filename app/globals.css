@@ -160,6 +160,26 @@ body {
   b {
     font-weight: 650;
   }
+
+  select option {
+    background-color: rgb(var(--color-surface));
+    color: rgb(var(--color-text));
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    border-radius: 9999px;
+    cursor: pointer;
+    opacity: 0.78;
+    transition: opacity 180ms ease;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator:hover,
+  input[type="time"]::-webkit-calendar-picker-indicator:hover,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+  }
 }
 
 @layer components {
@@ -200,6 +220,69 @@ body {
 }
 
 @layer utilities {
+  @keyframes nav-summary-hover {
+    0% { transform: translateY(0) scale(1); }
+    35% { transform: translateY(-2px) scale(1.1); }
+    65% { transform: translateY(0) scale(0.96); }
+    100% { transform: translateY(0) scale(1); }
+  }
+
+  @keyframes nav-summary-active {
+    0%, 84%, 100% { transform: translateY(0) scale(1); }
+    90% { transform: translateY(-1px) scale(1.08); }
+    95% { transform: translateY(0) scale(0.98); }
+  }
+
+  @keyframes nav-map-hover {
+    0% { transform: translateY(0) scale(1); }
+    32% { transform: translateY(-4px) scale(1.08); }
+    55% { transform: translateY(0) scale(0.98); }
+    72% { transform: translateY(-1px) scale(1.03); }
+    100% { transform: translateY(0) scale(1); }
+  }
+
+  @keyframes nav-map-active {
+    0%, 82%, 100% { transform: translateY(0) scale(1); }
+    88% { transform: translateY(-2px) scale(1.07); }
+    94% { transform: translateY(0) scale(0.99); }
+  }
+
+  @keyframes nav-agenda-hover {
+    0% { transform: rotate(0deg) translateY(0); }
+    30% { transform: rotate(-10deg) translateY(-1px); }
+    55% { transform: rotate(7deg) translateY(0); }
+    78% { transform: rotate(-4deg) translateY(0); }
+    100% { transform: rotate(0deg) translateY(0); }
+  }
+
+  @keyframes nav-agenda-active {
+    0%, 82%, 100% { transform: rotate(0deg) translateY(0); }
+    88% { transform: rotate(-6deg) translateY(-1px); }
+    94% { transform: rotate(4deg) translateY(0); }
+  }
+
+  @keyframes nav-admin-hover {
+    0% { transform: rotate(0deg) scale(1); }
+    35% { transform: rotate(18deg) scale(1.1); }
+    62% { transform: rotate(-12deg) scale(1.03); }
+    100% { transform: rotate(0deg) scale(1); }
+  }
+
+  @keyframes nav-admin-active {
+    0%, 86%, 100% { transform: rotate(0deg) scale(1); }
+    90% { transform: rotate(12deg) scale(1.08); }
+    95% { transform: rotate(-6deg) scale(1.03); }
+  }
+
+  .animate-nav-summary-hover { animation: nav-summary-hover 560ms cubic-bezier(.33,.82,.33,1.2); }
+  .animate-nav-summary-active { animation: nav-summary-active 2.9s ease-in-out infinite; }
+  .animate-nav-map-hover { animation: nav-map-hover 620ms cubic-bezier(.28,.9,.32,1.1); }
+  .animate-nav-map-active { animation: nav-map-active 2.8s ease-in-out infinite; }
+  .animate-nav-agenda-hover { animation: nav-agenda-hover 520ms ease-in-out; }
+  .animate-nav-agenda-active { animation: nav-agenda-active 2.7s ease-in-out infinite; }
+  .animate-nav-admin-hover { animation: nav-admin-hover 520ms cubic-bezier(.35,.8,.3,1.12); }
+  .animate-nav-admin-active { animation: nav-admin-active 2.6s ease-in-out infinite; }
+
   .text-balance {
     text-wrap: balance;
   }

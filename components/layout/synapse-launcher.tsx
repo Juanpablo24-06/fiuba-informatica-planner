@@ -2,10 +2,11 @@
 
 import ChatPanel from "@/components/dashboard/chat-panel";
 
-export default function SynapseLauncher() {
+export default function SynapseLauncher({ role }: { role?: "admin" | "viewer" }) {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-4 z-30 flex justify-center px-4">
       <ChatPanel
+        role={role}
         trigger={
           <button
             type="button"

@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireRoleFromRequest } from "@/lib/auth";
+import {
+  EVENT_WITH_ENROLLMENT_NO_SCHEDULE,
+  EVENT_WITH_ENROLLMENT_SCHEDULE,
+  isMissingEnrollmentScheduleColumn
+} from "@/lib/enrollment-select";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 const linkSchema = z.object({
@@ -46,14 +51,34 @@ export async function PATCH(
     return NextResponse.json({ error: "Datos inválidos." }, { status: 400 });
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data: updated, error: updateError } = await supabaseAdmin
     .from("events")
     .update(parsed.data)
     .eq("id", params.id)
-    .select(
-      "id,enrollment_id,type,title,description,starts_at,ends_at,status,grade,attempt,links,enrollment:enrollments(id,term_id,subject_id,status,color,notes,subject:subjects(id,code,name,credits,weekly_hours,total_hours,term_suggested,cycle,type,requirements,template))"
-    )
+    .select("id")
     .single();
+
+  if (updateError || !updated?.id) {
+    return NextResponse.json({ error: updateError?.message ?? "No se pudo actualizar el evento." }, { status: 500 });
+  }
+
+  const firstFetch = await supabaseAdmin
+    .from("events")
+    .select(EVENT_WITH_ENROLLMENT_SCHEDULE)
+    .eq("id", updated.id)
+    .single();
+  let data: any = firstFetch.data;
+  let error: any = firstFetch.error;
+
+  if (error && isMissingEnrollmentScheduleColumn(error)) {
+    const retry = await supabaseAdmin
+      .from("events")
+      .select(EVENT_WITH_ENROLLMENT_NO_SCHEDULE)
+      .eq("id", updated.id)
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

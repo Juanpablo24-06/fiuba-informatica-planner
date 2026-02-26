@@ -15,7 +15,8 @@ export async function GET() {
   const { data, error } = await supabaseAdmin
     .from("terms")
     .select("id,label,start_date,end_date,is_current")
-    .order("start_date", { ascending: false, nullsFirst: false });
+    .order("start_date", { ascending: false, nullsFirst: false })
+    .order("label", { ascending: false });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -46,12 +47,16 @@ export async function POST(request: NextRequest) {
   const { data, error } = await supabaseAdmin
     .from("terms")
     .insert(parsed.data)
-    .select()
-    .single();
+    .select("id,label,start_date,end_date,is_current");
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ term: data });
+  const term = Array.isArray(data) ? data[0] ?? null : data ?? null;
+  if (!term) {
+    return NextResponse.json({ error: "No se pudo crear el cuatrimestre." }, { status: 500 });
+  }
+
+  return NextResponse.json({ term });
 }

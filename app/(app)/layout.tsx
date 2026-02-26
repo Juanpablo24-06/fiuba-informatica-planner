@@ -16,7 +16,7 @@ export default async function AppLayout({
       <TopNav role={session?.role} />
       <ShortcutHandler />
       <AppShell>{children}</AppShell>
-      <SynapseLauncher />
+      <SynapseLauncher role={session?.role} />
     </div>
   );
 }

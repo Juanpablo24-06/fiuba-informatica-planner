@@ -11,6 +11,25 @@ const SUBJECT_TYPES = [
   { value: "electiva", label: "Electiva" },
   { value: "cbc", label: "CBC" }
 ] as const;
+const SUBJECT_TYPE_ORDER: Record<string, number> = {
+  cbc: 1,
+  obligatoria: 2,
+  electiva: 3
+};
+const SORT_OPTIONS = [
+  { value: "name", label: "Nombre" },
+  { value: "code", label: "Código" },
+  { value: "term", label: "Cuatri sugerido" },
+  { value: "type", label: "Tipo" }
+] as const;
+
+const getEffectiveType = (subject: Subject) => {
+  const type = (subject.type ?? "").toLowerCase();
+  const cycle = (subject.cycle ?? "").toLowerCase();
+  if (type) return type;
+  if (cycle === "cbc") return "cbc";
+  return "obligatoria";
+};
 
 export default function SubjectManager({
   initialSubjects
@@ -24,9 +43,45 @@ export default function SubjectManager({
     term_suggested: "",
     type: "obligatoria"
   });
+  const [searchTerm, setSearchTerm] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<(typeof SORT_OPTIONS)[number]["value"]>("name");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
-  const sortedSubjects = useMemo(
-    () => [...subjects].sort((a, b) => a.name.localeCompare(b.name)),
+  const visibleSubjects = useMemo(() => {
+    const search = searchTerm.trim().toLowerCase();
+    const filtered = subjects.filter((subject) => {
+      const effectiveType = getEffectiveType(subject);
+      if (typeFilter !== "all" && effectiveType !== typeFilter) return false;
+      if (!search) return true;
+      return [subject.name, subject.code ?? ""].some((value) =>
+        value.toLowerCase().includes(search)
+      );
+    });
+
+    const sorted = [...filtered].sort((a, b) => {
+      if (sortBy === "code") {
+        return (a.code ?? "").localeCompare(b.code ?? "");
+      }
+      if (sortBy === "term") {
+        return (a.term_suggested ?? 999) - (b.term_suggested ?? 999);
+      }
+      if (sortBy === "type") {
+        return (SUBJECT_TYPE_ORDER[getEffectiveType(a)] ?? 99) - (SUBJECT_TYPE_ORDER[getEffectiveType(b)] ?? 99);
+      }
+      return a.name.localeCompare(b.name);
+    });
+
+    return sortDirection === "desc" ? sorted.reverse() : sorted;
+  }, [searchTerm, sortBy, sortDirection, subjects, typeFilter]);
+
+  const typeCounters = useMemo(
+    () => ({
+      all: subjects.length,
+      obligatoria: subjects.filter((subject) => getEffectiveType(subject) === "obligatoria").length,
+      cbc: subjects.filter((subject) => getEffectiveType(subject) === "cbc").length,
+      electiva: subjects.filter((subject) => getEffectiveType(subject) === "electiva").length
+    }),
     [subjects]
   );
 
@@ -122,6 +177,52 @@ export default function SubjectManager({
         </div>
       </section>
 
+      <section className="rounded-2xl border border-border/75 bg-surface-2 p-4">
+        <p className="text-sm font-semibold text-text">Orden y filtros del catálogo</p>
+        <div className="mt-3 grid gap-3 md:grid-cols-4">
+          <Input
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Buscar por nombre o código"
+          />
+          <Select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+            <option value="all">Todos los tipos</option>
+            {SUBJECT_TYPES.map((type) => (
+              <option key={type.value} value={type.value}>
+                {type.label}
+              </option>
+            ))}
+          </Select>
+          <Select value={sortBy} onChange={(event) => setSortBy(event.target.value as (typeof SORT_OPTIONS)[number]["value"])}>
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                Ordenar por {option.label}
+              </option>
+            ))}
+          </Select>
+          <Select
+            value={sortDirection}
+            onChange={(event) => setSortDirection(event.target.value as "asc" | "desc")}
+          >
+            <option value="asc">Ascendente</option>
+            <option value="desc">Descendente</option>
+          </Select>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted">
+          <span className="rounded-full border border-border/65 bg-surface px-3 py-1">Total: {typeCounters.all}</span>
+          <span className="rounded-full border border-border/65 bg-surface px-3 py-1">
+            Obligatorias: {typeCounters.obligatoria}
+          </span>
+          <span className="rounded-full border border-border/65 bg-surface px-3 py-1">CBC: {typeCounters.cbc}</span>
+          <span className="rounded-full border border-border/65 bg-surface px-3 py-1">
+            Electivas: {typeCounters.electiva}
+          </span>
+          <span className="rounded-full border border-accent/45 bg-accent/10 px-3 py-1 text-accent">
+            Mostrando: {visibleSubjects.length}
+          </span>
+        </div>
+      </section>
+
       <section className="space-y-2">
         <div className="grid grid-cols-[0.72fr_1.4fr_0.5fr_0.7fr_0.45fr] gap-2 px-3 text-[11px] uppercase tracking-[0.16em] text-muted">
           <span>Código</span>
@@ -130,7 +231,7 @@ export default function SubjectManager({
           <span>Tipo</span>
           <span />
         </div>
-        {sortedSubjects.map((subject) => (
+        {visibleSubjects.map((subject) => (
           <div
             key={subject.id}
             className="grid gap-2 rounded-2xl border border-border/75 bg-surface p-3 md:grid-cols-[0.72fr_1.4fr_0.5fr_0.7fr_0.45fr]"
@@ -159,7 +260,7 @@ export default function SubjectManager({
               }
             />
             <Select
-              defaultValue={subject.type ?? "obligatoria"}
+              defaultValue={getEffectiveType(subject)}
               onChange={(event) => handleUpdate(subject, { type: event.target.value })}
             >
               {SUBJECT_TYPES.map((type) => (
@@ -173,6 +274,11 @@ export default function SubjectManager({
             </Button>
           </div>
         ))}
+        {visibleSubjects.length === 0 ? (
+          <div className="rounded-2xl border border-border/65 bg-surface px-4 py-4 text-sm text-muted">
+            No hay materias que coincidan con el filtro actual.
+          </div>
+        ) : null}
       </section>
     </div>
   );

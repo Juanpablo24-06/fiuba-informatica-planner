@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Subject, Term } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
@@ -33,11 +33,13 @@ export default function TermManager({
   currentTerm,
   terms,
   subjects,
+  completedSubjectIds,
   isAdmin
 }: {
   currentTerm: Term | null;
   terms: Term[];
   subjects: Subject[];
+  completedSubjectIds: string[];
   isAdmin: boolean;
 }) {
   const router = useRouter();
@@ -46,6 +48,25 @@ export default function TermManager({
   const [pending, setPending] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Term | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [editTarget, setEditTarget] = useState<Term | null>(null);
+  const [editPending, setEditPending] = useState(false);
+  const [editError, setEditError] = useState("");
+  const [editForm, setEditForm] = useState({
+    label: "",
+    start_date: "",
+    end_date: "",
+    is_current: false
+  });
+  const [bootstrapPending, setBootstrapPending] = useState(false);
+  const [bootstrapMessage, setBootstrapMessage] = useState("");
+  const [bootstrapStatusLoading, setBootstrapStatusLoading] = useState(false);
+  const [bootstrapStatus, setBootstrapStatus] = useState<{
+    loaded: boolean;
+    approved: number;
+    total: number;
+    term: string;
+  } | null>(null);
+  const [subjectSearch, setSubjectSearch] = useState("");
 
   const [newTerm, setNewTerm] = useState({
     label: "",
@@ -66,6 +87,10 @@ export default function TermManager({
 
     if (!newTerm.label.trim()) {
       messages.push("Completá el nombre del cuatrimestre.");
+    }
+
+    if (newTerm.label.trim() && !/^\d{4}-(1|2|V|I)$/i.test(newTerm.label.trim())) {
+      messages.push("Formato sugerido: YYYY-1 o YYYY-2. Intensivos opcionales: YYYY-V (verano) o YYYY-I (invierno).");
     }
 
     if (newTerm.start_date && newTerm.end_date) {
@@ -95,11 +120,56 @@ export default function TermManager({
     };
   }, [newTerm.end_date, newTerm.label, newTerm.start_date, terms]);
 
+  const completedSet = useMemo(
+    () => new Set(completedSubjectIds),
+    [completedSubjectIds]
+  );
+
+  const availableSubjects = useMemo(
+    () =>
+      subjects
+        .filter((subject) => !completedSet.has(subject.id))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [subjects, completedSet]
+  );
+
+  const visibleSubjects = useMemo(() => {
+    const search = subjectSearch.trim().toLowerCase();
+    if (!search) return availableSubjects;
+    return availableSubjects.filter((subject) =>
+      [subject.name, subject.code ?? ""]
+        .some((value) => value.toLowerCase().includes(search))
+    );
+  }, [availableSubjects, subjectSearch]);
+
   const resetWizard = () => {
     setWizardStep(1);
     setNewTerm({ label: "", start_date: "", end_date: "", is_current: true });
     setActivation({ status: "cursando", color: SUBJECT_COLORS[0], subjectIds: [] });
+    setSubjectSearch("");
   };
+
+  const refreshBootstrapStatus = useCallback(async () => {
+    if (!isAdmin) return;
+    setBootstrapStatusLoading(true);
+    try {
+      const response = await fetch("/api/admin/bootstrap-cbc", { method: "GET" });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) return;
+      setBootstrapStatus({
+        loaded: Boolean(data?.loaded),
+        approved: Number(data?.approved ?? 0),
+        total: Number(data?.total ?? 0),
+        term: data?.term ?? "2023-0"
+      });
+    } finally {
+      setBootstrapStatusLoading(false);
+    }
+  }, [isAdmin]);
+
+  useEffect(() => {
+    void refreshBootstrapStatus();
+  }, [refreshBootstrapStatus]);
 
   const handleSetCurrent = async (termId: string) => {
     const response = await fetch(`/api/terms/${termId}`, {
@@ -111,6 +181,65 @@ export default function TermManager({
     router.refresh();
   };
 
+  const openEditTerm = (term: Term) => {
+    setEditTarget(term);
+    setEditError("");
+    setEditForm({
+      label: term.label,
+      start_date: term.start_date ?? "",
+      end_date: term.end_date ?? "",
+      is_current: term.is_current
+    });
+  };
+
+  const handleEditTerm = async () => {
+    if (!editTarget) return;
+
+    const label = editForm.label.trim();
+    if (!label) {
+      setEditError("El nombre del cuatrimestre no puede quedar vacío.");
+      return;
+    }
+    if (!/^\d{4}-(0|1|2|V|I)$/i.test(label)) {
+      setEditError("Formato sugerido: YYYY-1, YYYY-2, YYYY-V, YYYY-I (y YYYY-0 para CBC histórico).");
+      return;
+    }
+    if (editForm.start_date && editForm.end_date) {
+      const start = new Date(editForm.start_date);
+      const end = new Date(editForm.end_date);
+      if (start.getTime() > end.getTime()) {
+        setEditError("La fecha de inicio no puede ser mayor a la fecha de fin.");
+        return;
+      }
+    }
+
+    setEditPending(true);
+    setEditError("");
+    try {
+      const response = await fetch(`/api/terms/${editTarget.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label,
+          start_date: editForm.start_date || null,
+          end_date: editForm.end_date || null,
+          is_current: editForm.is_current
+        })
+      });
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        setEditError(data?.error ?? "No se pudo guardar el cuatrimestre.");
+        return;
+      }
+
+      setEditTarget(null);
+      router.refresh();
+    } finally {
+      setEditPending(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!deleteTarget || deleteConfirm !== deleteTarget.label) return;
     const response = await fetch(`/api/terms/${deleteTarget.id}`, { method: "DELETE" });
@@ -118,6 +247,29 @@ export default function TermManager({
     setDeleteTarget(null);
     setDeleteConfirm("");
     router.refresh();
+  };
+
+  const handleBootstrapCbc = async () => {
+    if (!isAdmin) return;
+    setBootstrapPending(true);
+    setBootstrapMessage("");
+    try {
+      const response = await fetch("/api/admin/bootstrap-cbc", { method: "POST" });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        setBootstrapMessage(data?.error ? `Error: ${data.error}` : "No se pudo cargar el CBC.");
+        return;
+      }
+
+      setBootstrapMessage(
+        data?.message ??
+          `CBC cargado en ${data?.term ?? "2023-0"}: ${data?.created ?? 0} nuevas.`
+      );
+      void refreshBootstrapStatus();
+      router.refresh();
+    } finally {
+      setBootstrapPending(false);
+    }
   };
 
   const finishWizard = async () => {
@@ -211,6 +363,30 @@ export default function TermManager({
                     onChange={(event) => setNewTerm((prev) => ({ ...prev, label: event.target.value }))}
                     placeholder="Ej: 2026-1"
                   />
+                  <div className="rounded-2xl border border-border/60 bg-surface/65 p-3">
+                    <p className="text-xs uppercase tracking-[0.2em] text-muted">Guía rápida de periodos</p>
+                    <p className="mt-2 text-xs text-muted">
+                      Convención principal: <span className="font-semibold text-text">2 cuatrimestres por año</span> (<span className="font-semibold text-text">-1</span> y <span className="font-semibold text-text">-2</span>).
+                      Intensivos opcionales: <span className="font-semibold text-text">-V</span> (verano) y <span className="font-semibold text-text">-I</span> (invierno).
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {["1", "2", "V", "I"].map((period) => {
+                        const year = new Date().getFullYear();
+                        const suggestion = `${year}-${period}`;
+                        return (
+                          <Button
+                            key={period}
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setNewTerm((prev) => ({ ...prev, label: suggestion }))}
+                          >
+                            {suggestion}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
                       <label className="text-xs uppercase tracking-[0.2em] text-muted">Inicio</label>
@@ -302,7 +478,7 @@ export default function TermManager({
                           size="sm"
                           variant="outline"
                           onClick={() =>
-                            setActivation((prev) => ({ ...prev, subjectIds: subjects.map((subject) => subject.id) }))
+                            setActivation((prev) => ({ ...prev, subjectIds: availableSubjects.map((subject) => subject.id) }))
                           }
                         >
                           Todas
@@ -318,8 +494,17 @@ export default function TermManager({
                       </div>
                     </div>
 
+                    <Input
+                      value={subjectSearch}
+                      onChange={(event) => setSubjectSearch(event.target.value)}
+                      placeholder="Buscar materia por nombre o código"
+                    />
+                    <p className="mt-2 text-xs text-muted">
+                      {visibleSubjects.length} visibles de {availableSubjects.length} disponibles. Materias ya aprobadas quedan ocultas.
+                    </p>
+
                     <div className="max-h-60 space-y-2 overflow-y-auto pr-1">
-                      {subjects.map((subject) => {
+                      {visibleSubjects.map((subject) => {
                         const checked = activation.subjectIds.includes(subject.id);
                         return (
                           <label
@@ -335,6 +520,11 @@ export default function TermManager({
                           </label>
                         );
                       })}
+                      {visibleSubjects.length === 0 ? (
+                        <p className="rounded-xl border border-border/60 bg-surface px-3 py-2 text-xs text-muted">
+                          No hay materias para mostrar con este filtro.
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -346,7 +536,7 @@ export default function TermManager({
                   <p><span className="font-semibold">Cuatrimestre:</span> {newTerm.label || "-"}</p>
                   <p><span className="font-semibold">Fechas:</span> {newTerm.start_date || "sin inicio"} {newTerm.end_date ? `→ ${newTerm.end_date}` : ""}</p>
                   <p><span className="font-semibold">Marcar como actual:</span> {newTerm.is_current ? "Sí" : "No"}</p>
-                  <p><span className="font-semibold">Materias a activar:</span> {activation.subjectIds.length}</p>
+                  <p><span className="font-semibold">Materias a activar:</span> {activation.subjectIds.length} de {availableSubjects.length}</p>
                 </div>
               ) : null}
 
@@ -391,6 +581,45 @@ export default function TermManager({
         )}
       </div>
 
+      {isAdmin ? (
+        <div className="rounded-2xl border border-border/60 bg-surface-2/60 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-muted">Carga histórica</p>
+              <p className="mt-1 text-sm text-text">Registrar CBC aprobado (año 2023)</p>
+            </div>
+            {bootstrapStatusLoading ? (
+              <span className="text-xs text-muted">Verificando estado...</span>
+            ) : bootstrapStatus?.loaded ? (
+              <Badge className="border-success/45 bg-success/10 text-success">
+                CBC registrado ({bootstrapStatus.approved}/{bootstrapStatus.total})
+              </Badge>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleBootstrapCbc}
+                disabled={bootstrapPending}
+              >
+                {bootstrapPending ? "Cargando..." : "Marcar CBC 2023 como aprobado"}
+              </Button>
+            )}
+          </div>
+          {bootstrapMessage ? (
+            <p className="mt-2 text-xs text-muted">{bootstrapMessage}</p>
+          ) : bootstrapStatus?.loaded ? (
+            <p className="mt-2 text-xs text-muted">
+              CBC ya registrado en <span className="font-semibold">{bootstrapStatus.term}</span>: {bootstrapStatus.approved}/{bootstrapStatus.total} materias aprobadas.
+            </p>
+          ) : (
+            <p className="mt-2 text-xs text-muted">
+              Crea (si no existe) el cuatrimestre <span className="font-semibold">2023-0</span> y marca las materias CBC como <span className="font-semibold">aprobadas</span>.
+            </p>
+          )}
+        </div>
+      ) : null}
+
       <div className="rounded-3xl border border-border/60 bg-surface/80 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm font-semibold text-text">Cuatrimestres cargados</p>
@@ -414,6 +643,11 @@ export default function TermManager({
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
+                  {isAdmin ? (
+                    <Button variant="outline" size="sm" onClick={() => openEditTerm(term)}>
+                      Editar
+                    </Button>
+                  ) : null}
                   {term.is_current ? (
                     <Badge className="border-accent/40 bg-accent/10 text-accent">Actual</Badge>
                   ) : isAdmin ? (
@@ -432,6 +666,81 @@ export default function TermManager({
           )}
         </div>
       </div>
+
+      <Dialog
+        open={Boolean(editTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditTarget(null);
+            setEditError("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar cuatrimestre</DialogTitle>
+          </DialogHeader>
+          {editTarget ? (
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs uppercase tracking-[0.2em] text-muted">Nombre</label>
+                <Input
+                  value={editForm.label}
+                  onChange={(event) =>
+                    setEditForm((prev) => ({ ...prev, label: event.target.value }))
+                  }
+                  placeholder="Ej: 2026-1"
+                />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="text-xs uppercase tracking-[0.2em] text-muted">Inicio</label>
+                  <Input
+                    type="date"
+                    value={editForm.start_date}
+                    onChange={(event) =>
+                      setEditForm((prev) => ({ ...prev, start_date: event.target.value }))
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-[0.2em] text-muted">Fin</label>
+                  <Input
+                    type="date"
+                    value={editForm.end_date}
+                    onChange={(event) =>
+                      setEditForm((prev) => ({ ...prev, end_date: event.target.value }))
+                    }
+                  />
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-sm text-muted">
+                <input
+                  type="checkbox"
+                  checked={editForm.is_current}
+                  onChange={(event) =>
+                    setEditForm((prev) => ({ ...prev, is_current: event.target.checked }))
+                  }
+                />
+                Marcar como cuatrimestre actual
+              </label>
+              {editError ? (
+                <p className="text-xs text-warning">{editError}</p>
+              ) : null}
+            </div>
+          ) : null}
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" type="button">
+                Cancelar
+              </Button>
+            </DialogClose>
+            <Button type="button" onClick={handleEditTerm} disabled={editPending || !editTarget}>
+              {editPending ? "Guardando..." : "Guardar cambios"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={Boolean(deleteTarget)}
