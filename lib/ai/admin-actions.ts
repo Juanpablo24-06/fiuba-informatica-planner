@@ -28,6 +28,34 @@ const normalizeText = (value: string) =>
     .toLowerCase()
     .trim();
 
+const monthMap: Record<string, number> = {
+  enero: 1,
+  febrero: 2,
+  marzo: 3,
+  abril: 4,
+  mayo: 5,
+  junio: 6,
+  julio: 7,
+  agosto: 8,
+  septiembre: 9,
+  setiembre: 9,
+  octubre: 10,
+  noviembre: 11,
+  diciembre: 12
+};
+
+const pad = (value: number) => String(value).padStart(2, "0");
+
+const getMonthEndDay = (year: number, month: number) =>
+  new Date(year, month, 0).getDate();
+
+const normalizeTermLabel = (label: string) => {
+  const trimmed = label.trim().replace(/\s+/g, " ");
+  const match = trimmed.match(/^(\d{4})[\s_-]*(0|1|2|v|i)$/i);
+  if (!match) return trimmed;
+  return `${match[1]}-${match[2].toUpperCase()}`;
+};
+
 const normalizeColor = (value?: string | null) => {
   if (!value) return null;
   const trimmed = value.trim();
@@ -36,7 +64,7 @@ const normalizeColor = (value?: string | null) => {
 };
 
 const findTermByLabel = (terms: TermLite[], label: string) => {
-  const normalized = normalizeText(label);
+  const normalized = normalizeText(normalizeTermLabel(label));
   return terms.find((term) => normalizeText(term.label) === normalized) ?? null;
 };
 
@@ -44,7 +72,79 @@ const normalizeTermDate = (value: string | null | undefined) => {
   if (value === undefined) return undefined;
   if (value === null) return null;
   const trimmed = value.trim();
-  return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : undefined;
+  if (!trimmed) return undefined;
+
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (isoMatch) {
+    const year = Number(isoMatch[1]);
+    const month = Number(isoMatch[2]);
+    const day = Number(isoMatch[3]);
+    if (
+      Number.isInteger(year) &&
+      Number.isInteger(month) &&
+      Number.isInteger(day) &&
+      month >= 1 &&
+      month <= 12 &&
+      day >= 1 &&
+      day <= getMonthEndDay(year, month)
+    ) {
+      return `${year}-${pad(month)}-${pad(day)}`;
+    }
+  }
+
+  const dmyMatch = trimmed.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);
+  if (dmyMatch) {
+    const day = Number(dmyMatch[1]);
+    const month = Number(dmyMatch[2]);
+    const year = Number(dmyMatch[3]);
+    if (
+      Number.isInteger(year) &&
+      Number.isInteger(month) &&
+      Number.isInteger(day) &&
+      month >= 1 &&
+      month <= 12 &&
+      day >= 1 &&
+      day <= getMonthEndDay(year, month)
+    ) {
+      return `${year}-${pad(month)}-${pad(day)}`;
+    }
+  }
+
+  const normalized = normalizeText(trimmed).replace(/[.,]/g, " ");
+  const tokens = normalized.split(/\s+/).filter(Boolean);
+  let year: number | null = null;
+  let month: number | null = null;
+  let day: number | null = null;
+
+  for (const token of tokens) {
+    if (!year && /^\d{4}$/.test(token)) {
+      year = Number(token);
+      continue;
+    }
+    if (!month && token in monthMap) {
+      month = monthMap[token];
+      continue;
+    }
+    if (!day && /^\d{1,2}$/.test(token)) {
+      const numeric = Number(token);
+      if (numeric >= 1 && numeric <= 31) {
+        day = numeric;
+      }
+    }
+  }
+
+  if (!year || !month) return undefined;
+  if (!day) {
+    if (normalized.includes("final") || normalized.includes("fin")) {
+      day = getMonthEndDay(year, month);
+    } else if (normalized.includes("medio")) {
+      day = 15;
+    } else {
+      day = 1;
+    }
+  }
+  if (day > getMonthEndDay(year, month)) return undefined;
+  return `${year}-${pad(month)}-${pad(day)}`;
 };
 
 const hasInvalidDateRange = (startDate: string | null, endDate: string | null) => {
@@ -141,6 +241,7 @@ export const executeAdminActions = async (
   for (const action of actions) {
     try {
       if (action.type === "create_term" || action.type === "update_term") {
+        const normalizedLabel = normalizeTermLabel(action.term_label);
         const existing = findTermByLabel(terms, action.term_label);
         const startDate = normalizeTermDate(action.start_date);
         const endDate = normalizeTermDate(action.end_date);
@@ -166,7 +267,7 @@ export const executeAdminActions = async (
           results.push({
             type: action.type,
             ok: false,
-            summary: `El cuatrimestre '${action.term_label}' ya existe. Usá update_term para modificarlo.`
+            summary: `El cuatrimestre '${normalizedLabel}' ya existe. Usá update_term para modificarlo.`
           });
           continue;
         }
@@ -195,7 +296,7 @@ export const executeAdminActions = async (
           const { data: inserted, error: insertError } = await supabaseAdmin
             .from("terms")
             .insert({
-              label: action.term_label,
+              label: normalizedLabel,
               start_date: nextStart,
               end_date: nextEnd,
               is_current: Boolean(action.is_current)
@@ -207,7 +308,7 @@ export const executeAdminActions = async (
             results.push({
               type: action.type,
               ok: false,
-              summary: `No se pudo crear '${action.term_label}': ${insertError?.message ?? "sin detalle"}`
+              summary: `No se pudo crear '${normalizedLabel}': ${insertError?.message ?? "sin detalle"}`
             });
             continue;
           }

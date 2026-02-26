@@ -227,11 +227,24 @@ export async function POST(request: NextRequest) {
     reasoningLevel,
     allowActions
   });
-  const result = await callAIJSON(prompt, chatResponseSchema);
+  let result = await callAIJSON(prompt, chatResponseSchema);
+  if (!result.ok) {
+    const repairPrompt = [
+      prompt,
+      "",
+      "Tu respuesta anterior fue inválida para el schema JSON esperado.",
+      "Devuelve nuevamente SOLO JSON válido y no agregues texto fuera del objeto."
+    ].join("\n");
+    result = await callAIJSON(repairPrompt, chatResponseSchema);
+  }
 
   if (!result.ok) {
     return NextResponse.json(
-      { error: "Respuesta AI invalida o incompleta.", needs_review: true },
+      {
+        error: "Respuesta AI invalida o incompleta.",
+        details: result.error,
+        needs_review: true
+      },
       { status: 502 }
     );
   }

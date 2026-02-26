@@ -1,5 +1,30 @@
 import { z } from "zod";
 
+const toNonEmptyString = (value: unknown) => {
+  if (typeof value === "string") return value.trim();
+  if (value === null || value === undefined) return "";
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return "";
+  }
+};
+
+const toStringList = (value: unknown) => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => toNonEmptyString(item))
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  if (typeof value === "string") {
+    const one = value.trim();
+    return one ? [one] : [];
+  }
+  return [];
+};
+
 export const calendarEnrichmentSchema = z.object({
   provider_event_id: z.string().min(1),
   kind: z.string().min(1).nullable().optional(),
@@ -39,10 +64,7 @@ const enrollmentStatusSchema = z.enum([
   "recursar"
 ]);
 
-const termDateSchema = z
-  .string()
-  .trim()
-  .regex(/^\d{4}-\d{2}-\d{2}$/);
+const termDateSchema = z.string().trim().min(1);
 
 export const chatAdminActionSchema = z.discriminatedUnion("type", [
   z.object({
@@ -86,13 +108,44 @@ export const chatAdminActionSchema = z.discriminatedUnion("type", [
 ]);
 
 export const chatResponseSchema = z.object({
-  answer: z.string().min(1),
-  follow_up_questions: z.array(z.string().min(1)).default([]),
-  warnings: z.array(z.string().min(1)).default([]),
-  reasoning: z.string().min(1).nullable().optional(),
+  answer: z
+    .any()
+    .transform((value) => toNonEmptyString(value))
+    .transform((value) => (value ? value : "Sin respuesta.")),
+  follow_up_questions: z
+    .any()
+    .transform((value) => toStringList(value))
+    .default([]),
+  warnings: z
+    .any()
+    .transform((value) => toStringList(value))
+    .default([]),
+  reasoning: z
+    .any()
+    .transform((value) => {
+      const parsed = toNonEmptyString(value);
+      return parsed || null;
+    })
+    .nullable()
+    .optional(),
   actions: z.array(chatAdminActionSchema).max(5).default([]),
-  confidence: z.number().min(0).max(1).nullable().optional(),
-  model: z.string().nullable().optional()
+  confidence: z
+    .any()
+    .transform((value) => {
+      if (value === null || value === undefined || value === "") return null;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    })
+    .nullable()
+    .optional(),
+  model: z
+    .any()
+    .transform((value) => {
+      const parsed = toNonEmptyString(value);
+      return parsed || null;
+    })
+    .nullable()
+    .optional()
 });
 
 export type CalendarEnrichmentInput = z.infer<typeof calendarEnrichmentSchema>;

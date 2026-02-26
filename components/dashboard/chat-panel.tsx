@@ -169,11 +169,11 @@ export default function ChatPanel({
           .filter((message) => message.role === "user" || message.role === "assistant")
           .map((message) => ({
             role: message.role,
-            content: message.content.trim()
+            content: message.content.trim().slice(0, 1200)
           }))
           .filter((message) => message.content.length > 0)
           .slice(-13),
-        { role: "user", content: trimmed }
+        { role: "user", content: trimmed.slice(0, 1200) }
       ];
 
       const requestBody: Record<string, unknown> = {
@@ -195,7 +195,11 @@ export default function ChatPanel({
 
       const data = await response.json().catch(() => null);
       if (!response.ok) {
-        const message = data?.error ?? "No se pudo responder.";
+        const message = data?.error
+          ? data?.details
+            ? `${data.error} (${data.details})`
+            : data.error
+          : "No se pudo responder.";
         setError(message);
         setMessages((prev) => [
           ...prev,
