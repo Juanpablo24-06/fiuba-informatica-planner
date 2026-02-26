@@ -33,8 +33,60 @@ type ChatMessage = {
   isStreaming?: boolean;
 };
 
+type ChatSession = {
+  id: string;
+  title: string;
+  threadId: string | null;
+  messages: ChatMessage[];
+  updatedAt: number;
+};
+
+type StreamProfile = {
+  intervalMs: number;
+  reasoningStep: number;
+  answerStep: number;
+};
+
 const persistenceEnabled = process.env.NEXT_PUBLIC_CHAT_PERSISTENCE === "true";
+const CHAT_HISTORY_KEY = "synapse-chat-history-v2";
+const MAX_STORED_SESSIONS = 16;
+
 const buildId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const getStreamProfile = (level: ReasoningLevel): StreamProfile => {
+  if (level === "bajo") {
+    return { intervalMs: 11, reasoningStep: 7, answerStep: 6 };
+  }
+  if (level === "alto") {
+    return { intervalMs: 30, reasoningStep: 2, answerStep: 1 };
+  }
+  return { intervalMs: 18, reasoningStep: 4, answerStep: 3 };
+};
+
+const deriveSessionTitle = (messages: ChatMessage[]) => {
+  const firstUser = messages.find((message) => message.role === "user");
+  if (!firstUser?.content?.trim()) return "Chat sin título";
+  const compact = firstUser.content.trim().replace(/\s+/g, " ");
+  return compact.length > 48 ? `${compact.slice(0, 48)}…` : compact;
+};
+
+const buildEmptySession = (): ChatSession => ({
+  id: buildId(),
+  title: "Chat sin título",
+  threadId: null,
+  messages: [],
+  updatedAt: Date.now()
+});
+
+const buildSessionLabel = (session: ChatSession) => {
+  const date = new Date(session.updatedAt).toLocaleString("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+  return `${date} · ${session.title}`;
+};
 
 export default function ChatPanel({
   trigger,
@@ -53,6 +105,9 @@ export default function ChatPanel({
   const [storeHistory, setStoreHistory] = useState(persistenceEnabled);
   const [reasoningLevel, setReasoningLevel] = useState<ReasoningLevel>("medio");
   const [allowActions, setAllowActions] = useState(false);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [historyReady, setHistoryReady] = useState(false);
   const streamRef = useRef<number | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -81,6 +136,112 @@ export default function ChatPanel({
     });
   }, [messages, isThinking]);
 
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(CHAT_HISTORY_KEY);
+      if (!raw) {
+        const initial = buildEmptySession();
+        setSessions([initial]);
+        setActiveSessionId(initial.id);
+        setMessages([]);
+        setThreadId(null);
+        window.localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify([initial]));
+        setHistoryReady(true);
+        return;
+      }
+
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        const initial = buildEmptySession();
+        setSessions([initial]);
+        setActiveSessionId(initial.id);
+        setMessages([]);
+        setThreadId(null);
+        window.localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify([initial]));
+        setHistoryReady(true);
+        return;
+      }
+
+      const restored = (parsed as ChatSession[])
+        .filter((item) => item && typeof item.id === "string")
+        .map((item) => ({
+          id: item.id,
+          title: item.title || "Chat sin título",
+          threadId: item.threadId ?? null,
+          messages: Array.isArray(item.messages) ? item.messages : [],
+          updatedAt: Number(item.updatedAt) || Date.now()
+        }))
+        .sort((a, b) => b.updatedAt - a.updatedAt)
+        .slice(0, MAX_STORED_SESSIONS);
+
+      if (restored.length === 0) {
+        const initial = buildEmptySession();
+        setSessions([initial]);
+        setActiveSessionId(initial.id);
+        setMessages([]);
+        setThreadId(null);
+        window.localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify([initial]));
+        setHistoryReady(true);
+        return;
+      }
+
+      const active = restored[0];
+      setSessions(restored);
+      setActiveSessionId(active.id);
+      setMessages(active.messages);
+      setThreadId(active.threadId);
+      setHistoryReady(true);
+    } catch {
+      const initial = buildEmptySession();
+      setSessions([initial]);
+      setActiveSessionId(initial.id);
+      setMessages([]);
+      setThreadId(null);
+      setHistoryReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!historyReady || !activeSessionId) return;
+
+    setSessions((prev) => {
+      const now = Date.now();
+      let next = prev.map((session) =>
+        session.id === activeSessionId
+          ? {
+              ...session,
+              title: deriveSessionTitle(messages),
+              threadId,
+              messages,
+              updatedAt: now
+            }
+          : session
+      );
+
+      if (!next.some((session) => session.id === activeSessionId)) {
+        next = [
+          {
+            id: activeSessionId,
+            title: deriveSessionTitle(messages),
+            threadId,
+            messages,
+            updatedAt: now
+          },
+          ...next
+        ];
+      }
+
+      next = next
+        .sort((a, b) => b.updatedAt - a.updatedAt)
+        .slice(0, MAX_STORED_SESSIONS);
+
+      try {
+        window.localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, [activeSessionId, historyReady, messages, threadId]);
+
   const toggleReasoning = (messageId: string) => {
     setMessages((prev) =>
       prev.map((message) =>
@@ -91,10 +252,38 @@ export default function ChatPanel({
     );
   };
 
-  const startStreaming = (messageId: string) => {
+  const selectSession = (sessionId: string) => {
+    const selected = sessions.find((session) => session.id === sessionId);
+    if (!selected) return;
+    setActiveSessionId(selected.id);
+    setMessages(selected.messages);
+    setThreadId(selected.threadId);
+    setError(null);
+  };
+
+  const createNewSession = () => {
+    const nextSession = buildEmptySession();
+    setActiveSessionId(nextSession.id);
+    setMessages([]);
+    setThreadId(null);
+    setError(null);
+    setSessions((prev) => {
+      const next = [nextSession, ...prev]
+        .sort((a, b) => b.updatedAt - a.updatedAt)
+        .slice(0, MAX_STORED_SESSIONS);
+      try {
+        window.localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const startStreaming = (messageId: string, level: ReasoningLevel) => {
     if (streamRef.current) {
       window.clearInterval(streamRef.current);
     }
+
+    const profile = getStreamProfile(level);
 
     streamRef.current = window.setInterval(() => {
       let completed = false;
@@ -115,7 +304,10 @@ export default function ChatPanel({
 
         if (message.streamStage === "reasoning" && message.reasoning) {
           const currentLength = message.displayedReasoning?.length ?? 0;
-          const nextLength = Math.min(currentLength + 4, message.reasoning.length);
+          const nextLength = Math.min(
+            currentLength + profile.reasoningStep,
+            message.reasoning.length
+          );
           const reasoningDone = nextLength >= message.reasoning.length;
 
           next[index] = {
@@ -129,7 +321,10 @@ export default function ChatPanel({
         }
 
         const currentLength = message.displayed.length;
-        const nextLength = Math.min(currentLength + 3, message.content.length);
+        const nextLength = Math.min(
+          currentLength + profile.answerStep,
+          message.content.length
+        );
         const answerDone = nextLength >= message.content.length;
         completed = answerDone;
 
@@ -146,7 +341,7 @@ export default function ChatPanel({
         window.clearInterval(streamRef.current);
         streamRef.current = null;
       }
-    }, 18);
+    }, profile.intervalMs);
   };
 
   const handleSend = async () => {
@@ -162,6 +357,8 @@ export default function ChatPanel({
 
     setIsSending(true);
     setIsThinking(true);
+
+    const streamingLevel = reasoningLevel;
 
     try {
       const recentHistory: ChatRequestHistoryItem[] = [
@@ -179,7 +376,7 @@ export default function ChatPanel({
       const requestBody: Record<string, unknown> = {
         message: trimmed,
         storeHistory: storeHistory && persistenceEnabled,
-        reasoningLevel,
+        reasoningLevel: streamingLevel,
         allowActions: role === "admin" ? allowActions : false,
         history: recentHistory.slice(-14)
       };
@@ -243,9 +440,9 @@ export default function ChatPanel({
           isStreaming: true
         }
       ]);
-      startStreaming(assistantId);
+      startStreaming(assistantId, streamingLevel);
       setThreadId(data?.threadId ?? threadId);
-    } catch (err) {
+    } catch {
       const message = "No se pudo contactar al asistente.";
       setError(message);
       setMessages((prev) => [
@@ -317,48 +514,87 @@ export default function ChatPanel({
                   >
                     <option value="bajo">Bajo · más rápido</option>
                     <option value="medio">Medio · equilibrado</option>
-                    <option value="alto">Alto · más profundo</option>
+                    <option value="alto">Alto · más profundo (más lento)</option>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
-                  <p className="text-[10px] uppercase tracking-[0.26em] text-muted">Permisos</p>
-                  {role === "admin" ? (
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={allowActions}
-                        onChange={(event) => setAllowActions(event.target.checked)}
-                      />
-                      Permitir acciones de edición en la base
-                    </label>
-                  ) : (
-                    <p>Usuario viewer: solo lectura, sin cambios sobre datos.</p>
-                  )}
-                  {role === "admin" ? (
-                    <p className="text-[11px] text-muted">
-                      Estado actual:{" "}
-                      <span className="font-semibold text-text">
-                        {canEditWithAI ? "puede editar" : "solo consulta"}
-                      </span>
-                    </p>
-                  ) : null}
+                  <p className="text-[10px] uppercase tracking-[0.26em] text-muted">
+                    Historial
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                    <Select
+                      value={activeSessionId ?? ""}
+                      onChange={(event) => selectSession(event.target.value)}
+                      disabled={!historyReady || sessions.length === 0}
+                    >
+                      {sessions.length === 0 ? (
+                        <option value="">Sin chats</option>
+                      ) : (
+                        sessions.map((session) => (
+                          <option key={session.id} value={session.id}>
+                            {buildSessionLabel(session)}
+                          </option>
+                        ))
+                      )}
+                    </Select>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={createNewSession}
+                    >
+                      Nuevo chat
+                    </Button>
+                  </div>
                 </div>
               </div>
 
               <div className="mt-3 border-t border-border/60 pt-3">
-                {persistenceEnabled ? (
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={storeHistory}
-                      onChange={(event) => setStoreHistory(event.target.checked)}
-                    />
-                    Guardar historial en Supabase
-                  </label>
-                ) : (
-                  <p>Historial solo local (activar persistencia en env).</p>
-                )}
+                <div className="grid gap-3 lg:grid-cols-2">
+                  <div className="space-y-1">
+                    <p className="text-[10px] uppercase tracking-[0.26em] text-muted">
+                      Permisos
+                    </p>
+                    {role === "admin" ? (
+                      <>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={allowActions}
+                            onChange={(event) => setAllowActions(event.target.checked)}
+                          />
+                          Permitir acciones de edición en la base
+                        </label>
+                        <p className="text-[11px] text-muted">
+                          Estado actual:{" "}
+                          <span className="font-semibold text-text">
+                            {canEditWithAI ? "puede editar" : "solo consulta"}
+                          </span>
+                        </p>
+                      </>
+                    ) : (
+                      <p>Usuario viewer: solo lectura, sin cambios sobre datos.</p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] uppercase tracking-[0.26em] text-muted">
+                      Persistencia
+                    </p>
+                    {persistenceEnabled ? (
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={storeHistory}
+                          onChange={(event) => setStoreHistory(event.target.checked)}
+                        />
+                        Guardar historial en Supabase
+                      </label>
+                    ) : (
+                      <p>Historial local habilitado. Persistencia cloud desactivada en env.</p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -461,8 +697,16 @@ export default function ChatPanel({
                 rows={3}
               />
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <Button variant="outline" size="sm" onClick={() => setMessages([])}>
-                  Limpiar
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setMessages([]);
+                    setThreadId(null);
+                    setError(null);
+                  }}
+                >
+                  Limpiar chat actual
                 </Button>
                 <Button size="sm" onClick={handleSend} disabled={isSending || !input.trim()}>
                   {isSending ? "Enviando..." : "Enviar"}

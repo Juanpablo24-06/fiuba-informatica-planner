@@ -4,7 +4,7 @@ import { z } from "zod";
 import assistantRules from "@/config/assistant-rules.json";
 import { getSessionFromRequest } from "@/lib/auth";
 import { executeAdminActions } from "@/lib/ai/admin-actions";
-import { reasoningLevelSchema } from "@/lib/ai/schemas";
+import { chatAdminActionSchema, reasoningLevelSchema, type ChatAdminAction } from "@/lib/ai/schemas";
 import { getCurrentTerm, getEnrollmentsForTerm, getEventsForTerm, getSubjects, getTerms } from "@/lib/queries";
 import { getWeekRange } from "@/lib/date";
 import { supabaseAdmin } from "@/lib/supabase-admin";
@@ -32,6 +32,193 @@ const reasoningHintByLevel: Record<z.infer<typeof reasoningLevelSchema>, string>
   bajo: "rápido y concreto, sin análisis extenso",
   medio: "equilibrado entre claridad y detalle",
   alto: "profundo, con validaciones y pasos cuidadosos"
+};
+
+const monthMap: Record<string, number> = {
+  enero: 1,
+  febrero: 2,
+  marzo: 3,
+  abril: 4,
+  mayo: 5,
+  junio: 6,
+  julio: 7,
+  agosto: 8,
+  septiembre: 9,
+  setiembre: 9,
+  octubre: 10,
+  noviembre: 11,
+  diciembre: 12
+};
+
+const pad = (value: number) => String(value).padStart(2, "0");
+
+const normalizeText = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
+
+const normalizeTermLabel = (value: string) => {
+  const cleaned = value.trim().replace(/\s+/g, " ");
+  const match = cleaned.match(/^(\d{4})[\s_-]*(0|1|2|v|i)$/i);
+  if (!match) return cleaned;
+  return `${match[1]}-${match[2].toUpperCase()}`;
+};
+
+const inferDateFromPhrase = (
+  phrase: string,
+  fallbackYear: number | null,
+  mode: "start" | "end"
+) => {
+  const normalized = normalizeText(phrase).replace(/[.,]/g, " ");
+  const tokens = normalized.split(/\s+/).filter(Boolean);
+  let year = fallbackYear;
+  let month: number | null = null;
+  let day: number | null = null;
+
+  for (const token of tokens) {
+    if (!year && /^\d{4}$/.test(token)) {
+      year = Number(token);
+      continue;
+    }
+    if (!month && token in monthMap) {
+      month = monthMap[token];
+      continue;
+    }
+    if (!day && /^\d{1,2}$/.test(token)) {
+      const num = Number(token);
+      if (num >= 1 && num <= 31) day = num;
+    }
+  }
+
+  if (!year || !month) return null;
+
+  if (!day) {
+    if (mode === "start") {
+      day = normalized.includes("medio") ? 15 : 1;
+    } else {
+      day =
+        normalized.includes("inicio") || normalized.includes("principio")
+          ? 1
+          : new Date(year, month, 0).getDate();
+    }
+  }
+
+  const maxDay = new Date(year, month, 0).getDate();
+  if (day > maxDay) day = maxDay;
+  return `${year}-${pad(month)}-${pad(day)}`;
+};
+
+const parseActionsFromRaw = (rawActions: unknown): ChatAdminAction[] => {
+  const list = Array.isArray(rawActions) ? rawActions : [];
+  const valid: ChatAdminAction[] = [];
+
+  for (const item of list) {
+    if (!item || typeof item !== "object") continue;
+    const record = item as Record<string, unknown>;
+    const rawType = String(
+      record.type ?? record.action ?? record.kind ?? ""
+    ).trim();
+    if (!rawType) continue;
+
+    const type = rawType.toLowerCase();
+    const mappedType =
+      type === "create_term" || type === "crear_cuatrimestre" || type === "create_semester"
+        ? "create_term"
+        : type === "update_term" || type === "editar_cuatrimestre" || type === "update_semester"
+          ? "update_term"
+          : type === "set_current_term" || type === "set_term_current"
+            ? "set_current_term"
+            : type === "add_enrollment"
+              ? "add_enrollment"
+              : type === "update_enrollment_status"
+                ? "update_enrollment_status"
+                : type === "remove_enrollment"
+                  ? "remove_enrollment"
+                  : rawType;
+
+    const normalized: Record<string, unknown> = {
+      ...record,
+      type: mappedType,
+      term_label: normalizeTermLabel(
+        String(
+          record.term_label ??
+            record.label ??
+            record.term ??
+            record.cuatrimestre ??
+            ""
+        )
+      ),
+      subject_query: String(
+        record.subject_query ?? record.subject ?? record.materia ?? ""
+      ),
+      start_date:
+        record.start_date ??
+        record.start ??
+        record.inicio ??
+        record.from ??
+        null,
+      end_date:
+        record.end_date ??
+        record.end ??
+        record.fin ??
+        record.to ??
+        null
+    };
+
+    const parsed = chatAdminActionSchema.safeParse(normalized);
+    if (parsed.success) {
+      valid.push(parsed.data);
+    }
+  }
+
+  return valid.slice(0, 5);
+};
+
+const inferTermActionFromMessages = (
+  messages: Array<{ role: "user" | "assistant"; content: string }>
+): ChatAdminAction[] => {
+  const userText = messages
+    .filter((message) => message.role === "user")
+    .map((message) => message.content)
+    .join("\n");
+  const normalized = normalizeText(userText);
+  if (!normalized) return [];
+
+  const labelMatch = normalized.match(/\b(20\d{2})\s*[- ]?\s*(0|1|2|v|i)\b/i);
+  if (!labelMatch) return [];
+  const label = `${labelMatch[1]}-${labelMatch[2].toUpperCase()}`;
+  const year = Number(labelMatch[1]);
+
+  const startPhraseMatch =
+    normalized.match(/(?:inicio|inicios|principio|principios)\s+de\s+([a-záéíóúñ]+(?:\s+de\s+\d{4})?)/i) ??
+    normalized.match(/desde\s+([a-záéíóúñ]+(?:\s+de\s+\d{4})?)/i);
+  const endPhraseMatch =
+    normalized.match(/(?:fin|fines|final|finales)\s+de\s+([a-záéíóúñ]+(?:\s+de\s+\d{4})?)/i) ??
+    normalized.match(/hasta\s+([a-záéíóúñ]+(?:\s+de\s+\d{4})?)/i);
+
+  const startDate = startPhraseMatch
+    ? inferDateFromPhrase(startPhraseMatch[1], year, "start")
+    : null;
+  const endDate = endPhraseMatch
+    ? inferDateFromPhrase(endPhraseMatch[1], year, "end")
+    : null;
+
+  const createIntent = /\b(crea|crear|agrega|agregar|anade|añade|nuevo)\b/i.test(normalized);
+  const updateIntent = /\b(actualiza|actualizar|edita|editar|modifica|modificar|cambia|cambiar)\b/i.test(normalized);
+  const actionType: ChatAdminAction["type"] =
+    createIntent || !updateIntent ? "create_term" : "update_term";
+
+  return [
+    {
+      type: actionType,
+      term_label: label,
+      start_date: startDate,
+      end_date: endDate,
+      is_current: /\bactual\b/i.test(normalized) ? true : undefined
+    } satisfies ChatAdminAction
+  ];
 };
 
 const buildPrompt = ({
@@ -238,22 +425,70 @@ export async function POST(request: NextRequest) {
     result = await callAIJSON(repairPrompt, chatResponseSchema);
   }
 
-  if (!result.ok) {
-    return NextResponse.json(
-      {
-        error: "Respuesta AI invalida o incompleta.",
-        details: result.error,
-        needs_review: true
-      },
-      { status: 502 }
-    );
-  }
+  let responseBody:
+    | {
+        answer: string;
+        reasoning: string | null | undefined;
+        follow_up_questions: string[];
+        warnings: string[];
+        actions: unknown;
+        confidence: number | null | undefined;
+        model: string | null | undefined;
+      }
+    | null = null;
+  let requestedActions: ChatAdminAction[] = [];
+  let actionResults: Awaited<ReturnType<typeof executeAdminActions>> = [];
+  let usedFallback = false;
 
-  const requestedActions = result.data.actions ?? [];
-  const actionResults =
-    allowActions && requestedActions.length > 0
-      ? await executeAdminActions(requestedActions)
-      : [];
+  if (result.ok) {
+    responseBody = {
+      answer: result.data.answer,
+      reasoning: result.data.reasoning,
+      follow_up_questions: result.data.follow_up_questions,
+      warnings: result.data.warnings,
+      actions: result.data.actions ?? [],
+      confidence: result.data.confidence,
+      model: result.model
+    };
+    requestedActions = allowActions ? parseActionsFromRaw(responseBody.actions) : [];
+    actionResults =
+      allowActions && requestedActions.length > 0
+        ? await executeAdminActions(requestedActions)
+        : [];
+  } else {
+    usedFallback = true;
+    const inferredActions = allowActions ? inferTermActionFromMessages(recentMessages) : [];
+    requestedActions = inferredActions;
+    actionResults =
+      allowActions && inferredActions.length > 0
+        ? await executeAdminActions(inferredActions)
+        : [];
+
+    const successCount = actionResults.filter((item) => item.ok).length;
+    const failCount = actionResults.length - successCount;
+
+    responseBody = {
+      answer:
+        successCount > 0
+          ? `Listo, apliqué ${successCount} cambio(s) en la base.`
+          : "No pude parsear bien la salida del modelo, pero mantengo el chat activo para reintentar sin perder contexto.",
+      reasoning:
+        "Se activó modo de recuperación por salida no compatible del modelo.",
+      follow_up_questions:
+        successCount > 0
+          ? ["¿Querés que marque este cuatrimestre como actual también?"]
+          : [
+              "Si querés, pasame el cuatrimestre en formato exacto (ej: 2026-2) y fechas YYYY-MM-DD para aplicarlo directo."
+            ],
+      warnings: [
+        `Salida AI inválida recuperada: ${result.error}`,
+        ...(failCount > 0 ? [`Hubo ${failCount} acción(es) que no se pudieron aplicar.`] : [])
+      ],
+      actions: inferredActions,
+      confidence: null,
+      model: "fallback-recovery"
+    };
+  }
 
   const persistenceEnabled = process.env.CHAT_PERSISTENCE_ENABLED === "true";
   const shouldStore = persistenceEnabled && parsed.data.storeHistory;
@@ -282,16 +517,16 @@ export async function POST(request: NextRequest) {
         {
           thread_id: threadId,
           role: "assistant",
-          content: result.data.answer,
+          content: responseBody.answer,
           metadata: {
             reasoning_level: reasoningLevel,
             allow_actions: allowActions,
-            follow_up_questions: result.data.follow_up_questions,
-            warnings: result.data.warnings,
+            follow_up_questions: responseBody.follow_up_questions,
+            warnings: responseBody.warnings,
             actions_requested: requestedActions,
             action_results: actionResults,
-            confidence: result.data.confidence ?? null,
-            reasoning: result.data.reasoning ?? null
+            confidence: responseBody.confidence ?? null,
+            reasoning: responseBody.reasoning ?? null
           }
         }
       ]);
@@ -300,8 +535,17 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    response: { ...result.data, model: result.model },
+    response: {
+      answer: responseBody.answer,
+      reasoning: responseBody.reasoning ?? null,
+      follow_up_questions: responseBody.follow_up_questions,
+      warnings: responseBody.warnings,
+      actions: requestedActions,
+      confidence: responseBody.confidence ?? null,
+      model: responseBody.model ?? null
+    },
     actionResults,
+    usedFallback,
     capabilities: {
       role: session.role,
       allowActions,
