@@ -62,7 +62,7 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
   }, []);
 
   return (
-    <header ref={headerRef} className="sticky top-0 z-40 border-b border-border/50 bg-canvas/92 backdrop-blur-xl">
+    <header ref={headerRef} className="sticky top-0 z-40 border-b border-border/60 bg-surface/97 shadow-[0_1px_8px_rgb(var(--shadow-color)/0.08)] backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-[1360px] items-center justify-between gap-4 px-6 py-4">
         <div className="flex items-center gap-3">
           <BrandLogo />

@@ -65,24 +65,18 @@ const modelOptions: Record<
   Array<{ value: string; label: string }>
 > = {
   cerebras: [
-    { value: "", label: "Modelo por defecto (env)" },
     { value: "openai/gpt-oss-120b", label: "gpt-oss-120b" },
-    { value: "openai/gpt-oss-20b", label: "gpt-oss-20b" },
-    { value: CUSTOM_MODEL_VALUE, label: "Personalizado..." }
+    { value: "openai/gpt-oss-20b", label: "gpt-oss-20b" }
   ],
   nvidia: [
-    { value: "", label: "Modelo por defecto (env)" },
     { value: "z-ai/glm4.7", label: "GLM 4.7" },
     { value: "z-ai/glm5", label: "GLM 5" },
-    { value: "minimaxai/minimax-m2.5", label: "MiniMax M2.5" },
-    { value: CUSTOM_MODEL_VALUE, label: "Personalizado..." }
+    { value: "minimaxai/minimax-m2.5", label: "MiniMax M2.5" }
   ],
   gemini: [
-    { value: "", label: "Modelo por defecto (env)" },
     { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
     { value: "gemini-2.0-flash-lite", label: "Gemini 2.0 Flash Lite" },
-    { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
-    { value: CUSTOM_MODEL_VALUE, label: "Personalizado..." }
+    { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro" }
   ]
 };
 
@@ -169,17 +163,15 @@ const InlineToggle = ({
       {description ? <p className="mt-0.5 text-[11px] text-muted">{description}</p> : null}
     </div>
     <span
-      className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border transition ${
-        checked
-          ? "border-accent/40 bg-accent/25"
-          : "border-border/80 bg-surface-2"
-      }`}
+      className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border transition ${checked
+        ? "border-accent/40 bg-accent/25"
+        : "border-border/80 bg-surface-2"
+        }`}
       aria-hidden="true"
     >
       <span
-        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition ${
-          checked ? "left-[1.35rem]" : "left-0.5"
-        }`}
+        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition ${checked ? "left-[1.35rem]" : "left-0.5"
+          }`}
       />
     </span>
   </button>
@@ -201,18 +193,16 @@ export default function ChatPanel({
   const [threadId, setThreadId] = useState<string | null>(null);
   const [storeHistory, setStoreHistory] = useState(persistenceEnabled);
   const [reasoningLevel, setReasoningLevel] = useState<ReasoningLevel>("medio");
-  const [showReasoningControl, setShowReasoningControl] = useState(false);
-  const [provider, setProvider] = useState<AIProvider>("auto");
-  const [selectedModel, setSelectedModel] = useState("");
+  const [provider, setProvider] = useState<AIProvider>("cerebras");
+  const [selectedModel, setSelectedModel] = useState("openai/gpt-oss-120b");
   const [customModel, setCustomModel] = useState("");
-  const [allowActions, setAllowActions] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [historyReady, setHistoryReady] = useState(false);
   const streamRef = useRef<number | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  const canEditWithAI = role === "admin" && allowActions;
+  const canEditWithAI = role === "admin";
   const modelSelectionEnabled = provider !== "auto";
   const providerModelOptions = provider === "auto" ? [] : modelOptions[provider];
   const selectedModelOverride =
@@ -266,14 +256,14 @@ export default function ChatPanel({
       const raw = window.localStorage.getItem(CHAT_HISTORY_KEY);
       const restored = raw
         ? (JSON.parse(raw) as ChatSession[])
-            .filter((item) => item && typeof item.id === "string")
-            .map((item) => ({
-              id: item.id,
-              title: item.title || "Chat sin título",
-              threadId: item.threadId ?? null,
-              messages: Array.isArray(item.messages) ? item.messages : [],
-              updatedAt: Number(item.updatedAt) || Date.now()
-            }))
+          .filter((item) => item && typeof item.id === "string")
+          .map((item) => ({
+            id: item.id,
+            title: item.title || "Chat sin título",
+            threadId: item.threadId ?? null,
+            messages: Array.isArray(item.messages) ? item.messages : [],
+            updatedAt: Number(item.updatedAt) || Date.now()
+          }))
         : [];
 
       const nonEmptyHistory = restored
@@ -309,12 +299,12 @@ export default function ChatPanel({
       let next = prev.map((session) =>
         session.id === activeSessionId
           ? {
-              ...session,
-              title: deriveSessionTitle(messages),
-              threadId,
-              messages,
-              updatedAt: now
-            }
+            ...session,
+            title: deriveSessionTitle(messages),
+            threadId,
+            messages,
+            updatedAt: now
+          }
           : session
       );
 
@@ -342,7 +332,7 @@ export default function ChatPanel({
 
       try {
         window.localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(next));
-      } catch {}
+      } catch { }
       return next;
     });
   }, [activeSessionId, historyReady, messages, threadId]);
@@ -385,7 +375,7 @@ export default function ChatPanel({
         .slice(0, MAX_STORED_SESSIONS);
       try {
         window.localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(next));
-      } catch {}
+      } catch { }
       return next;
     });
   };
@@ -402,7 +392,7 @@ export default function ChatPanel({
       setError(null);
       try {
         window.localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(normalized));
-      } catch {}
+      } catch { }
       return normalized;
     });
   };
@@ -552,7 +542,7 @@ export default function ChatPanel({
 
       const reasoning =
         typeof data?.response?.reasoning === "string" &&
-        data.response.reasoning.trim().length > 0
+          data.response.reasoning.trim().length > 0
           ? data.response.reasoning.trim()
           : null;
 
@@ -610,100 +600,20 @@ export default function ChatPanel({
       </DialogTrigger>
       <DialogContent className="h-[84svh] w-[94vw] max-w-[920px] overflow-hidden rounded-[2.1rem] border border-border/75 bg-surface p-0">
         <div className="flex h-full flex-col">
-          <DialogHeader className="space-y-0 border-b border-border/60 px-5 py-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <DialogTitle className="text-[1.3rem] leading-tight">Synapse IA</DialogTitle>
-                <p className="mt-0.5 text-xs text-muted">
-                  Contexto FIUBA · {role === "admin" ? "modo admin" : "modo lectura"}
-                </p>
+          <DialogHeader className="space-y-0 border-b border-border/60 px-5 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <DialogTitle className="text-base font-semibold leading-tight whitespace-nowrap">Synapse IA</DialogTitle>
 
-                <div className="mt-2 grid max-w-[560px] gap-2 sm:grid-cols-2">
-                  <Select
-                    value={provider}
-                    onChange={(event) => setProvider(event.target.value as AIProvider)}
-                    className="h-9 rounded-xl py-1.5 text-xs"
-                  >
-                    <option value="auto">Proveedor: Auto</option>
-                    <option value="cerebras">Proveedor: Cerebras</option>
-                    <option value="nvidia">Proveedor: NVIDIA</option>
-                    <option value="gemini">Proveedor: Gemini</option>
-                  </Select>
-
-                  <Select
-                    value={selectedModel}
-                    onChange={(event) => setSelectedModel(event.target.value)}
-                    className="h-9 rounded-xl py-1.5 text-xs"
-                    disabled={!modelSelectionEnabled}
-                  >
-                    {!modelSelectionEnabled ? (
-                      <option value="">Modelo: automático por proveedor</option>
-                    ) : (
-                      providerModelOptions.map((option) => (
-                        <option key={`${provider}-${option.value || "default"}`} value={option.value}>
-                          Modelo: {option.label}
-                        </option>
-                      ))
-                    )}
-                  </Select>
-                </div>
-
-                {modelSelectionEnabled && selectedModel === CUSTOM_MODEL_VALUE ? (
-                  <input
-                    type="text"
-                    value={customModel}
-                    onChange={(event) => setCustomModel(event.target.value)}
-                    className="mt-2 h-9 w-full max-w-[560px] rounded-xl border border-border/70 bg-surface px-3 text-xs text-text outline-none transition focus:border-accent/60"
-                    placeholder="Ej: z-ai/glm5"
-                  />
-                ) : null}
-
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[11px] text-accent">
-                    Activo: {providerLabels[provider]}
-                    {modelSelectionEnabled && selectedModelOverride
-                      ? ` · ${selectedModelOverride}`
-                      : ""}
-                  </span>
-                  {role === "admin" ? (
-                    <span className="rounded-full border border-border/70 bg-surface px-2.5 py-1 text-[11px] text-muted">
-                      {canEditWithAI ? "Permiso: edición" : "Permiso: solo consulta"}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {isThinking || hasLiveReasoning ? (
-                  <div className="flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-3 py-1 text-[11px] text-accent">
-                    <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
-                    {hasLiveReasoning ? "Razonando en vivo" : "Consultando"}
-                  </div>
-                ) : null}
-                <DialogClose asChild>
-                  <button
-                    type="button"
-                    className="rounded-full border border-border/70 bg-surface-2 p-2 text-muted transition hover:text-text"
-                    aria-label="Cerrar Synapse"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </DialogClose>
-              </div>
-            </div>
-          </DialogHeader>
-
-          <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-5 py-4 text-sm">
-            <div className="rounded-2xl border border-border/70 bg-surface-2/95 p-2.5 text-xs text-muted">
-              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
                 <Select
+                  hideChevron
                   value={activeSessionId ?? ""}
                   onChange={(event) => selectSession(event.target.value)}
                   disabled={!historyReady || sessions.length === 0}
-                  className="h-9 rounded-xl py-1.5 text-xs"
+                  className="h-7 w-[130px] shrink-0 rounded-lg px-2 py-0 text-[10px] bg-surface-2/80 text-muted transition border-border/40"
                 >
                   {sessions.length === 0 ? (
-                    <option value="">Historial: sin chats</option>
+                    <option value="">Sin chats</option>
                   ) : (
                     sessions.map((session) => (
                       <option key={session.id} value={session.id}>
@@ -712,55 +622,63 @@ export default function ChatPanel({
                     ))
                   )}
                 </Select>
-
-                <Button
+                <button
                   type="button"
-                  size="sm"
-                  variant="outline"
                   onClick={createNewSession}
-                  className="h-9 px-3"
+                  className="shrink-0 rounded-lg border border-border/40 bg-surface-2/80 px-1.5 py-0.5 text-[10px] text-muted transition hover:text-text"
                 >
-                  Nuevo
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={deleteActiveSession}
-                  disabled={!activeSessionId}
-                  className="h-9 px-2.5 text-[11px]"
-                >
-                  Borrar
-                </Button>
+                  +
+                </button>
+
+                {isThinking || hasLiveReasoning ? (
+                  <div className="flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-[10px] text-accent">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+                    {hasLiveReasoning ? "Razonando" : "Pensando"}
+                  </div>
+                ) : null}
               </div>
 
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {role === "admin" ? (
-                  <InlineToggle
-                    checked={allowActions}
-                    onChange={setAllowActions}
-                    label="Permitir acciones de edición"
-                    description={canEditWithAI ? "La IA puede aplicar cambios." : "La IA solo consulta."}
-                  />
-                ) : (
-                  <div className="rounded-2xl border border-border/70 bg-surface px-3 py-2 text-[11px] text-muted">
-                    Usuario viewer: solo lectura.
-                  </div>
-                )}
-                <InlineToggle
-                  checked={storeHistory}
-                  onChange={setStoreHistory}
-                  label="Guardar historial en Supabase"
-                  description={
-                    persistenceEnabled
-                      ? "Disponible para continuidad entre sesiones."
-                      : "Desactivado por configuración del entorno."
-                  }
-                  disabled={!persistenceEnabled}
-                />
+              <div className="flex items-center gap-2">
+                <Select
+                  hideChevron
+                  value={`${provider}:${selectedModel}`}
+                  onChange={(event) => {
+                    const [newProvider, newModel] = event.target.value.split(":") as [AIProvider, string];
+                    setProvider(newProvider);
+                    setSelectedModel(newModel);
+                  }}
+                  className="h-7 rounded-lg px-2 py-0 text-[10px] bg-surface-2/80 text-muted hover:text-text transition border-border/40"
+                >
+                  <optgroup label="Cerebras">
+                    {modelOptions.cerebras.map((option) => (
+                      <option key={`cerebras:${option.value}`} value={`cerebras:${option.value}`}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="NVIDIA">
+                    {modelOptions.nvidia.map((option) => (
+                      <option key={`nvidia:${option.value}`} value={`nvidia:${option.value}`}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                </Select>
+
+                <DialogClose asChild>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-lg border border-border/40 bg-surface-2/80 p-1.5 text-muted transition hover:text-text"
+                    aria-label="Cerrar Synapse"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </DialogClose>
               </div>
             </div>
+          </DialogHeader>
 
+          <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-5 py-4 text-sm">
             {messages.length === 0 ? (
               <div className="rounded-3xl border border-border/70 bg-surface-2 p-4 text-xs text-muted">
                 Preguntá por tu semana, parciales o prioridades. Si sos admin, podés habilitar acciones para que Synapse aplique cambios.
@@ -850,88 +768,39 @@ export default function ChatPanel({
             ) : null}
           </div>
 
-          <div className="border-t border-border/60 px-6 py-5">
-            <div className="space-y-2">
-              <Textarea
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Ej: ¿Qué parciales tengo esta semana?"
-                rows={3}
-              />
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
+          <div className="border-t border-border/60 px-5 py-3">
+            <div className="flex items-end gap-3">
+              <div className="flex flex-col gap-1.5">
+                {reasoningByIndex.map((level) => (
+                  <button
+                    key={level}
                     type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setShowReasoningControl((prev) => !prev)}
-                    className="h-8 rounded-full border border-border/70 bg-surface px-3 text-[11px]"
+                    onClick={() => setReasoningLevel(level)}
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-all duration-200 border whitespace-nowrap ${reasoningLevel === level
+                      ? "bg-accent/15 text-accent border-accent/40"
+                      : "text-muted hover:text-text border-transparent hover:border-border/50"
+                      }`}
                   >
-                    <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />
-                    Razonamiento: {reasoningLabelByLevel[reasoningLevel]}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setMessages([]);
-                      setThreadId(null);
-                      setError(null);
-                    }}
-                  >
-                    Limpiar chat actual
-                  </Button>
-                </div>
-                <Button size="sm" onClick={handleSend} disabled={isSending || !input.trim()}>
-                  {isSending ? "Enviando..." : "Enviar"}
-                </Button>
+                    {reasoningLabelByLevel[level]}
+                  </button>
+                ))}
               </div>
-
-              {showReasoningControl ? (
-                <div className="rounded-2xl border border-border/70 bg-surface-2/90 px-3 py-2.5">
-                  <div className="flex items-center justify-between gap-2 text-[11px]">
-                    <p className="uppercase tracking-[0.2em] text-muted">
-                      Nivel de razonamiento
-                    </p>
-                    <span className="inline-flex items-center gap-1 rounded-full border border-accent/35 bg-accent/12 px-2 py-0.5 text-accent">
-                      <Gauge className="h-3.5 w-3.5" />
-                      {reasoningLabelByLevel[reasoningLevel]}
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={2}
-                    step={1}
-                    value={reasoningIndex}
-                    onChange={(event) => handleReasoningSlider(Number(event.target.value))}
-                    className="ai-range mt-2.5 w-full"
-                    aria-label="Nivel de razonamiento"
-                  />
-                  <div className="mt-2 flex items-center justify-between text-[11px]">
-                    {reasoningByIndex.map((level) => (
-                      <button
-                        key={level}
-                        type="button"
-                        onClick={() => setReasoningLevel(level)}
-                        className={`rounded-full px-2 py-0.5 transition ${
-                          reasoningLevel === level
-                            ? "bg-accent/15 text-accent"
-                            : "text-muted hover:text-text"
-                        }`}
-                      >
-                        {reasoningLabelByLevel[level]}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="mt-1.5 text-[11px] text-muted">{reasoningHint}</p>
-                </div>
-              ) : null}
+              <div className="flex flex-1 flex-col gap-2">
+                <Textarea
+                  value={input}
+                  onChange={(event) => setInput(event.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Preguntá sobre parciales, horarios, correlativas..."
+                  rows={2}
+                />
+              </div>
+              <Button size="sm" onClick={handleSend} disabled={isSending || !input.trim()} className="shrink-0">
+                {isSending ? "..." : "Enviar"}
+              </Button>
             </div>
           </div>
         </div>
       </DialogContent>
-    </Dialog>
+    </Dialog >
   );
 }
