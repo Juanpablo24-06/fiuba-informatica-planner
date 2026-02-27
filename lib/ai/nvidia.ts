@@ -2,28 +2,82 @@ import { z } from "zod";
 
 const DEFAULT_NVIDIA_MODEL = "z-ai/glm4.7";
 
-const modelAliasMap: Record<string, string[]> = {
-  "z-ai/glm4.7": ["z-ai/glm-4.7", "z-ai/glm47"],
-  "z-ai/glm5": ["z-ai/glm-5"],
-  "minimaxai/minimax-m2": ["minimaxai/minimax-m2.5", "MiniMaxAI/MiniMax-M2.5"]
-};
+const MODEL_GROUPS: Array<{ aliases: string[]; candidates: string[] }> = [
+  {
+    aliases: [
+      "z-ai/glm4.7",
+      "z-ai/glm4_7",
+      "z-ai/glm-4.7",
+      "glm4.7",
+      "glm-4.7",
+      "zai-org/glm-4.7",
+      "zai-org/glm4.7"
+    ],
+    candidates: [
+      "z-ai/glm4.7",
+      "z-ai/glm4_7",
+      "zai-org/GLM-4.7",
+      "zai-org/glm-4.7"
+    ]
+  },
+  {
+    aliases: [
+      "z-ai/glm5",
+      "z-ai/glm-5",
+      "glm5",
+      "glm-5",
+      "zai-org/glm-5",
+      "zai-org/glm5"
+    ],
+    candidates: [
+      "z-ai/glm5",
+      "zai-org/GLM-5",
+      "zai-org/glm-5"
+    ]
+  },
+  {
+    aliases: [
+      "minimaxai/minimax-m2.5",
+      "minimax-m2.5",
+      "m2.5",
+      "minimaxai/minimax-m2.1",
+      "minimax-m2.1",
+      "m2.1",
+      "minimaxai/minimax-m2",
+      "minimax-m2",
+      "m2"
+    ],
+    candidates: [
+      "minimaxai/minimax-m2.5",
+      "minimaxai/minimax-m2.1",
+      "minimaxai/minimax-m2"
+    ]
+  }
+];
 
 const normalizeModelName = (value: string) => value.trim().toLowerCase();
 
 const buildModelCandidates = (rawModel: string) => {
-  const normalized = normalizeModelName(rawModel);
-  const directAliases = modelAliasMap[normalized] ?? [];
+  const typed = rawModel.trim();
+  const normalized = normalizeModelName(typed);
+  const matchedGroup = MODEL_GROUPS.find((group) =>
+    group.aliases.some((alias) => normalizeModelName(alias) === normalized)
+  );
 
-  const canonical = Object.entries(modelAliasMap).find(([, aliases]) =>
-    aliases.some((alias) => normalizeModelName(alias) === normalized)
-  )?.[0];
+  const candidates = [typed, ...(matchedGroup?.candidates ?? [])];
+  const deduped: string[] = [];
+  const seen = new Set<string>();
 
-  const candidates = [
-    canonical ?? normalized,
-    ...directAliases.map((alias) => normalizeModelName(alias))
-  ];
+  for (const candidate of candidates) {
+    const trimmed = candidate.trim();
+    if (!trimmed) continue;
+    const key = normalizeModelName(trimmed);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(trimmed);
+  }
 
-  return Array.from(new Set(candidates));
+  return deduped;
 };
 
 const getNvidiaConfig = (modelOverride?: string) => {

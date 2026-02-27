@@ -74,7 +74,7 @@ const modelOptions: Record<
     { value: "", label: "Modelo por defecto (env)" },
     { value: "z-ai/glm4.7", label: "GLM 4.7" },
     { value: "z-ai/glm5", label: "GLM 5" },
-    { value: "minimaxai/minimax-m2", label: "MiniMax M2" },
+    { value: "minimaxai/minimax-m2.5", label: "MiniMax M2.5" },
     { value: CUSTOM_MODEL_VALUE, label: "Personalizado..." }
   ],
   gemini: [

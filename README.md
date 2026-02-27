@@ -58,7 +58,7 @@ openssl rand -base64 32
 ### 3.1) AI + Chat (opcional)
 1. Configurar proveedor AI:
    - `CEREBRAS_API_KEY` + `CEREBRAS_MODEL` (ej: `gpt-oss-*`) **o**
-   - `NVIDIA_API_KEY` + `NVIDIA_MODEL` (ej: `z-ai/glm4.7`, `z-ai/glm5`, `minimaxai/minimax-m2`) **o**
+   - `NVIDIA_API_KEY` + `NVIDIA_MODEL` (ej: `z-ai/glm4.7`, `z-ai/glm5`, `minimaxai/minimax-m2.5`) **o**
    - `GEMINI_API_KEY` (+ opcional `GEMINI_MODEL` / `GEMINI_API_URL`).
 2. Poblar `calendar_events_raw` con eventos (manual o via job futuro).
 3. Enriquecer con `POST /api/ai/enrich-calendar` (admin).
