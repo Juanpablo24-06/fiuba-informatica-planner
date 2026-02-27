@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Gauge, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import { Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select } from "@/components/ui/select";
@@ -51,14 +51,6 @@ type StreamProfile = {
 const persistenceEnabled = process.env.NEXT_PUBLIC_CHAT_PERSISTENCE === "true";
 const CHAT_HISTORY_KEY = "synapse-chat-history-v2";
 const MAX_STORED_SESSIONS = 16;
-const CUSTOM_MODEL_VALUE = "__custom__";
-
-const providerLabels: Record<AIProvider, string> = {
-  auto: "Auto",
-  cerebras: "Cerebras",
-  nvidia: "NVIDIA",
-  gemini: "Gemini"
-};
 
 const modelOptions: Record<
   Exclude<AIProvider, "auto">,
@@ -78,12 +70,6 @@ const modelOptions: Record<
     { value: "gemini-2.0-flash-lite", label: "Gemini 2.0 Flash Lite" },
     { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro" }
   ]
-};
-
-const reasoningIndexByLevel: Record<ReasoningLevel, number> = {
-  bajo: 0,
-  medio: 1,
-  alto: 2
 };
 
 const reasoningByIndex: ReasoningLevel[] = ["bajo", "medio", "alto"];
@@ -139,44 +125,6 @@ const buildSessionLabel = (session: ChatSession) => {
   return `${date} · ${session.title}`;
 };
 
-const InlineToggle = ({
-  checked,
-  onChange,
-  label,
-  description,
-  disabled = false
-}: {
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  label: string;
-  description?: string;
-  disabled?: boolean;
-}) => (
-  <button
-    type="button"
-    onClick={() => !disabled && onChange(!checked)}
-    disabled={disabled}
-    className="flex w-full items-center justify-between gap-3 rounded-2xl border border-border/70 bg-surface px-3 py-2 text-left text-xs text-text transition hover:border-accent/40 disabled:cursor-not-allowed disabled:opacity-60"
-  >
-    <div>
-      <p className="font-medium">{label}</p>
-      {description ? <p className="mt-0.5 text-[11px] text-muted">{description}</p> : null}
-    </div>
-    <span
-      className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border transition ${checked
-        ? "border-accent/40 bg-accent/25"
-        : "border-border/80 bg-surface-2"
-        }`}
-      aria-hidden="true"
-    >
-      <span
-        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition ${checked ? "left-[1.35rem]" : "left-0.5"
-          }`}
-      />
-    </span>
-  </button>
-);
-
 export default function ChatPanel({
   trigger,
   role = "viewer"
@@ -191,11 +139,10 @@ export default function ChatPanel({
   const [isThinking, setIsThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
-  const [storeHistory, setStoreHistory] = useState(persistenceEnabled);
+  const storeHistory = persistenceEnabled;
   const [reasoningLevel, setReasoningLevel] = useState<ReasoningLevel>("medio");
   const [provider, setProvider] = useState<AIProvider>("cerebras");
   const [selectedModel, setSelectedModel] = useState("openai/gpt-oss-120b");
-  const [customModel, setCustomModel] = useState("");
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [historyReady, setHistoryReady] = useState(false);
@@ -203,19 +150,7 @@ export default function ChatPanel({
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const canEditWithAI = role === "admin";
-  const modelSelectionEnabled = provider !== "auto";
-  const providerModelOptions = provider === "auto" ? [] : modelOptions[provider];
-  const selectedModelOverride =
-    selectedModel === CUSTOM_MODEL_VALUE
-      ? customModel.trim()
-      : selectedModel.trim();
-  const reasoningIndex = reasoningIndexByLevel[reasoningLevel];
-  const reasoningHint =
-    reasoningLevel === "alto"
-      ? "Análisis más profundo, respuesta más lenta."
-      : reasoningLevel === "medio"
-        ? "Balance entre velocidad y detalle."
-        : "Respuesta rápida con síntesis corta.";
+  const selectedModelOverride = selectedModel.trim();
   const hasLiveReasoning = messages.some(
     (message) =>
       message.role === "assistant" &&
@@ -239,17 +174,6 @@ export default function ChatPanel({
       behavior: "smooth"
     });
   }, [messages, isThinking]);
-
-  const handleReasoningSlider = (value: number) => {
-    const safeValue = Math.min(2, Math.max(0, Math.round(value)));
-    const nextLevel = reasoningByIndex[safeValue] ?? "medio";
-    setReasoningLevel(nextLevel);
-  };
-
-  useEffect(() => {
-    setSelectedModel("");
-    setCustomModel("");
-  }, [provider]);
 
   useEffect(() => {
     try {
@@ -497,7 +421,7 @@ export default function ChatPanel({
         storeHistory: storeHistory && persistenceEnabled,
         reasoningLevel: streamingLevel,
         provider,
-        allowActions: role === "admin" ? allowActions : false,
+        allowActions: canEditWithAI,
         history: recentHistory.slice(-14)
       };
       if (provider !== "auto" && selectedModelOverride) {
