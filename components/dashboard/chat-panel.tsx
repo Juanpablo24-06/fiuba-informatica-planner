@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Sparkles, X } from "lucide-react";
+import { Gauge, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select } from "@/components/ui/select";
@@ -86,6 +86,20 @@ const modelOptions: Record<
   ]
 };
 
+const reasoningIndexByLevel: Record<ReasoningLevel, number> = {
+  bajo: 0,
+  medio: 1,
+  alto: 2
+};
+
+const reasoningByIndex: ReasoningLevel[] = ["bajo", "medio", "alto"];
+
+const reasoningLabelByLevel: Record<ReasoningLevel, string> = {
+  bajo: "Bajo",
+  medio: "Medio",
+  alto: "Alto"
+};
+
 const buildId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
 const getStreamProfile = (level: ReasoningLevel): StreamProfile => {
@@ -131,6 +145,46 @@ const buildSessionLabel = (session: ChatSession) => {
   return `${date} · ${session.title}`;
 };
 
+const InlineToggle = ({
+  checked,
+  onChange,
+  label,
+  description,
+  disabled = false
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label: string;
+  description?: string;
+  disabled?: boolean;
+}) => (
+  <button
+    type="button"
+    onClick={() => !disabled && onChange(!checked)}
+    disabled={disabled}
+    className="flex w-full items-center justify-between gap-3 rounded-2xl border border-border/70 bg-surface px-3 py-2 text-left text-xs text-text transition hover:border-accent/40 disabled:cursor-not-allowed disabled:opacity-60"
+  >
+    <div>
+      <p className="font-medium">{label}</p>
+      {description ? <p className="mt-0.5 text-[11px] text-muted">{description}</p> : null}
+    </div>
+    <span
+      className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border transition ${
+        checked
+          ? "border-accent/40 bg-accent/25"
+          : "border-border/80 bg-surface-2"
+      }`}
+      aria-hidden="true"
+    >
+      <span
+        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition ${
+          checked ? "left-[1.35rem]" : "left-0.5"
+        }`}
+      />
+    </span>
+  </button>
+);
+
 export default function ChatPanel({
   trigger,
   role = "viewer"
@@ -147,6 +201,7 @@ export default function ChatPanel({
   const [threadId, setThreadId] = useState<string | null>(null);
   const [storeHistory, setStoreHistory] = useState(persistenceEnabled);
   const [reasoningLevel, setReasoningLevel] = useState<ReasoningLevel>("medio");
+  const [showReasoningControl, setShowReasoningControl] = useState(false);
   const [provider, setProvider] = useState<AIProvider>("auto");
   const [selectedModel, setSelectedModel] = useState("");
   const [customModel, setCustomModel] = useState("");
@@ -164,6 +219,13 @@ export default function ChatPanel({
     selectedModel === CUSTOM_MODEL_VALUE
       ? customModel.trim()
       : selectedModel.trim();
+  const reasoningIndex = reasoningIndexByLevel[reasoningLevel];
+  const reasoningHint =
+    reasoningLevel === "alto"
+      ? "Análisis más profundo, respuesta más lenta."
+      : reasoningLevel === "medio"
+        ? "Balance entre velocidad y detalle."
+        : "Respuesta rápida con síntesis corta.";
   const hasLiveReasoning = messages.some(
     (message) =>
       message.role === "assistant" &&
@@ -187,6 +249,12 @@ export default function ChatPanel({
       behavior: "smooth"
     });
   }, [messages, isThinking]);
+
+  const handleReasoningSlider = (value: number) => {
+    const safeValue = Math.min(2, Math.max(0, Math.round(value)));
+    const nextLevel = reasoningByIndex[safeValue] ?? "medio";
+    setReasoningLevel(nextLevel);
+  };
 
   useEffect(() => {
     setSelectedModel("");
@@ -462,11 +530,9 @@ export default function ChatPanel({
 
       const data = await response.json().catch(() => null);
       if (!response.ok) {
-        const message = data?.error
-          ? data?.details
-            ? `${data.error} (${data.details})`
-            : data.error
-          : "No se pudo responder.";
+        const message = [data?.error, data?.details, data?.instructions]
+          .filter((part) => typeof part === "string" && part.trim().length > 0)
+          .join(" · ") || "No se pudo responder.";
         setError(message);
         setMessages((prev) => [
           ...prev,
@@ -569,28 +635,16 @@ export default function ChatPanel({
           </DialogHeader>
 
           <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-6 py-5 text-sm">
-            <div className="rounded-2xl border border-border/70 bg-surface-2 p-3 text-xs text-muted">
-              <div className="grid gap-3 lg:grid-cols-2">
-                <div>
+            <div className="rounded-2xl border border-border/70 bg-surface-2/95 p-3 text-xs text-muted">
+              <div className="grid gap-3 lg:grid-cols-[1.1fr_1fr]">
+                <div className="rounded-2xl border border-border/65 bg-surface/85 p-3">
                   <p className="text-[10px] uppercase tracking-[0.26em] text-muted">
-                    Nivel de razonamiento
+                    Motor AI
                   </p>
-                  <Select
-                    value={reasoningLevel}
-                    onChange={(event) =>
-                      setReasoningLevel(event.target.value as ReasoningLevel)
-                    }
-                    className="mt-1.5"
-                  >
-                    <option value="bajo">Bajo · más rápido</option>
-                    <option value="medio">Medio · equilibrado</option>
-                    <option value="alto">Alto · más profundo (más lento)</option>
-                  </Select>
-
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
                     <div>
-                      <p className="text-[10px] uppercase tracking-[0.26em] text-muted">
-                        Proveedor AI
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-muted">
+                        Proveedor
                       </p>
                       <Select
                         value={provider}
@@ -607,7 +661,7 @@ export default function ChatPanel({
                     </div>
 
                     <div>
-                      <p className="text-[10px] uppercase tracking-[0.26em] text-muted">
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-muted">
                         Modelo
                       </p>
                       <Select
@@ -617,10 +671,13 @@ export default function ChatPanel({
                         disabled={!modelSelectionEnabled}
                       >
                         {!modelSelectionEnabled ? (
-                          <option value="">Automático por proveedor disponible</option>
+                          <option value="">Automático por proveedor</option>
                         ) : (
                           providerModelOptions.map((option) => (
-                            <option key={`${provider}-${option.value || "default"}`} value={option.value}>
+                            <option
+                              key={`${provider}-${option.value || "default"}`}
+                              value={option.value}
+                            >
                               {option.label}
                             </option>
                           ))
@@ -640,100 +697,91 @@ export default function ChatPanel({
                       />
                     </div>
                   ) : null}
-                  <p className="mt-2 text-[11px] text-muted">
-                    Activo: {providerLabels[provider]}
-                    {modelSelectionEnabled && selectedModelOverride
-                      ? ` · ${selectedModelOverride}`
-                      : ""}
-                  </p>
-                </div>
 
-                <div className="space-y-2">
-                  <p className="text-[10px] uppercase tracking-[0.26em] text-muted">
-                    Historial
-                  </p>
-                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-                    <Select
-                      value={activeSessionId ?? ""}
-                      onChange={(event) => selectSession(event.target.value)}
-                      disabled={!historyReady || sessions.length === 0}
-                    >
-                      {sessions.length === 0 ? (
-                        <option value="">Sin chats</option>
-                      ) : (
-                        sessions.map((session) => (
-                          <option key={session.id} value={session.id}>
-                            {buildSessionLabel(session)}
-                          </option>
-                        ))
-                      )}
-                    </Select>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={createNewSession}
-                    >
-                      Nuevo chat
-                    </Button>
-                  </div>
-                  <div className="flex justify-end">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={deleteActiveSession}
-                      disabled={!activeSessionId}
-                    >
-                      Borrar chat actual
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-3 border-t border-border/60 pt-3">
-                <div className="grid gap-3 lg:grid-cols-2">
-                  <div className="space-y-1">
-                    <p className="text-[10px] uppercase tracking-[0.26em] text-muted">
-                      Permisos
-                    </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[11px] text-accent">
+                      Activo: {providerLabels[provider]}
+                      {modelSelectionEnabled && selectedModelOverride
+                        ? ` · ${selectedModelOverride}`
+                        : ""}
+                    </span>
                     {role === "admin" ? (
-                      <>
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={allowActions}
-                            onChange={(event) => setAllowActions(event.target.checked)}
-                          />
-                          Permitir acciones de edición en la base
-                        </label>
-                        <p className="text-[11px] text-muted">
-                          Estado actual:{" "}
-                          <span className="font-semibold text-text">
-                            {canEditWithAI ? "puede editar" : "solo consulta"}
-                          </span>
-                        </p>
-                      </>
-                    ) : (
-                      <p>Usuario viewer: solo lectura, sin cambios sobre datos.</p>
-                    )}
+                      <span className="rounded-full border border-border/70 bg-surface px-2.5 py-1 text-[11px] text-muted">
+                        {canEditWithAI ? "Permiso: edición" : "Permiso: solo consulta"}
+                      </span>
+                    ) : null}
                   </div>
-                  <div className="space-y-1">
+                </div>
+
+                <div className="rounded-2xl border border-border/65 bg-surface/85 p-3">
+                  <div className="flex items-center justify-between gap-2">
                     <p className="text-[10px] uppercase tracking-[0.26em] text-muted">
-                      Persistencia
+                      Historial
                     </p>
-                    {persistenceEnabled ? (
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={storeHistory}
-                          onChange={(event) => setStoreHistory(event.target.checked)}
-                        />
-                        Guardar historial en Supabase
-                      </label>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={createNewSession}
+                        className="h-8 px-3"
+                      >
+                        Nuevo
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={deleteActiveSession}
+                        disabled={!activeSessionId}
+                        className="h-8 px-2.5 text-[11px]"
+                      >
+                        Borrar
+                      </Button>
+                    </div>
+                  </div>
+
+                  <Select
+                    value={activeSessionId ?? ""}
+                    onChange={(event) => selectSession(event.target.value)}
+                    disabled={!historyReady || sessions.length === 0}
+                    className="mt-2"
+                  >
+                    {sessions.length === 0 ? (
+                      <option value="">Sin chats</option>
                     ) : (
-                      <p>Historial local habilitado. Persistencia cloud desactivada en env.</p>
+                      sessions.map((session) => (
+                        <option key={session.id} value={session.id}>
+                          {buildSessionLabel(session)}
+                        </option>
+                      ))
                     )}
+                  </Select>
+
+                  <div className="mt-2 grid gap-2">
+                    {role === "admin" ? (
+                      <InlineToggle
+                        checked={allowActions}
+                        onChange={setAllowActions}
+                        label="Permitir acciones de edición"
+                        description={canEditWithAI ? "La IA puede aplicar cambios." : "La IA solo consulta."}
+                      />
+                    ) : (
+                      <div className="rounded-2xl border border-border/70 bg-surface px-3 py-2 text-[11px] text-muted">
+                        Usuario viewer: solo lectura.
+                      </div>
+                    )}
+                    <InlineToggle
+                      checked={storeHistory}
+                      onChange={setStoreHistory}
+                      label="Guardar historial en Supabase"
+                      description={
+                        persistenceEnabled
+                          ? "Disponible para continuidad entre sesiones."
+                          : "Desactivado por configuración del entorno."
+                      }
+                      disabled={!persistenceEnabled}
+                    />
                   </div>
                 </div>
               </div>
@@ -838,21 +886,74 @@ export default function ChatPanel({
                 rows={3}
               />
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setMessages([]);
-                    setThreadId(null);
-                    setError(null);
-                  }}
-                >
-                  Limpiar chat actual
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setShowReasoningControl((prev) => !prev)}
+                    className="h-8 rounded-full border border-border/70 bg-surface px-3 text-[11px]"
+                  >
+                    <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />
+                    Razonamiento: {reasoningLabelByLevel[reasoningLevel]}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setMessages([]);
+                      setThreadId(null);
+                      setError(null);
+                    }}
+                  >
+                    Limpiar chat actual
+                  </Button>
+                </div>
                 <Button size="sm" onClick={handleSend} disabled={isSending || !input.trim()}>
                   {isSending ? "Enviando..." : "Enviar"}
                 </Button>
               </div>
+
+              {showReasoningControl ? (
+                <div className="rounded-2xl border border-border/70 bg-surface-2/90 px-3 py-2.5">
+                  <div className="flex items-center justify-between gap-2 text-[11px]">
+                    <p className="uppercase tracking-[0.2em] text-muted">
+                      Nivel de razonamiento
+                    </p>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-accent/35 bg-accent/12 px-2 py-0.5 text-accent">
+                      <Gauge className="h-3.5 w-3.5" />
+                      {reasoningLabelByLevel[reasoningLevel]}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={2}
+                    step={1}
+                    value={reasoningIndex}
+                    onChange={(event) => handleReasoningSlider(Number(event.target.value))}
+                    className="ai-range mt-2.5 w-full"
+                    aria-label="Nivel de razonamiento"
+                  />
+                  <div className="mt-2 flex items-center justify-between text-[11px]">
+                    {reasoningByIndex.map((level) => (
+                      <button
+                        key={level}
+                        type="button"
+                        onClick={() => setReasoningLevel(level)}
+                        className={`rounded-full px-2 py-0.5 transition ${
+                          reasoningLevel === level
+                            ? "bg-accent/15 text-accent"
+                            : "text-muted hover:text-text"
+                        }`}
+                      >
+                        {reasoningLabelByLevel[level]}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-[11px] text-muted">{reasoningHint}</p>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

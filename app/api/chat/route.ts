@@ -410,7 +410,7 @@ export async function POST(request: NextRequest) {
       {
         error: "Chat AI deshabilitado.",
         instructions:
-          "Define CEREBRAS_API_KEY, NVIDIA_API_KEY o GEMINI_API_KEY en .env.local para habilitarlo."
+          "Definí CEREBRAS_API_KEY, NVIDIA_API_KEY o GEMINI_API_KEY en el entorno activo (.env.local en local o Variables de Entorno en Vercel) y redeploy/reiniciá la app."
       },
       { status: 501 }
     );
@@ -418,17 +418,13 @@ export async function POST(request: NextRequest) {
 
   const selectedProvider = parsed.data.provider ?? "auto";
   const selectedModel = parsed.data.model?.trim() || undefined;
-  if (!isAIProviderConfigured(selectedProvider)) {
-    return NextResponse.json(
-      {
-        error: "Proveedor AI no configurado.",
-        details: `El proveedor seleccionado (${selectedProvider}) no tiene API key cargada.`,
-        instructions:
-          "Verifica la API key correspondiente o vuelve a 'Auto' para usar el proveedor disponible."
-      },
-      { status: 400 }
-    );
-  }
+  const providerConfigured = isAIProviderConfigured(selectedProvider);
+  const effectiveProvider =
+    selectedProvider !== "auto" && !providerConfigured ? "auto" : selectedProvider;
+  const providerFallbackWarning =
+    selectedProvider !== "auto" && !providerConfigured
+      ? `El proveedor seleccionado (${selectedProvider}) no está configurado en este entorno. Se usó Auto para continuar.`
+      : null;
 
   const now = new Date();
   const reasoningLevel = parsed.data.reasoningLevel ?? "medio";
@@ -539,7 +535,7 @@ export async function POST(request: NextRequest) {
     allowActions
   });
   let result = await callAIJSON(prompt, chatResponseSchema, {
-    provider: selectedProvider,
+    provider: effectiveProvider,
     model: selectedModel
   });
   if (!result.ok) {
@@ -550,7 +546,7 @@ export async function POST(request: NextRequest) {
       "Devuelve nuevamente SOLO JSON válido y no agregues texto fuera del objeto."
     ].join("\n");
     result = await callAIJSON(repairPrompt, chatResponseSchema, {
-      provider: selectedProvider,
+      provider: effectiveProvider,
       model: selectedModel
     });
   }
@@ -576,7 +572,9 @@ export async function POST(request: NextRequest) {
       answer: result.data.answer,
       reasoning: result.data.reasoning,
       follow_up_questions: result.data.follow_up_questions,
-      warnings: result.data.warnings,
+      warnings: providerFallbackWarning
+        ? [providerFallbackWarning, ...result.data.warnings]
+        : result.data.warnings,
       actions: result.data.actions ?? [],
       confidence: result.data.confidence,
       provider: result.provider,
