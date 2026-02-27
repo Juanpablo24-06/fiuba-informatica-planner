@@ -36,6 +36,15 @@ const reasoningHintByLevel: Record<z.infer<typeof reasoningLevelSchema>, string>
   alto: "profundo, con validaciones y pasos cuidadosos"
 };
 
+const reasoningFormatByLevel: Record<z.infer<typeof reasoningLevelSchema>, string> = {
+  bajo:
+    "1-2 frases. Explica la decision principal sin detalle largo.",
+  medio:
+    "3-5 frases con pasos, supuestos y una mini-validacion.",
+  alto:
+    "6-10 frases bien estructuradas: analisis, supuestos, verificaciones y por que elegiste esa respuesta."
+};
+
 const monthMap: Record<string, number> = {
   enero: 1,
   febrero: 2,
@@ -336,6 +345,7 @@ const buildPrompt = ({
     "No inventes datos de materias, fechas, estados ni cuatrimestres.",
     "Si el usuario pide crear o actualizar cuatrimestres, usa acciones `create_term` o `update_term` con fechas ISO YYYY-MM-DD.",
     `Nivel de razonamiento solicitado: ${reasoningLevel} (${reasoningHintByLevel[reasoningLevel]}).`,
+    `Formato exigido para el campo reasoning en este nivel: ${reasoningFormatByLevel[reasoningLevel]}`,
     `Modo de acciones admin: ${allowActions ? "HABILITADO" : "DESHABILITADO"}.`,
     "Si el usuario pide editar datos y el modo de acciones está habilitado, devuelve acciones en el campo `actions`.",
     "Si no corresponde editar, devuelve `actions: []`.",
@@ -343,7 +353,7 @@ const buildPrompt = ({
     JSON.stringify(
       {
         answer: "string",
-        reasoning: "string breve",
+        reasoning: "string con profundidad segun nivel",
         follow_up_questions: ["string"],
         warnings: ["string"],
         actions: [

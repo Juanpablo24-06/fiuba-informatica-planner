@@ -72,9 +72,9 @@ const modelOptions: Record<
   ],
   nvidia: [
     { value: "", label: "Modelo por defecto (env)" },
-    { value: "z-ai/glm-4.7", label: "GLM 4.7" },
-    { value: "z-ai/glm-5", label: "GLM 5" },
-    { value: "MiniMaxAI/MiniMax-M2.5", label: "MiniMax M2.5" },
+    { value: "z-ai/glm4.7", label: "GLM 4.7" },
+    { value: "z-ai/glm5", label: "GLM 5" },
+    { value: "minimaxai/minimax-m2", label: "MiniMax M2" },
     { value: CUSTOM_MODEL_VALUE, label: "Personalizado..." }
   ],
   gemini: [
@@ -104,17 +104,17 @@ const buildId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
 const getStreamProfile = (level: ReasoningLevel): StreamProfile => {
   if (level === "bajo") {
-    return { intervalMs: 11, reasoningStep: 7, answerStep: 6 };
+    return { intervalMs: 10, reasoningStep: 8, answerStep: 7 };
   }
   if (level === "alto") {
-    return { intervalMs: 30, reasoningStep: 2, answerStep: 1 };
+    return { intervalMs: 42, reasoningStep: 1, answerStep: 1 };
   }
-  return { intervalMs: 18, reasoningStep: 4, answerStep: 3 };
+  return { intervalMs: 22, reasoningStep: 4, answerStep: 3 };
 };
 
 const getPreflightDelayMs = (level: ReasoningLevel) => {
-  if (level === "alto") return 900;
-  if (level === "medio") return 250;
+  if (level === "alto") return 1400;
+  if (level === "medio") return 350;
   return 0;
 };
 
@@ -610,180 +610,154 @@ export default function ChatPanel({
       </DialogTrigger>
       <DialogContent className="h-[84svh] w-[94vw] max-w-[920px] overflow-hidden rounded-[2.1rem] border border-border/75 bg-surface p-0">
         <div className="flex h-full flex-col">
-          <DialogHeader className="flex items-center justify-between gap-3 space-y-0 border-b border-border/60 px-6 py-5">
-            <div>
-              <DialogTitle>Synapse IA</DialogTitle>
-              <p className="text-xs text-muted">
-                Contexto FIUBA · {role === "admin" ? "modo admin" : "modo lectura"}
-              </p>
-            </div>
-            {isThinking || hasLiveReasoning ? (
-              <div className="flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-3 py-1 text-[11px] text-accent">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
-                {hasLiveReasoning ? "Razonando en vivo" : "Consultando contexto"}
-              </div>
-            ) : null}
-            <DialogClose asChild>
-              <button
-                type="button"
-                className="rounded-full border border-border/70 bg-surface-2 p-2 text-muted transition hover:text-text"
-                aria-label="Cerrar Synapse"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </DialogClose>
-          </DialogHeader>
+          <DialogHeader className="space-y-0 border-b border-border/60 px-5 py-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <DialogTitle className="text-[1.3rem] leading-tight">Synapse IA</DialogTitle>
+                <p className="mt-0.5 text-xs text-muted">
+                  Contexto FIUBA · {role === "admin" ? "modo admin" : "modo lectura"}
+                </p>
 
-          <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-6 py-5 text-sm">
-            <div className="rounded-2xl border border-border/70 bg-surface-2/95 p-3 text-xs text-muted">
-              <div className="grid gap-3 lg:grid-cols-[1.1fr_1fr]">
-                <div className="rounded-2xl border border-border/65 bg-surface/85 p-3">
-                  <p className="text-[10px] uppercase tracking-[0.26em] text-muted">
-                    Motor AI
-                  </p>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-muted">
-                        Proveedor
-                      </p>
-                      <Select
-                        value={provider}
-                        onChange={(event) =>
-                          setProvider(event.target.value as AIProvider)
-                        }
-                        className="mt-1.5"
-                      >
-                        <option value="auto">Auto</option>
-                        <option value="cerebras">Cerebras</option>
-                        <option value="nvidia">NVIDIA</option>
-                        <option value="gemini">Gemini</option>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-muted">
-                        Modelo
-                      </p>
-                      <Select
-                        value={selectedModel}
-                        onChange={(event) => setSelectedModel(event.target.value)}
-                        className="mt-1.5"
-                        disabled={!modelSelectionEnabled}
-                      >
-                        {!modelSelectionEnabled ? (
-                          <option value="">Automático por proveedor</option>
-                        ) : (
-                          providerModelOptions.map((option) => (
-                            <option
-                              key={`${provider}-${option.value || "default"}`}
-                              value={option.value}
-                            >
-                              {option.label}
-                            </option>
-                          ))
-                        )}
-                      </Select>
-                    </div>
-                  </div>
-
-                  {modelSelectionEnabled && selectedModel === CUSTOM_MODEL_VALUE ? (
-                    <div className="mt-2">
-                      <input
-                        type="text"
-                        value={customModel}
-                        onChange={(event) => setCustomModel(event.target.value)}
-                        className="h-10 w-full rounded-2xl border border-border/70 bg-surface px-3 text-sm text-text outline-none transition focus:border-accent/60"
-                        placeholder="Ej: z-ai/glm-5"
-                      />
-                    </div>
-                  ) : null}
-
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[11px] text-accent">
-                      Activo: {providerLabels[provider]}
-                      {modelSelectionEnabled && selectedModelOverride
-                        ? ` · ${selectedModelOverride}`
-                        : ""}
-                    </span>
-                    {role === "admin" ? (
-                      <span className="rounded-full border border-border/70 bg-surface px-2.5 py-1 text-[11px] text-muted">
-                        {canEditWithAI ? "Permiso: edición" : "Permiso: solo consulta"}
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-border/65 bg-surface/85 p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[10px] uppercase tracking-[0.26em] text-muted">
-                      Historial
-                    </p>
-                    <div className="flex items-center gap-1.5">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={createNewSession}
-                        className="h-8 px-3"
-                      >
-                        Nuevo
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={deleteActiveSession}
-                        disabled={!activeSessionId}
-                        className="h-8 px-2.5 text-[11px]"
-                      >
-                        Borrar
-                      </Button>
-                    </div>
-                  </div>
+                <div className="mt-2 grid max-w-[560px] gap-2 sm:grid-cols-2">
+                  <Select
+                    value={provider}
+                    onChange={(event) => setProvider(event.target.value as AIProvider)}
+                    className="h-9 rounded-xl py-1.5 text-xs"
+                  >
+                    <option value="auto">Proveedor: Auto</option>
+                    <option value="cerebras">Proveedor: Cerebras</option>
+                    <option value="nvidia">Proveedor: NVIDIA</option>
+                    <option value="gemini">Proveedor: Gemini</option>
+                  </Select>
 
                   <Select
-                    value={activeSessionId ?? ""}
-                    onChange={(event) => selectSession(event.target.value)}
-                    disabled={!historyReady || sessions.length === 0}
-                    className="mt-2"
+                    value={selectedModel}
+                    onChange={(event) => setSelectedModel(event.target.value)}
+                    className="h-9 rounded-xl py-1.5 text-xs"
+                    disabled={!modelSelectionEnabled}
                   >
-                    {sessions.length === 0 ? (
-                      <option value="">Sin chats</option>
+                    {!modelSelectionEnabled ? (
+                      <option value="">Modelo: automático por proveedor</option>
                     ) : (
-                      sessions.map((session) => (
-                        <option key={session.id} value={session.id}>
-                          {buildSessionLabel(session)}
+                      providerModelOptions.map((option) => (
+                        <option key={`${provider}-${option.value || "default"}`} value={option.value}>
+                          Modelo: {option.label}
                         </option>
                       ))
                     )}
                   </Select>
-
-                  <div className="mt-2 grid gap-2">
-                    {role === "admin" ? (
-                      <InlineToggle
-                        checked={allowActions}
-                        onChange={setAllowActions}
-                        label="Permitir acciones de edición"
-                        description={canEditWithAI ? "La IA puede aplicar cambios." : "La IA solo consulta."}
-                      />
-                    ) : (
-                      <div className="rounded-2xl border border-border/70 bg-surface px-3 py-2 text-[11px] text-muted">
-                        Usuario viewer: solo lectura.
-                      </div>
-                    )}
-                    <InlineToggle
-                      checked={storeHistory}
-                      onChange={setStoreHistory}
-                      label="Guardar historial en Supabase"
-                      description={
-                        persistenceEnabled
-                          ? "Disponible para continuidad entre sesiones."
-                          : "Desactivado por configuración del entorno."
-                      }
-                      disabled={!persistenceEnabled}
-                    />
-                  </div>
                 </div>
+
+                {modelSelectionEnabled && selectedModel === CUSTOM_MODEL_VALUE ? (
+                  <input
+                    type="text"
+                    value={customModel}
+                    onChange={(event) => setCustomModel(event.target.value)}
+                    className="mt-2 h-9 w-full max-w-[560px] rounded-xl border border-border/70 bg-surface px-3 text-xs text-text outline-none transition focus:border-accent/60"
+                    placeholder="Ej: z-ai/glm5"
+                  />
+                ) : null}
+
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[11px] text-accent">
+                    Activo: {providerLabels[provider]}
+                    {modelSelectionEnabled && selectedModelOverride
+                      ? ` · ${selectedModelOverride}`
+                      : ""}
+                  </span>
+                  {role === "admin" ? (
+                    <span className="rounded-full border border-border/70 bg-surface px-2.5 py-1 text-[11px] text-muted">
+                      {canEditWithAI ? "Permiso: edición" : "Permiso: solo consulta"}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {isThinking || hasLiveReasoning ? (
+                  <div className="flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-3 py-1 text-[11px] text-accent">
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
+                    {hasLiveReasoning ? "Razonando en vivo" : "Consultando"}
+                  </div>
+                ) : null}
+                <DialogClose asChild>
+                  <button
+                    type="button"
+                    className="rounded-full border border-border/70 bg-surface-2 p-2 text-muted transition hover:text-text"
+                    aria-label="Cerrar Synapse"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </DialogClose>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-5 py-4 text-sm">
+            <div className="rounded-2xl border border-border/70 bg-surface-2/95 p-2.5 text-xs text-muted">
+              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+                <Select
+                  value={activeSessionId ?? ""}
+                  onChange={(event) => selectSession(event.target.value)}
+                  disabled={!historyReady || sessions.length === 0}
+                  className="h-9 rounded-xl py-1.5 text-xs"
+                >
+                  {sessions.length === 0 ? (
+                    <option value="">Historial: sin chats</option>
+                  ) : (
+                    sessions.map((session) => (
+                      <option key={session.id} value={session.id}>
+                        {buildSessionLabel(session)}
+                      </option>
+                    ))
+                  )}
+                </Select>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={createNewSession}
+                  className="h-9 px-3"
+                >
+                  Nuevo
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={deleteActiveSession}
+                  disabled={!activeSessionId}
+                  className="h-9 px-2.5 text-[11px]"
+                >
+                  Borrar
+                </Button>
+              </div>
+
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {role === "admin" ? (
+                  <InlineToggle
+                    checked={allowActions}
+                    onChange={setAllowActions}
+                    label="Permitir acciones de edición"
+                    description={canEditWithAI ? "La IA puede aplicar cambios." : "La IA solo consulta."}
+                  />
+                ) : (
+                  <div className="rounded-2xl border border-border/70 bg-surface px-3 py-2 text-[11px] text-muted">
+                    Usuario viewer: solo lectura.
+                  </div>
+                )}
+                <InlineToggle
+                  checked={storeHistory}
+                  onChange={setStoreHistory}
+                  label="Guardar historial en Supabase"
+                  description={
+                    persistenceEnabled
+                      ? "Disponible para continuidad entre sesiones."
+                      : "Desactivado por configuración del entorno."
+                  }
+                  disabled={!persistenceEnabled}
+                />
               </div>
             </div>
 

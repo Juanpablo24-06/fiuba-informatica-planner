@@ -33,7 +33,7 @@ const getProviderOrder = (): ResolvedProvider[] => {
 const getFallbackModel = (provider: ResolvedProvider, modelOverride?: string) => {
   if (modelOverride?.trim()) return modelOverride.trim();
   if (provider === "cerebras") return process.env.CEREBRAS_MODEL ?? "llama3.1-70b";
-  if (provider === "nvidia") return process.env.NVIDIA_MODEL ?? "z-ai/glm-4.5";
+  if (provider === "nvidia") return process.env.NVIDIA_MODEL ?? "z-ai/glm4.7";
   return process.env.GEMINI_MODEL ?? "gemini-1.5-pro";
 };
 
