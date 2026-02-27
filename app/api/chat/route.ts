@@ -8,7 +8,7 @@ import { chatAdminActionSchema, reasoningLevelSchema, type ChatAdminAction } fro
 import { getCurrentTerm, getEnrollmentsForTerm, getEventsForTerm, getSubjects, getTerms } from "@/lib/queries";
 import { getWeekRange } from "@/lib/date";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { callAIJSON } from "@/lib/ai/provider";
+import { callAIJSON, hasAnyAIProviderConfigured, isAIProviderConfigured } from "@/lib/ai/provider";
 import { chatResponseSchema } from "@/lib/ai/schemas";
 
 const payloadSchema = z.object({
@@ -17,6 +17,8 @@ const payloadSchema = z.object({
   storeHistory: z.boolean().optional(),
   allowActions: z.boolean().optional(),
   reasoningLevel: reasoningLevelSchema.optional(),
+  provider: z.enum(["auto", "cerebras", "nvidia", "gemini"]).optional(),
+  model: z.string().trim().max(120).optional(),
   history: z
     .array(
       z.object({
@@ -61,7 +63,7 @@ const normalizeText = (value: string) =>
 
 const normalizeTermLabel = (value: string) => {
   const cleaned = value.trim().replace(/\s+/g, " ");
-  const match = cleaned.match(/^(\d{4})[\s_-]*(0|1|2|v|i)$/i);
+  const match = cleaned.match(/^(\d{4})[\s_-]*(0|1|2)$/i);
   if (!match) return cleaned;
   return `${match[1]}-${match[2].toUpperCase()}`;
 };
@@ -126,17 +128,23 @@ const parseActionsFromRaw = (rawActions: unknown): ChatAdminAction[] => {
     const mappedType =
       type === "create_term" || type === "crear_cuatrimestre" || type === "create_semester"
         ? "create_term"
-        : type === "update_term" || type === "editar_cuatrimestre" || type === "update_semester"
+      : type === "update_term" || type === "editar_cuatrimestre" || type === "update_semester"
           ? "update_term"
-          : type === "set_current_term" || type === "set_term_current"
+      : type === "set_current_term" || type === "set_term_current"
             ? "set_current_term"
-            : type === "add_enrollment"
+            : type === "add_enrollment" || type === "add_course" || type === "create_enrollment"
               ? "add_enrollment"
               : type === "update_enrollment_status"
                 ? "update_enrollment_status"
                 : type === "remove_enrollment"
                   ? "remove_enrollment"
                   : rawType;
+
+    const randomHint =
+      Boolean(record.random) ||
+      Boolean(record.random_subject) ||
+      Boolean(record.aleatorio) ||
+      normalizeText(String(record.subject_query ?? record.subject ?? "")).includes("aleatorio");
 
     const normalized: Record<string, unknown> = {
       ...record,
@@ -151,7 +159,10 @@ const parseActionsFromRaw = (rawActions: unknown): ChatAdminAction[] => {
         )
       ),
       subject_query: String(
-        record.subject_query ?? record.subject ?? record.materia ?? ""
+        record.subject_query ??
+          record.subject ??
+          record.materia ??
+          (randomHint ? "aleatorio" : "")
       ),
       start_date:
         record.start_date ??
@@ -186,7 +197,7 @@ const inferTermActionFromMessages = (
   const normalized = normalizeText(userText);
   if (!normalized) return [];
 
-  const labelMatch = normalized.match(/\b(20\d{2})\s*[- ]?\s*(0|1|2|v|i)\b/i);
+  const labelMatch = normalized.match(/\b(20\d{2})\s*[- ]?\s*(0|1|2)\b/i);
   if (!labelMatch) return [];
   const label = `${labelMatch[1]}-${labelMatch[2].toUpperCase()}`;
   const year = Number(labelMatch[1]);
@@ -219,6 +230,88 @@ const inferTermActionFromMessages = (
       is_current: /\bactual\b/i.test(normalized) ? true : undefined
     } satisfies ChatAdminAction
   ];
+};
+
+const romanToArabic = (value: string) =>
+  value
+    .replace(/\biii\b/gi, "3")
+    .replace(/\bii\b/gi, "2")
+    .replace(/\biv\b/gi, "4")
+    .replace(/\bvi\b/gi, "6")
+    .replace(/\bv\b/gi, "5")
+    .replace(/\bi\b/gi, "1");
+
+const normalizeSubjectAlias = (value: string) =>
+  normalizeText(romanToArabic(value))
+    .replace(/[^\p{Letter}\p{Number}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const inferEnrollmentActionsFromMessages = ({
+  messages,
+  subjects
+}: {
+  messages: Array<{ role: "user" | "assistant"; content: string }>;
+  subjects: Array<{ code: string | null; name: string }>;
+}): ChatAdminAction[] => {
+  const userText = messages
+    .filter((message) => message.role === "user")
+    .map((message) => message.content)
+    .join("\n");
+  const normalized = normalizeText(userText);
+  if (!normalized) return [];
+
+  const addIntent = /\b(agrega|agregar|agregame|anade|añade|añadir|inscribe|sum[aá])\b/i.test(
+    normalized
+  );
+  if (!addIntent) return [];
+
+  const labelMatch = normalized.match(/\b(20\d{2})\s*[- ]?\s*(0|1|2)\b/i);
+  const termLabel = labelMatch ? `${labelMatch[1]}-${labelMatch[2]}` : null;
+  if (!termLabel) return [];
+
+  const randomRequested =
+    /\b(aleatorio|random|cualquiera|el que quieras|la que quieras|que tu quieras|que tú quieras)\b/i.test(
+      normalized
+    );
+
+  const normalizedText = normalizeSubjectAlias(userText);
+  const detectedQueries = new Set<string>();
+
+  for (const subject of subjects) {
+    if (subject.code) {
+      const normalizedCode = normalizeText(subject.code);
+      if (normalized.includes(normalizedCode)) {
+        detectedQueries.add(subject.code);
+      }
+    }
+    const alias = normalizeSubjectAlias(subject.name);
+    if (alias.length >= 6 && normalizedText.includes(alias)) {
+      detectedQueries.add(subject.name);
+    }
+  }
+
+  const actions: ChatAdminAction[] = [];
+  for (const query of detectedQueries) {
+    actions.push({
+      type: "add_enrollment",
+      term_label: termLabel,
+      subject_query: query,
+      status: "cursando"
+    });
+    if (actions.length >= 4) break;
+  }
+
+  if (randomRequested) {
+    actions.push({
+      type: "add_enrollment",
+      term_label: termLabel,
+      subject_query: "aleatorio",
+      status: "cursando"
+    });
+  }
+
+  return actions.slice(0, 5);
 };
 
 const buildPrompt = ({
@@ -312,13 +405,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Datos invalidos." }, { status: 400 });
   }
 
-  if (!process.env.CEREBRAS_API_KEY && !process.env.GEMINI_API_KEY) {
+  if (!hasAnyAIProviderConfigured()) {
     return NextResponse.json(
       {
         error: "Chat AI deshabilitado.",
-        instructions: "Define CEREBRAS_API_KEY (o GEMINI_API_KEY) en .env.local para habilitarlo."
+        instructions:
+          "Define CEREBRAS_API_KEY, NVIDIA_API_KEY o GEMINI_API_KEY en .env.local para habilitarlo."
       },
       { status: 501 }
+    );
+  }
+
+  const selectedProvider = parsed.data.provider ?? "auto";
+  const selectedModel = parsed.data.model?.trim() || undefined;
+  if (!isAIProviderConfigured(selectedProvider)) {
+    return NextResponse.json(
+      {
+        error: "Proveedor AI no configurado.",
+        details: `El proveedor seleccionado (${selectedProvider}) no tiene API key cargada.`,
+        instructions:
+          "Verifica la API key correspondiente o vuelve a 'Auto' para usar el proveedor disponible."
+      },
+      { status: 400 }
     );
   }
 
@@ -329,8 +437,23 @@ export async function POST(request: NextRequest) {
   const weekRange = getWeekRange(now);
   const currentTerm = await getCurrentTerm();
   const [subjects, terms] = await Promise.all([getSubjects(), getTerms()]);
+  const contextTerms = terms.slice(0, 12);
   const enrollments = currentTerm ? await getEnrollmentsForTerm(currentTerm.id) : [];
   const termEvents = currentTerm ? await getEventsForTerm(currentTerm.id) : [];
+  const enrollmentsByTerm = await Promise.all(
+    contextTerms.map(async (term) => {
+      const termEnrollments = await getEnrollmentsForTerm(term.id);
+      return {
+        term_label: term.label,
+        total: termEnrollments.length,
+        courses: termEnrollments.slice(0, 20).map((enrollment) => ({
+          subject: enrollment.subject.name,
+          code: enrollment.subject.code,
+          status: enrollment.status
+        }))
+      };
+    })
+  );
 
   const weekEvents = termEvents
     .filter((event) => {
@@ -391,6 +514,7 @@ export async function POST(request: NextRequest) {
       subject: enrollment.subject.name,
       status: enrollment.status
     })),
+    enrollments_by_term: enrollmentsByTerm,
     week_events: weekEvents,
     week_enrichments: enrichments,
     role_capabilities:
@@ -414,7 +538,10 @@ export async function POST(request: NextRequest) {
     reasoningLevel,
     allowActions
   });
-  let result = await callAIJSON(prompt, chatResponseSchema);
+  let result = await callAIJSON(prompt, chatResponseSchema, {
+    provider: selectedProvider,
+    model: selectedModel
+  });
   if (!result.ok) {
     const repairPrompt = [
       prompt,
@@ -422,7 +549,10 @@ export async function POST(request: NextRequest) {
       "Tu respuesta anterior fue inválida para el schema JSON esperado.",
       "Devuelve nuevamente SOLO JSON válido y no agregues texto fuera del objeto."
     ].join("\n");
-    result = await callAIJSON(repairPrompt, chatResponseSchema);
+    result = await callAIJSON(repairPrompt, chatResponseSchema, {
+      provider: selectedProvider,
+      model: selectedModel
+    });
   }
 
   let responseBody:
@@ -433,6 +563,7 @@ export async function POST(request: NextRequest) {
         warnings: string[];
         actions: unknown;
         confidence: number | null | undefined;
+        provider: string | null | undefined;
         model: string | null | undefined;
       }
     | null = null;
@@ -448,16 +579,39 @@ export async function POST(request: NextRequest) {
       warnings: result.data.warnings,
       actions: result.data.actions ?? [],
       confidence: result.data.confidence,
+      provider: result.provider,
       model: result.model
     };
     requestedActions = allowActions ? parseActionsFromRaw(responseBody.actions) : [];
+    if (allowActions && requestedActions.length === 0) {
+      const inferredTermActions = inferTermActionFromMessages(recentMessages);
+      const inferredEnrollmentActions = inferEnrollmentActionsFromMessages({
+        messages: recentMessages,
+        subjects: subjects.map((subject) => ({
+          code: subject.code,
+          name: subject.name
+        }))
+      });
+      requestedActions = [...inferredTermActions, ...inferredEnrollmentActions].slice(0, 5);
+    }
     actionResults =
       allowActions && requestedActions.length > 0
         ? await executeAdminActions(requestedActions)
         : [];
   } else {
     usedFallback = true;
-    const inferredActions = allowActions ? inferTermActionFromMessages(recentMessages) : [];
+    const inferredActions = allowActions
+      ? [
+          ...inferTermActionFromMessages(recentMessages),
+          ...inferEnrollmentActionsFromMessages({
+            messages: recentMessages,
+            subjects: subjects.map((subject) => ({
+              code: subject.code,
+              name: subject.name
+            }))
+          })
+        ].slice(0, 5)
+      : [];
     requestedActions = inferredActions;
     actionResults =
       allowActions && inferredActions.length > 0
@@ -486,6 +640,7 @@ export async function POST(request: NextRequest) {
       ],
       actions: inferredActions,
       confidence: null,
+      provider: null,
       model: "fallback-recovery"
     };
   }
@@ -542,7 +697,8 @@ export async function POST(request: NextRequest) {
       warnings: responseBody.warnings,
       actions: requestedActions,
       confidence: responseBody.confidence ?? null,
-      model: responseBody.model ?? null
+      model: responseBody.model ?? null,
+      provider: responseBody.provider ?? null
     },
     actionResults,
     usedFallback,

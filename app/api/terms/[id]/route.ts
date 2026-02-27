@@ -4,9 +4,16 @@ import { z } from "zod";
 import { requireRoleFromRequest } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
+const HISTORIC_TERM_LABEL_PATTERN = /^\d{4}-(0|1|2)$/i;
+
 const termPatchSchema = z
   .object({
-    label: z.string().trim().min(3).optional(),
+    label: z
+      .string()
+      .trim()
+      .min(3)
+      .regex(HISTORIC_TERM_LABEL_PATTERN, "Formato inválido")
+      .optional(),
     start_date: z.string().nullable().optional(),
     end_date: z.string().nullable().optional(),
     is_current: z.boolean().optional()
@@ -25,7 +32,13 @@ export async function PATCH(
   const payload = await request.json().catch(() => null);
   const parsed = termPatchSchema.safeParse(payload);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Datos inválidos." }, { status: 400 });
+    return NextResponse.json(
+      {
+        error:
+          "Datos inválidos. Formato permitido: YYYY-1 o YYYY-2 (y YYYY-0 solo para histórico CBC)."
+      },
+      { status: 400 }
+    );
   }
   if (Object.keys(parsed.data).length === 0) {
     return NextResponse.json({ error: "No hay cambios para guardar." }, { status: 400 });

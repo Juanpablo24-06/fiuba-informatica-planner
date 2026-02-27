@@ -19,6 +19,9 @@ const STATUS_OPTIONS = [
   { value: "recursar", label: "Recursar" }
 ] as const;
 
+const TERM_LABEL_PATTERN = /^\d{4}-(1|2)$/i;
+const HISTORIC_TERM_LABEL_PATTERN = /^\d{4}-(0|1|2)$/i;
+
 const formatTermRange = (term: Term | null) => {
   if (!term) return "Sin definir";
   const start = term.start_date ?? "";
@@ -89,8 +92,8 @@ export default function TermManager({
       messages.push("Completá el nombre del cuatrimestre.");
     }
 
-    if (newTerm.label.trim() && !/^\d{4}-(1|2|V|I)$/i.test(newTerm.label.trim())) {
-      messages.push("Formato sugerido: YYYY-1 o YYYY-2. Intensivos opcionales: YYYY-V (verano) o YYYY-I (invierno).");
+    if (newTerm.label.trim() && !TERM_LABEL_PATTERN.test(newTerm.label.trim())) {
+      messages.push("Formato requerido: YYYY-1 o YYYY-2.");
     }
 
     if (newTerm.start_date && newTerm.end_date) {
@@ -200,8 +203,8 @@ export default function TermManager({
       setEditError("El nombre del cuatrimestre no puede quedar vacío.");
       return;
     }
-    if (!/^\d{4}-(0|1|2|V|I)$/i.test(label)) {
-      setEditError("Formato sugerido: YYYY-1, YYYY-2, YYYY-V, YYYY-I (y YYYY-0 para CBC histórico).");
+    if (!HISTORIC_TERM_LABEL_PATTERN.test(label)) {
+      setEditError("Formato permitido: YYYY-1 o YYYY-2 (y YYYY-0 solo para CBC histórico).");
       return;
     }
     if (editForm.start_date && editForm.end_date) {
@@ -366,11 +369,11 @@ export default function TermManager({
                   <div className="rounded-2xl border border-border/60 bg-surface/65 p-3">
                     <p className="text-xs uppercase tracking-[0.2em] text-muted">Guía rápida de periodos</p>
                     <p className="mt-2 text-xs text-muted">
-                      Convención principal: <span className="font-semibold text-text">2 cuatrimestres por año</span> (<span className="font-semibold text-text">-1</span> y <span className="font-semibold text-text">-2</span>).
-                      Intensivos opcionales: <span className="font-semibold text-text">-V</span> (verano) y <span className="font-semibold text-text">-I</span> (invierno).
+                      Convención: <span className="font-semibold text-text">2 cuatrimestres por año</span> (<span className="font-semibold text-text">-1</span> y <span className="font-semibold text-text">-2</span>).
+                      Verano e invierno no se consideran cuatrimestres formales en esta planificación.
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {["1", "2", "V", "I"].map((period) => {
+                      {["1", "2"].map((period) => {
                         const year = new Date().getFullYear();
                         const suggestion = `${year}-${period}`;
                         return (

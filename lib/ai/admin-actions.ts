@@ -51,7 +51,7 @@ const getMonthEndDay = (year: number, month: number) =>
 
 const normalizeTermLabel = (label: string) => {
   const trimmed = label.trim().replace(/\s+/g, " ");
-  const match = trimmed.match(/^(\d{4})[\s_-]*(0|1|2|v|i)$/i);
+  const match = trimmed.match(/^(\d{4})[\s_-]*(0|1|2)$/i);
   if (!match) return trimmed;
   return `${match[1]}-${match[2].toUpperCase()}`;
 };
@@ -207,6 +207,19 @@ const findSubjectByQuery = (subjects: SubjectLite[], query: string) => {
   return { error: `No se encontró ninguna materia que coincida con '${query}'.` } as const;
 };
 
+const isRandomSubjectQuery = (query: string) => {
+  const normalized = normalizeText(query);
+  return (
+    normalized.includes("aleatorio") ||
+    normalized.includes("random") ||
+    normalized.includes("cualquiera") ||
+    normalized.includes("el que quieras") ||
+    normalized.includes("la que quieras") ||
+    normalized.includes("que tu quieras") ||
+    normalized.includes("que tú quieras")
+  );
+};
+
 const loadTerms = async () => {
   const { data, error } = await supabaseAdmin
     .from("terms")
@@ -236,7 +249,24 @@ export const executeAdminActions = async (
   if (actions.length === 0) return [];
 
   const [terms, subjects] = await Promise.all([loadTerms(), loadSubjects()]);
+  const termEnrollmentCache = new Map<string, Set<string>>();
   const results: AdminActionResult[] = [];
+
+  const getEnrolledSubjectIds = async (termId: string) => {
+    if (termEnrollmentCache.has(termId)) {
+      return termEnrollmentCache.get(termId) as Set<string>;
+    }
+    const { data, error } = await supabaseAdmin
+      .from("enrollments")
+      .select("subject_id")
+      .eq("term_id", termId);
+    if (error) {
+      throw new Error(error.message);
+    }
+    const set = new Set((data ?? []).map((row) => row.subject_id as string));
+    termEnrollmentCache.set(termId, set);
+    return set;
+  };
 
   for (const action of actions) {
     try {
@@ -451,16 +481,32 @@ export const executeAdminActions = async (
         continue;
       }
 
-      const subjectResult = findSubjectByQuery(subjects, action.subject_query);
-      if ("error" in subjectResult) {
-        results.push({
-          type: action.type,
-          ok: false,
-          summary: subjectResult.error ?? "No se pudo resolver la materia solicitada."
-        });
-        continue;
+      let subject: SubjectLite | null = null;
+      if (isRandomSubjectQuery(action.subject_query)) {
+        const enrolledIds = await getEnrolledSubjectIds(term.id);
+        const candidates = subjects.filter((item) => !enrolledIds.has(item.id));
+        if (candidates.length === 0) {
+          results.push({
+            type: action.type,
+            ok: false,
+            summary: `No quedan materias disponibles para agregar en ${term.label}.`
+          });
+          continue;
+        }
+        const randomIndex = Math.floor(Math.random() * candidates.length);
+        subject = candidates[randomIndex];
+      } else {
+        const subjectResult = findSubjectByQuery(subjects, action.subject_query);
+        if ("error" in subjectResult) {
+          results.push({
+            type: action.type,
+            ok: false,
+            summary: subjectResult.error ?? "No se pudo resolver la materia solicitada."
+          });
+          continue;
+        }
+        subject = subjectResult.subject;
       }
-      const subject = subjectResult.subject;
 
       if (action.type === "add_enrollment") {
         const targetStatus = action.status ?? "cursando";
@@ -527,6 +573,9 @@ export const executeAdminActions = async (
           });
           continue;
         }
+
+        const enrolledIds = await getEnrolledSubjectIds(term.id);
+        enrolledIds.add(subject.id);
 
         results.push({
           type: action.type,
@@ -626,6 +675,9 @@ export const executeAdminActions = async (
           });
           continue;
         }
+
+        const enrolledIds = await getEnrolledSubjectIds(term.id);
+        enrolledIds.delete(subject.id);
 
         results.push({
           type: action.type,

@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
 type ReasoningLevel = "bajo" | "medio" | "alto";
+type AIProvider = "auto" | "cerebras" | "nvidia" | "gemini";
 
 type AssistantActionResult = {
   type: string;
@@ -50,6 +51,40 @@ type StreamProfile = {
 const persistenceEnabled = process.env.NEXT_PUBLIC_CHAT_PERSISTENCE === "true";
 const CHAT_HISTORY_KEY = "synapse-chat-history-v2";
 const MAX_STORED_SESSIONS = 16;
+const CUSTOM_MODEL_VALUE = "__custom__";
+
+const providerLabels: Record<AIProvider, string> = {
+  auto: "Auto",
+  cerebras: "Cerebras",
+  nvidia: "NVIDIA",
+  gemini: "Gemini"
+};
+
+const modelOptions: Record<
+  Exclude<AIProvider, "auto">,
+  Array<{ value: string; label: string }>
+> = {
+  cerebras: [
+    { value: "", label: "Modelo por defecto (env)" },
+    { value: "openai/gpt-oss-120b", label: "gpt-oss-120b" },
+    { value: "openai/gpt-oss-20b", label: "gpt-oss-20b" },
+    { value: CUSTOM_MODEL_VALUE, label: "Personalizado..." }
+  ],
+  nvidia: [
+    { value: "", label: "Modelo por defecto (env)" },
+    { value: "z-ai/glm-4.7", label: "GLM 4.7" },
+    { value: "z-ai/glm-5", label: "GLM 5" },
+    { value: "MiniMaxAI/MiniMax-M2.5", label: "MiniMax M2.5" },
+    { value: CUSTOM_MODEL_VALUE, label: "Personalizado..." }
+  ],
+  gemini: [
+    { value: "", label: "Modelo por defecto (env)" },
+    { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
+    { value: "gemini-2.0-flash-lite", label: "Gemini 2.0 Flash Lite" },
+    { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
+    { value: CUSTOM_MODEL_VALUE, label: "Personalizado..." }
+  ]
+};
 
 const buildId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
@@ -61,6 +96,12 @@ const getStreamProfile = (level: ReasoningLevel): StreamProfile => {
     return { intervalMs: 30, reasoningStep: 2, answerStep: 1 };
   }
   return { intervalMs: 18, reasoningStep: 4, answerStep: 3 };
+};
+
+const getPreflightDelayMs = (level: ReasoningLevel) => {
+  if (level === "alto") return 900;
+  if (level === "medio") return 250;
+  return 0;
 };
 
 const deriveSessionTitle = (messages: ChatMessage[]) => {
@@ -77,6 +118,8 @@ const buildEmptySession = (): ChatSession => ({
   messages: [],
   updatedAt: Date.now()
 });
+
+const hasSessionContent = (session: ChatSession) => session.messages.length > 0;
 
 const buildSessionLabel = (session: ChatSession) => {
   const date = new Date(session.updatedAt).toLocaleString("es-AR", {
@@ -104,6 +147,9 @@ export default function ChatPanel({
   const [threadId, setThreadId] = useState<string | null>(null);
   const [storeHistory, setStoreHistory] = useState(persistenceEnabled);
   const [reasoningLevel, setReasoningLevel] = useState<ReasoningLevel>("medio");
+  const [provider, setProvider] = useState<AIProvider>("auto");
+  const [selectedModel, setSelectedModel] = useState("");
+  const [customModel, setCustomModel] = useState("");
   const [allowActions, setAllowActions] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -112,6 +158,12 @@ export default function ChatPanel({
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const canEditWithAI = role === "admin" && allowActions;
+  const modelSelectionEnabled = provider !== "auto";
+  const providerModelOptions = provider === "auto" ? [] : modelOptions[provider];
+  const selectedModelOverride =
+    selectedModel === CUSTOM_MODEL_VALUE
+      ? customModel.trim()
+      : selectedModel.trim();
   const hasLiveReasoning = messages.some(
     (message) =>
       message.role === "assistant" &&
@@ -137,59 +189,39 @@ export default function ChatPanel({
   }, [messages, isThinking]);
 
   useEffect(() => {
+    setSelectedModel("");
+    setCustomModel("");
+  }, [provider]);
+
+  useEffect(() => {
     try {
       const raw = window.localStorage.getItem(CHAT_HISTORY_KEY);
-      if (!raw) {
-        const initial = buildEmptySession();
-        setSessions([initial]);
-        setActiveSessionId(initial.id);
-        setMessages([]);
-        setThreadId(null);
-        window.localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify([initial]));
-        setHistoryReady(true);
-        return;
-      }
+      const restored = raw
+        ? (JSON.parse(raw) as ChatSession[])
+            .filter((item) => item && typeof item.id === "string")
+            .map((item) => ({
+              id: item.id,
+              title: item.title || "Chat sin título",
+              threadId: item.threadId ?? null,
+              messages: Array.isArray(item.messages) ? item.messages : [],
+              updatedAt: Number(item.updatedAt) || Date.now()
+            }))
+        : [];
 
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        const initial = buildEmptySession();
-        setSessions([initial]);
-        setActiveSessionId(initial.id);
-        setMessages([]);
-        setThreadId(null);
-        window.localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify([initial]));
-        setHistoryReady(true);
-        return;
-      }
-
-      const restored = (parsed as ChatSession[])
-        .filter((item) => item && typeof item.id === "string")
-        .map((item) => ({
-          id: item.id,
-          title: item.title || "Chat sin título",
-          threadId: item.threadId ?? null,
-          messages: Array.isArray(item.messages) ? item.messages : [],
-          updatedAt: Number(item.updatedAt) || Date.now()
-        }))
+      const nonEmptyHistory = restored
+        .filter((session) => hasSessionContent(session))
         .sort((a, b) => b.updatedAt - a.updatedAt)
-        .slice(0, MAX_STORED_SESSIONS);
+        .slice(0, MAX_STORED_SESSIONS - 1);
 
-      if (restored.length === 0) {
-        const initial = buildEmptySession();
-        setSessions([initial]);
-        setActiveSessionId(initial.id);
-        setMessages([]);
-        setThreadId(null);
-        window.localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify([initial]));
-        setHistoryReady(true);
-        return;
-      }
+      // Siempre abre en chat nuevo al recargar.
+      const initial = buildEmptySession();
+      const nextSessions = [initial, ...nonEmptyHistory];
 
-      const active = restored[0];
-      setSessions(restored);
-      setActiveSessionId(active.id);
-      setMessages(active.messages);
-      setThreadId(active.threadId);
+      setSessions(nextSessions);
+      setActiveSessionId(initial.id);
+      setMessages([]);
+      setThreadId(null);
+      window.localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(nextSessions));
       setHistoryReady(true);
     } catch {
       const initial = buildEmptySession();
@@ -231,6 +263,11 @@ export default function ChatPanel({
         ];
       }
 
+      next = next.filter(
+        (session) =>
+          hasSessionContent(session) || session.id === activeSessionId
+      );
+
       next = next
         .sort((a, b) => b.updatedAt - a.updatedAt)
         .slice(0, MAX_STORED_SESSIONS);
@@ -253,6 +290,13 @@ export default function ChatPanel({
   };
 
   const selectSession = (sessionId: string) => {
+    setSessions((prev) => {
+      if (!activeSessionId) return prev;
+      const active = prev.find((session) => session.id === activeSessionId);
+      if (!active || hasSessionContent(active)) return prev;
+      return prev.filter((session) => session.id !== activeSessionId);
+    });
+
     const selected = sessions.find((session) => session.id === sessionId);
     if (!selected) return;
     setActiveSessionId(selected.id);
@@ -268,13 +312,30 @@ export default function ChatPanel({
     setThreadId(null);
     setError(null);
     setSessions((prev) => {
-      const next = [nextSession, ...prev]
+      const next = [nextSession, ...prev.filter((session) => hasSessionContent(session))]
         .sort((a, b) => b.updatedAt - a.updatedAt)
         .slice(0, MAX_STORED_SESSIONS);
       try {
         window.localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(next));
       } catch {}
       return next;
+    });
+  };
+
+  const deleteActiveSession = () => {
+    if (!activeSessionId) return;
+    setSessions((prev) => {
+      const next = prev.filter((session) => session.id !== activeSessionId);
+      const fallback = next[0] ?? buildEmptySession();
+      const normalized = next.length > 0 ? next : [fallback];
+      setActiveSessionId(fallback.id);
+      setMessages(fallback.messages);
+      setThreadId(fallback.threadId);
+      setError(null);
+      try {
+        window.localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(normalized));
+      } catch {}
+      return normalized;
     });
   };
 
@@ -377,11 +438,20 @@ export default function ChatPanel({
         message: trimmed,
         storeHistory: storeHistory && persistenceEnabled,
         reasoningLevel: streamingLevel,
+        provider,
         allowActions: role === "admin" ? allowActions : false,
         history: recentHistory.slice(-14)
       };
+      if (provider !== "auto" && selectedModelOverride) {
+        requestBody.model = selectedModelOverride;
+      }
       if (threadId) {
         requestBody.threadId = threadId;
+      }
+
+      const preflightDelay = getPreflightDelayMs(streamingLevel);
+      if (preflightDelay > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, preflightDelay));
       }
 
       const response = await fetch("/api/chat", {
@@ -516,6 +586,66 @@ export default function ChatPanel({
                     <option value="medio">Medio · equilibrado</option>
                     <option value="alto">Alto · más profundo (más lento)</option>
                   </Select>
+
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.26em] text-muted">
+                        Proveedor AI
+                      </p>
+                      <Select
+                        value={provider}
+                        onChange={(event) =>
+                          setProvider(event.target.value as AIProvider)
+                        }
+                        className="mt-1.5"
+                      >
+                        <option value="auto">Auto</option>
+                        <option value="cerebras">Cerebras</option>
+                        <option value="nvidia">NVIDIA</option>
+                        <option value="gemini">Gemini</option>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.26em] text-muted">
+                        Modelo
+                      </p>
+                      <Select
+                        value={selectedModel}
+                        onChange={(event) => setSelectedModel(event.target.value)}
+                        className="mt-1.5"
+                        disabled={!modelSelectionEnabled}
+                      >
+                        {!modelSelectionEnabled ? (
+                          <option value="">Automático por proveedor disponible</option>
+                        ) : (
+                          providerModelOptions.map((option) => (
+                            <option key={`${provider}-${option.value || "default"}`} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))
+                        )}
+                      </Select>
+                    </div>
+                  </div>
+
+                  {modelSelectionEnabled && selectedModel === CUSTOM_MODEL_VALUE ? (
+                    <div className="mt-2">
+                      <input
+                        type="text"
+                        value={customModel}
+                        onChange={(event) => setCustomModel(event.target.value)}
+                        className="h-10 w-full rounded-2xl border border-border/70 bg-surface px-3 text-sm text-text outline-none transition focus:border-accent/60"
+                        placeholder="Ej: z-ai/glm-5"
+                      />
+                    </div>
+                  ) : null}
+                  <p className="mt-2 text-[11px] text-muted">
+                    Activo: {providerLabels[provider]}
+                    {modelSelectionEnabled && selectedModelOverride
+                      ? ` · ${selectedModelOverride}`
+                      : ""}
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -545,6 +675,17 @@ export default function ChatPanel({
                       onClick={createNewSession}
                     >
                       Nuevo chat
+                    </Button>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={deleteActiveSession}
+                      disabled={!activeSessionId}
+                    >
+                      Borrar chat actual
                     </Button>
                   </div>
                 </div>

@@ -25,6 +25,9 @@ const STATUS_OPTIONS = [
 const formatSchedule = (schedule: Enrollment["schedule"]) =>
   formatSchedulePreview(schedule, { maxBlocks: 2 });
 
+const formatScheduleDetail = (schedule: Enrollment["schedule"]) =>
+  formatSchedulePreview(schedule, { maxBlocks: 4, includeLocation: true });
+
 const statusClassByValue: Record<string, string> = {
   cursando: "border-accent/40 bg-accent/10 text-accent",
   final_pendiente: "border-warning/45 bg-warning/10 text-warning",
@@ -533,7 +536,9 @@ export default function TermReviewManager({
                     ))}
                   </Select>
                   <p className="rounded-xl border border-border/60 bg-surface px-3 py-2 text-xs text-muted">
-                    Horario editable desde la ficha de materia.
+                    {enrollment.schedule.length > 0
+                      ? formatScheduleDetail(enrollment.schedule)
+                      : "Sin horario semanal. Editable desde la ficha de materia."}
                   </p>
                 </div>
               ) : null}

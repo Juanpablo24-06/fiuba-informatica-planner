@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireRoleFromRequest } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { callAIJSON } from "@/lib/ai/provider";
+import { callAIJSON, hasAnyAIProviderConfigured } from "@/lib/ai/provider";
 import { weeklySummarySchema } from "@/lib/ai/schemas";
 import { getWeekRange } from "@/lib/date";
 
@@ -48,11 +48,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Datos invalidos." }, { status: 400 });
   }
 
-  if (!process.env.CEREBRAS_API_KEY && !process.env.GEMINI_API_KEY) {
+  if (!hasAnyAIProviderConfigured()) {
     return NextResponse.json(
       {
         error: "AI no configurada.",
-        instructions: "Define CEREBRAS_API_KEY (o GEMINI_API_KEY) en .env.local y reinicia el server."
+        instructions:
+          "Define CEREBRAS_API_KEY, NVIDIA_API_KEY o GEMINI_API_KEY en .env.local y reinicia el server."
       },
       { status: 501 }
     );

@@ -110,6 +110,7 @@ export const chatAdminActionSchema = z.discriminatedUnion("type", [
 export const chatResponseSchema = z.object({
   answer: z
     .any()
+    .optional()
     .transform((value) => toNonEmptyString(value))
     .transform((value) => (value ? value : "Sin respuesta.")),
   follow_up_questions: z
@@ -128,7 +129,10 @@ export const chatResponseSchema = z.object({
     })
     .nullable()
     .optional(),
-  actions: z.array(chatAdminActionSchema).max(5).default([]),
+  actions: z
+    .any()
+    .transform((value) => (Array.isArray(value) ? value : []))
+    .default([]),
   confidence: z
     .any()
     .transform((value) => {

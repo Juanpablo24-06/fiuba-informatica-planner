@@ -58,13 +58,14 @@ openssl rand -base64 32
 ### 3.1) AI + Chat (opcional)
 1. Configurar proveedor AI:
    - `CEREBRAS_API_KEY` + `CEREBRAS_MODEL` (ej: `gpt-oss-*`) **o**
+   - `NVIDIA_API_KEY` + `NVIDIA_MODEL` (ej: `z-ai/glm-4.7`, `z-ai/glm-5`, `MiniMaxAI/MiniMax-M2.5`) **o**
    - `GEMINI_API_KEY` (+ opcional `GEMINI_MODEL` / `GEMINI_API_URL`).
 2. Poblar `calendar_events_raw` con eventos (manual o via job futuro).
 3. Enriquecer con `POST /api/ai/enrich-calendar` (admin).
 4. Resumir semana con `POST /api/ai/summarize-week` (admin).
 5. Para historial de chat: setear `CHAT_PERSISTENCE_ENABLED=true` y `NEXT_PUBLIC_CHAT_PERSISTENCE=true`.
 6. Reglas del asistente versionadas: `config/assistant-rules.json`.
-7. El panel permite elegir nivel de razonamiento (`bajo`, `medio`, `alto`).
+7. El panel permite elegir proveedor (`Auto`, `Cerebras`, `NVIDIA`, `Gemini`), modelo y nivel de razonamiento (`bajo`, `medio`, `alto`).
 
 ### 3.2) Webhooks Google Calendar (futuro)
 - Implementar OAuth y watch channels antes de usar `/api/calendar/sync-provider`.

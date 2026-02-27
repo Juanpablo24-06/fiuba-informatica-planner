@@ -4,8 +4,10 @@ import { z } from "zod";
 import { requireRoleFromRequest } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
+const TERM_LABEL_PATTERN = /^\d{4}-(1|2)$/i;
+
 const termSchema = z.object({
-  label: z.string().trim().min(3),
+  label: z.string().trim().min(3).regex(TERM_LABEL_PATTERN, "Formato inválido"),
   start_date: z.string().nullable().optional(),
   end_date: z.string().nullable().optional(),
   is_current: z.boolean().optional()
@@ -34,7 +36,10 @@ export async function POST(request: NextRequest) {
   const payload = await request.json().catch(() => null);
   const parsed = termSchema.safeParse(payload);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Datos inválidos." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Datos inválidos. El cuatrimestre debe tener formato YYYY-1 o YYYY-2." },
+      { status: 400 }
+    );
   }
 
   if (parsed.data.is_current) {

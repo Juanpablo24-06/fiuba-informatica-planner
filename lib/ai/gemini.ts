@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-const getGeminiConfig = () => {
+const getGeminiConfig = (modelOverride?: string) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
-  const model = process.env.GEMINI_MODEL ?? "gemini-1.5-pro";
+  const model = modelOverride?.trim() || process.env.GEMINI_MODEL || "gemini-1.5-pro";
   const apiUrl =
     process.env.GEMINI_API_URL ??
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
@@ -25,9 +25,10 @@ export type GeminiResult<T> =
 
 export const callGeminiJSON = async <T>(
   prompt: string,
-  schema: z.ZodSchema<T>
+  schema: z.ZodSchema<T>,
+  options?: { model?: string }
 ): Promise<GeminiResult<T>> => {
-  const config = getGeminiConfig();
+  const config = getGeminiConfig(options?.model);
   if (!config) {
     return { ok: false, error: "not_configured" };
   }
@@ -60,11 +61,18 @@ export const callGeminiJSON = async <T>(
   let parsed: unknown;
   try {
     parsed = JSON.parse(jsonText);
-  } catch (error) {
+  } catch {
     return { ok: false, error: "invalid_json", raw: rawText };
   }
 
-  const result = schema.safeParse(parsed);
+  const candidate =
+    parsed && typeof parsed === "object"
+      ? ((parsed as Record<string, unknown>).response ??
+        (parsed as Record<string, unknown>).data ??
+        parsed)
+      : parsed;
+
+  const result = schema.safeParse(candidate);
   if (!result.success) {
     return {
       ok: false,

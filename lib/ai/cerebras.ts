@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-const getCerebrasConfig = () => {
+const getCerebrasConfig = (modelOverride?: string) => {
   const apiKey = process.env.CEREBRAS_API_KEY;
   if (!apiKey) return null;
-  const model = process.env.CEREBRAS_MODEL ?? "llama3.1-70b";
+  const model = modelOverride?.trim() || process.env.CEREBRAS_MODEL || "llama3.1-70b";
   const apiUrl = process.env.CEREBRAS_API_URL ?? "https://api.cerebras.ai/v1";
   return { apiKey, model, apiUrl };
 };
@@ -23,9 +23,10 @@ export type CerebrasResult<T> =
 
 export const callCerebrasJSON = async <T>(
   prompt: string,
-  schema: z.ZodSchema<T>
+  schema: z.ZodSchema<T>,
+  options?: { model?: string }
 ): Promise<CerebrasResult<T>> => {
-  const config = getCerebrasConfig();
+  const config = getCerebrasConfig(options?.model);
   if (!config) {
     return { ok: false, error: "not_configured" };
   }
@@ -59,11 +60,18 @@ export const callCerebrasJSON = async <T>(
   let parsed: unknown;
   try {
     parsed = JSON.parse(jsonText);
-  } catch (error) {
+  } catch {
     return { ok: false, error: "invalid_json", raw: rawText };
   }
 
-  const result = schema.safeParse(parsed);
+  const candidate =
+    parsed && typeof parsed === "object"
+      ? ((parsed as Record<string, unknown>).response ??
+        (parsed as Record<string, unknown>).data ??
+        parsed)
+      : parsed;
+
+  const result = schema.safeParse(candidate);
   if (!result.success) {
     return {
       ok: false,
@@ -75,4 +83,3 @@ export const callCerebrasJSON = async <T>(
 
   return { ok: true, data: result.data, raw: rawText, model: config.model };
 };
-
