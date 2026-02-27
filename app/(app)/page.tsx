@@ -168,12 +168,12 @@ export default async function DashboardPage() {
   return (
     <div className="mx-auto w-full max-w-[1380px] space-y-6 pb-8">
       <div className="grid gap-6 xl:grid-cols-[1.7fr_0.9fr]">
-        <section className="space-y-6">
-          <section className="panel px-8 py-7">
+        <section className="space-y-12">
+          <section className="px-2">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.24em] text-muted">Ruta académica</p>
-                <h1 className="mt-1 text-4xl font-semibold text-text">Plan Ing Informática</h1>
+                <h1 className="mt-1 text-4xl font-semibold text-text">Resumen Académico</h1>
               </div>
               <Badge className="border-accent/40 bg-accent/10 text-accent">
                 Cuatrimestre actual: {currentTerm?.label ?? "Sin definir"}
@@ -235,7 +235,7 @@ export default async function DashboardPage() {
             </div>
           </section>
 
-          <section className="panel px-8 py-7">
+          <section className="px-2">
             <div className="mb-4 flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.24em] text-muted">Materias activas</p>
@@ -266,7 +266,7 @@ export default async function DashboardPage() {
                       trigger={
                         <button
                           type="button"
-                          className="group rounded-[1.15rem] border border-border/60 bg-surface-2/45 px-4 py-4 text-left transition hover:-translate-y-0.5 hover:border-accent/35"
+                          className="group relative overflow-hidden rounded-2xl border border-border/40 bg-surface/40 px-5 py-5 text-left shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-accent/40 hover:bg-surface/80 hover:shadow-md"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div>
@@ -309,8 +309,8 @@ export default async function DashboardPage() {
           </section>
         </section>
 
-        <aside className="space-y-4">
-          <section className="panel p-6">
+        <aside className="panel flex h-fit flex-col gap-8 p-8">
+          <section>
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-3xl font-semibold leading-none text-text">Ahora</h3>
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent/12 text-accent">
@@ -352,7 +352,9 @@ export default async function DashboardPage() {
             </Link>
           </section>
 
-          <section className="panel p-6">
+          <div className="h-px w-full bg-border/40" />
+
+          <section>
             <p className="text-xs uppercase tracking-[0.26em] text-muted">Semáforo de carga</p>
             <div className="mt-3 flex items-center gap-2">
               <span
@@ -372,7 +374,9 @@ export default async function DashboardPage() {
             </p>
           </section>
 
-          <section className="panel p-6">
+          <div className="h-px w-full bg-border/40" />
+
+          <section>
             <p className="text-xs uppercase tracking-[0.24em] text-muted">Frase del día</p>
             <p className="mt-3 text-xl leading-relaxed text-text font-display">&ldquo;{editorialPhrase}&rdquo;</p>
           </section>

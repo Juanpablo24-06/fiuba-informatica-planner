@@ -33,6 +33,7 @@ const applyPreferences = (
 
 export default function ProfileMenu({ role }: { role?: "admin" | "viewer" }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const isTransitioning = useRef(false);
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState<ThemePreference>("system");
   const [palette, setPalette] = useState<PalettePreset>("coral");
@@ -66,6 +67,7 @@ export default function ProfileMenu({ role }: { role?: "admin" | "viewer" }) {
 
   useEffect(() => {
     const listener = (event: MouseEvent) => {
+      if (isTransitioning.current) return;
       if (!containerRef.current) return;
       if (!containerRef.current.contains(event.target as Node)) {
         setOpen(false);
@@ -85,10 +87,67 @@ export default function ProfileMenu({ role }: { role?: "admin" | "viewer" }) {
     return () => query.removeEventListener("change", handleSystemChange);
   }, [theme, palette, density]);
 
-  const updateTheme = (next: ThemePreference) => {
-    setTheme(next);
-    localStorage.setItem(THEME_KEY, next);
-    applyPreferences(next, palette, density);
+  const updateTheme = (next: ThemePreference, event?: React.MouseEvent) => {
+    // Auto-switch palette based on theme
+    const resolved = resolveTheme(next);
+    const autoPalette: PalettePreset = resolved === "dark" ? "indigo" : "coral";
+    setPalette(autoPalette);
+    localStorage.setItem(PALETTE_KEY, autoPalette);
+
+    if (!document.startViewTransition || !event) {
+      setTheme(next);
+      localStorage.setItem(THEME_KEY, next);
+      applyPreferences(next, autoPalette, density);
+      return;
+    }
+
+    const x = event.clientX;
+    const y = event.clientY;
+    const endRadius = Math.hypot(
+      Math.max(x, innerWidth - x),
+      Math.max(y, innerHeight - y)
+    );
+
+    const isDark = resolved === "dark";
+
+    isTransitioning.current = true;
+
+    try {
+      document.body.classList.add("theme-transitioning");
+
+      const transition = document.startViewTransition(() => {
+        setTheme(next);
+        localStorage.setItem(THEME_KEY, next);
+        applyPreferences(next, autoPalette, density);
+      });
+
+      transition.ready.then(() => {
+        document.documentElement.animate(
+          {
+            clipPath: [
+              `circle(0px at ${x}px ${y}px)`,
+              `circle(${endRadius}px at ${x}px ${y}px)`
+            ]
+          },
+          {
+            duration: 800,
+            easing: "cubic-bezier(0.4, 0, 0.2, 1)",
+            pseudoElement: "::view-transition-new(root)"
+          }
+        );
+      });
+
+      transition.finished.then(() => {
+        isTransitioning.current = false;
+        document.body.classList.remove("theme-transitioning");
+      });
+    } catch {
+      // Fallback if view transition fails
+      setTheme(next);
+      localStorage.setItem(THEME_KEY, next);
+      applyPreferences(next, autoPalette, density);
+      isTransitioning.current = false;
+    }
   };
 
   const updatePalette = (next: PalettePreset) => {
@@ -132,7 +191,7 @@ export default function ProfileMenu({ role }: { role?: "admin" | "viewer" }) {
               className="rounded-full border border-border/60"
             />
             <div>
-            <p className="text-sm font-semibold text-text">Plan Ing Informática</p>
+              <p className="text-sm font-semibold text-text">Plan Ing Informática</p>
               <p className="text-xs text-muted">Rol actual: {roleLabel}</p>
             </div>
           </div>
@@ -147,12 +206,14 @@ export default function ProfileMenu({ role }: { role?: "admin" | "viewer" }) {
                   <button
                     key={value}
                     type="button"
-                    onClick={() => updateTheme(value)}
-                    className={`rounded-full border px-3 py-1.5 font-semibold ${
-                      theme === value
-                        ? "border-accent/40 bg-accent text-accent-contrast"
-                        : "border-border/70 bg-surface-2/60 text-muted"
-                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      updateTheme(value, e);
+                    }}
+                    className={`rounded-full border px-3 py-1.5 font-semibold ${theme === value
+                      ? "border-accent/40 bg-accent text-accent-contrast"
+                      : "border-border/70 bg-surface-2/60 text-muted"
+                      }`}
                   >
                     {value === "light" ? "Claro" : value === "dark" ? "Oscuro" : "Sistema"}
                   </button>
@@ -176,11 +237,10 @@ export default function ProfileMenu({ role }: { role?: "admin" | "viewer" }) {
                     key={item.id}
                     type="button"
                     onClick={() => updatePalette(item.id)}
-                    className={`rounded-full border px-3 py-1.5 font-semibold ${
-                      palette === item.id
-                        ? "border-accent/40 bg-accent text-accent-contrast"
-                        : "border-border/70 bg-surface-2/60 text-muted"
-                    }`}
+                    className={`rounded-full border px-3 py-1.5 font-semibold ${palette === item.id
+                      ? "border-accent/40 bg-accent text-accent-contrast"
+                      : "border-border/70 bg-surface-2/60 text-muted"
+                      }`}
                   >
                     {item.label}
                   </button>
@@ -204,11 +264,10 @@ export default function ProfileMenu({ role }: { role?: "admin" | "viewer" }) {
                     key={item.id}
                     type="button"
                     onClick={() => updateDensity(item.id)}
-                    className={`rounded-full border px-3 py-1.5 font-semibold ${
-                      density === item.id
-                        ? "border-accent/40 bg-accent text-accent-contrast"
-                        : "border-border/70 bg-surface-2/60 text-muted"
-                    }`}
+                    className={`rounded-full border px-3 py-1.5 font-semibold ${density === item.id
+                      ? "border-accent/40 bg-accent text-accent-contrast"
+                      : "border-border/70 bg-surface-2/60 text-muted"
+                      }`}
                   >
                     {item.label}
                   </button>

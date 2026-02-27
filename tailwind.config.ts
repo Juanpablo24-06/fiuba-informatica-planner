@@ -51,12 +51,13 @@ const config: Config = {
           to: { opacity: "0", backdropFilter: "blur(0px)" }
         },
         "dialog-panel-in": {
-          from: { opacity: "0", transform: "translate(-50%, -46%) scale(0.985)" },
-          to: { opacity: "1", transform: "translate(-50%, -50%) scale(1)" }
+          "0%": { opacity: "0", transform: "translate(-50%, -44%) scale(0.92)" },
+          "60%": { opacity: "1", transform: "translate(-50%, -51%) scale(1.01)" },
+          "100%": { opacity: "1", transform: "translate(-50%, -50%) scale(1)" }
         },
         "dialog-panel-out": {
           from: { opacity: "1", transform: "translate(-50%, -50%) scale(1)" },
-          to: { opacity: "0", transform: "translate(-50%, -46%) scale(0.99)" }
+          to: { opacity: "0", transform: "translate(-50%, -46%) scale(0.96)" }
         },
         "slide-in-right": {
           from: { opacity: "0", transform: "translateX(26px)" },
@@ -84,8 +85,8 @@ const config: Config = {
         "float-slow": "float-slow 6s ease-in-out infinite",
         "dialog-overlay-in": "dialog-overlay-in 220ms ease-out forwards",
         "dialog-overlay-out": "dialog-overlay-out 160ms ease-in forwards",
-        "dialog-panel-in": "dialog-panel-in 260ms cubic-bezier(0.18, 0.89, 0.32, 1.05) forwards",
-        "dialog-panel-out": "dialog-panel-out 180ms ease-in forwards",
+        "dialog-panel-in": "dialog-panel-in 420ms cubic-bezier(0.16, 1, 0.3, 1) forwards",
+        "dialog-panel-out": "dialog-panel-out 200ms ease-in forwards",
         "slide-in-right": "slide-in-right 260ms ease-out forwards",
         "message-in": "message-in 220ms ease-out forwards",
         "eye-blink": "eye-blink 4.2s ease-in-out infinite",
