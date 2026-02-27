@@ -5,11 +5,12 @@ import assistantRules from "@/config/assistant-rules.json";
 import { getSessionFromRequest } from "@/lib/auth";
 import { executeAdminActions } from "@/lib/ai/admin-actions";
 import { chatAdminActionSchema, reasoningLevelSchema, type ChatAdminAction } from "@/lib/ai/schemas";
-import { getCurrentTerm, getEnrollmentsForTerm, getEventsForTerm, getSubjects, getTerms } from "@/lib/queries";
+import { getEnrollmentSummaryByTermIds, getEventsForTerm, getSubjects, getTerms } from "@/lib/queries";
 import { getWeekRange } from "@/lib/date";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { callAIJSON, hasAnyAIProviderConfigured, isAIProviderConfigured } from "@/lib/ai/provider";
 import { chatResponseSchema } from "@/lib/ai/schemas";
+import type { Term } from "@/lib/types";
 
 const payloadSchema = z.object({
   message: z.string().trim().min(1),
@@ -44,6 +45,15 @@ const reasoningFormatByLevel: Record<z.infer<typeof reasoningLevelSchema>, strin
   alto:
     "6-10 frases bien estructuradas: analisis, supuestos, verificaciones y por que elegiste esa respuesta."
 };
+
+const CONTEXT_TERM_WINDOW = 8;
+const CONTEXT_TERMS_LIMIT = 16;
+const CONTEXT_SUBJECTS_LIMIT = 42;
+const CONTEXT_COURSES_BY_TERM_LIMIT = 12;
+const CONTEXT_WEEK_ENRICHMENTS_LIMIT = 24;
+
+const shouldRetryWithRepairPrompt = (error: string) =>
+  error === "invalid_json" || error === "invalid_schema" || error === "empty_response";
 
 const monthMap: Record<string, number> = {
   enero: 1,
@@ -350,33 +360,29 @@ const buildPrompt = ({
     "Si el usuario pide editar datos y el modo de acciones está habilitado, devuelve acciones en el campo `actions`.",
     "Si no corresponde editar, devuelve `actions: []`.",
     "Responde SOLO JSON valido con este schema:",
-    JSON.stringify(
-      {
-        answer: "string",
-        reasoning: "string con profundidad segun nivel",
-        follow_up_questions: ["string"],
-        warnings: ["string"],
-        actions: [
-          {
-            type:
-              "create_term | update_term | set_current_term | add_enrollment | update_enrollment_status | remove_enrollment"
-          }
-        ],
-        confidence: 0.0,
-        model: "string"
-      },
-      null,
-      2
-    ),
+    JSON.stringify({
+      answer: "string",
+      reasoning: "string con profundidad segun nivel",
+      follow_up_questions: ["string"],
+      warnings: ["string"],
+      actions: [
+        {
+          type:
+            "create_term | update_term | set_current_term | add_enrollment | update_enrollment_status | remove_enrollment"
+        }
+      ],
+      confidence: 0.0,
+      model: "string"
+    }),
     `Rol del usuario: ${role}`,
     "Reglas por rol:",
-    JSON.stringify(roleRules, null, 2),
+    JSON.stringify(roleRules),
     "Reglas globales del asistente:",
-    JSON.stringify(assistantRules.base_principles, null, 2),
+    JSON.stringify(assistantRules.base_principles),
     "Contexto:",
-    JSON.stringify(context, null, 2),
+    JSON.stringify(context),
     "Mensajes recientes de la conversación:",
-    JSON.stringify(recentMessages, null, 2),
+    JSON.stringify(recentMessages),
     "Pregunta:",
     message
   ].join("\n");
@@ -401,6 +407,12 @@ const getPersistedHistory = async (threadId: string | undefined) => {
       content: String(row.content ?? "").slice(0, 1200)
     }))
     .filter((row) => row.content.length > 0);
+};
+
+const resolveCurrentTerm = (terms: Term[]): Term | null => {
+  const current = terms.find((term) => term.is_current);
+  if (current) return current;
+  return terms[0] ?? null;
 };
 
 export async function POST(request: NextRequest) {
@@ -441,25 +453,58 @@ export async function POST(request: NextRequest) {
   const allowActions =
     session.role === "admin" && Boolean(parsed.data.allowActions);
   const weekRange = getWeekRange(now);
-  const currentTerm = await getCurrentTerm();
-  const [subjects, terms] = await Promise.all([getSubjects(), getTerms()]);
-  const contextTerms = terms.slice(0, 12);
-  const enrollments = currentTerm ? await getEnrollmentsForTerm(currentTerm.id) : [];
-  const termEvents = currentTerm ? await getEventsForTerm(currentTerm.id) : [];
-  const enrollmentsByTerm = await Promise.all(
-    contextTerms.map(async (term) => {
-      const termEnrollments = await getEnrollmentsForTerm(term.id);
-      return {
-        term_label: term.label,
-        total: termEnrollments.length,
-        courses: termEnrollments.slice(0, 20).map((enrollment) => ({
-          subject: enrollment.subject.name,
-          code: enrollment.subject.code,
-          status: enrollment.status
-        }))
-      };
-    })
-  );
+  const historyFromRequest =
+    parsed.data.history?.map((message) => ({
+      role: message.role,
+      content: message.content.slice(0, 1200)
+    })) ?? [];
+
+  const historyFromDbPromise =
+    historyFromRequest.length > 0
+      ? Promise.resolve([] as Array<{ role: "user" | "assistant"; content: string }>)
+      : getPersistedHistory(parsed.data.threadId);
+  const rawEventsPromise = supabaseAdmin
+    .from("calendar_events_raw")
+    .select(
+      "provider_event_id,title,starts_at,ends_at,calendar_event_enrichments(kind,instance,tags,needs_review,confidence,subject_id)"
+    )
+    .gte("starts_at", weekRange.start.toISOString())
+    .lte("starts_at", weekRange.end.toISOString());
+
+  const [subjects, terms, historyFromDb, rawEventsResult] = await Promise.all([
+    getSubjects(),
+    getTerms(),
+    historyFromDbPromise,
+    rawEventsPromise
+  ]);
+
+  const currentTerm = resolveCurrentTerm(terms);
+  const contextTerms = terms.slice(0, CONTEXT_TERM_WINDOW);
+  const termIdsForSummary = Array.from(new Set(contextTerms.map((term) => term.id)));
+  if (currentTerm && !termIdsForSummary.includes(currentTerm.id)) {
+    termIdsForSummary.unshift(currentTerm.id);
+  }
+
+  const [enrollmentsByTermMap, termEvents] = await Promise.all([
+    getEnrollmentSummaryByTermIds(termIdsForSummary),
+    currentTerm ? getEventsForTerm(currentTerm.id) : Promise.resolve([])
+  ]);
+
+  const currentTermEnrollments = currentTerm
+    ? enrollmentsByTermMap.get(currentTerm.id) ?? []
+    : [];
+  const enrollmentsByTerm = contextTerms.map((term) => {
+    const termEnrollments = enrollmentsByTermMap.get(term.id) ?? [];
+    return {
+      term_label: term.label,
+      total: termEnrollments.length,
+      courses: termEnrollments.slice(0, CONTEXT_COURSES_BY_TERM_LIMIT).map((enrollment) => ({
+        subject: enrollment.subject.name,
+        code: enrollment.subject.code,
+        status: enrollment.status
+      }))
+    };
+  });
 
   const weekEvents = termEvents
     .filter((event) => {
@@ -474,13 +519,7 @@ export async function POST(request: NextRequest) {
       ends_at: event.ends_at
     }));
 
-  const { data: rawEvents } = await supabaseAdmin
-    .from("calendar_events_raw")
-    .select(
-      "provider_event_id,title,starts_at,ends_at,calendar_event_enrichments(kind,instance,tags,needs_review,confidence,subject_id)"
-    )
-    .gte("starts_at", weekRange.start.toISOString())
-    .lte("starts_at", weekRange.end.toISOString());
+  const rawEvents = rawEventsResult.data;
 
   const enrichments = (rawEvents ?? [])
     .flatMap((row: any) =>
@@ -494,7 +533,7 @@ export async function POST(request: NextRequest) {
         needs_review: enrichment.needs_review ?? false
       }))
     )
-    .slice(0, 40);
+    .slice(0, CONTEXT_WEEK_ENRICHMENTS_LIMIT);
 
   const context = {
     now: now.toISOString(),
@@ -506,17 +545,17 @@ export async function POST(request: NextRequest) {
           end_date: currentTerm.end_date
         }
       : null,
-    terms: terms.slice(0, 24).map((term) => ({
+    terms: terms.slice(0, CONTEXT_TERMS_LIMIT).map((term) => ({
       label: term.label,
       start_date: term.start_date,
       end_date: term.end_date,
       is_current: term.is_current
     })),
-    subjects: subjects.slice(0, 60).map((subject) => ({
+    subjects: subjects.slice(0, CONTEXT_SUBJECTS_LIMIT).map((subject) => ({
       name: subject.name,
       code: subject.code
     })),
-    enrollments: enrollments.map((enrollment) => ({
+    enrollments: currentTermEnrollments.map((enrollment) => ({
       subject: enrollment.subject.name,
       status: enrollment.status
     })),
@@ -527,12 +566,6 @@ export async function POST(request: NextRequest) {
       (assistantRules.roles as Record<string, unknown>)[session.role] ?? null
   };
 
-  const historyFromRequest =
-    parsed.data.history?.map((message) => ({
-      role: message.role,
-      content: message.content.slice(0, 1200)
-    })) ?? [];
-  const historyFromDb = await getPersistedHistory(parsed.data.threadId);
   const recentMessages =
     historyFromRequest.length > 0 ? historyFromRequest : historyFromDb;
 
@@ -548,7 +581,7 @@ export async function POST(request: NextRequest) {
     provider: effectiveProvider,
     model: selectedModel
   });
-  if (!result.ok) {
+  if (!result.ok && shouldRetryWithRepairPrompt(result.error)) {
     const repairPrompt = [
       prompt,
       "",

@@ -1,6 +1,12 @@
 import { z } from "zod";
 
 const DEFAULT_NVIDIA_MODEL = "z-ai/glm4.7";
+const DEFAULT_NVIDIA_TIMEOUT_MS = 32000;
+const DEFAULT_NVIDIA_MAX_TOKENS = 1800;
+const NEGATIVE_MODEL_CACHE_TTL_MS = 10 * 60 * 1000;
+
+const workingModelCache = new Map<string, string>();
+const rejectedModelCache = new Map<string, number>();
 
 const MODEL_GROUPS: Array<{ aliases: string[]; candidates: string[] }> = [
   {
@@ -57,6 +63,35 @@ const MODEL_GROUPS: Array<{ aliases: string[]; candidates: string[] }> = [
 
 const normalizeModelName = (value: string) => value.trim().toLowerCase();
 
+const getCachedWorkingModel = (rawModel: string) =>
+  workingModelCache.get(normalizeModelName(rawModel));
+
+const cacheWorkingModel = (requestedModel: string, resolvedModel: string) => {
+  const normalizedRequested = normalizeModelName(requestedModel);
+  const normalizedResolved = normalizeModelName(resolvedModel);
+  workingModelCache.set(normalizedRequested, resolvedModel);
+  workingModelCache.set(normalizedResolved, resolvedModel);
+  rejectedModelCache.delete(normalizedResolved);
+};
+
+const cacheRejectedModel = (model: string) => {
+  rejectedModelCache.set(
+    normalizeModelName(model),
+    Date.now() + NEGATIVE_MODEL_CACHE_TTL_MS
+  );
+};
+
+const isModelRejected = (model: string) => {
+  const key = normalizeModelName(model);
+  const expiresAt = rejectedModelCache.get(key);
+  if (!expiresAt) return false;
+  if (expiresAt < Date.now()) {
+    rejectedModelCache.delete(key);
+    return false;
+  }
+  return true;
+};
+
 const buildModelCandidates = (rawModel: string) => {
   const typed = rawModel.trim();
   const normalized = normalizeModelName(typed);
@@ -88,6 +123,20 @@ const getNvidiaConfig = (modelOverride?: string) => {
   return { apiKey, model, apiUrl };
 };
 
+const fetchWithTimeout = async (
+  input: string,
+  init: RequestInit,
+  timeoutMs: number
+) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
 const extractJson = (raw: string) => {
   const fenced = raw.match(/```json\s*([\s\S]*?)\s*```/i);
   if (fenced?.[1]) return fenced[1];
@@ -111,24 +160,53 @@ export const callNvidiaJSON = async <T>(
     return { ok: false, error: "not_configured" };
   }
 
-  const modelCandidates = buildModelCandidates(config.model);
+  const configuredTimeoutMs = Number(process.env.NVIDIA_REQUEST_TIMEOUT_MS ?? "");
+  const requestTimeoutMs = Number.isFinite(configuredTimeoutMs) && configuredTimeoutMs > 0
+    ? configuredTimeoutMs
+    : DEFAULT_NVIDIA_TIMEOUT_MS;
+  const configuredMaxTokens = Number(process.env.NVIDIA_MAX_TOKENS ?? "");
+  const maxTokens = Number.isFinite(configuredMaxTokens) && configuredMaxTokens > 0
+    ? configuredMaxTokens
+    : DEFAULT_NVIDIA_MAX_TOKENS;
+
+  const rawCandidates = buildModelCandidates(config.model);
+  const preferredCandidate = getCachedWorkingModel(config.model);
+  const modelCandidates = [preferredCandidate, ...rawCandidates]
+    .filter((candidate): candidate is string => Boolean(candidate))
+    .filter((candidate, index, array) => {
+      const key = normalizeModelName(candidate);
+      return array.findIndex((item) => normalizeModelName(item) === key) === index;
+    })
+    .filter((candidate) => !isModelRejected(candidate));
   let lastError = "provider_error";
 
   for (const model of modelCandidates) {
-    const response = await fetch(`${config.apiUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${config.apiKey}`
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.2,
-        max_tokens: 4096,
-        response_format: { type: "json_object" }
-      })
-    });
+    let response: Response;
+    try {
+      response = await fetchWithTimeout(
+        `${config.apiUrl}/chat/completions`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${config.apiKey}`
+          },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.2,
+            max_tokens: maxTokens,
+            response_format: { type: "json_object" }
+          })
+        },
+        requestTimeoutMs
+      );
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        return { ok: false, error: `nvidia_timeout_${requestTimeoutMs}ms` };
+      }
+      return { ok: false, error: "nvidia_network_error" };
+    }
 
     if (!response.ok) {
       const errorPayload = await response.json().catch(() => null);
@@ -143,6 +221,9 @@ export const callNvidiaJSON = async <T>(
 
       // Si el modelo no existe o no está habilitado, intenta alias siguiente.
       if (response.status === 404 || response.status === 400) {
+        if (response.status === 404) {
+          cacheRejectedModel(model);
+        }
         continue;
       }
       return { ok: false, error: lastError };
@@ -179,6 +260,7 @@ export const callNvidiaJSON = async <T>(
       };
     }
 
+    cacheWorkingModel(config.model, model);
     return { ok: true, data: result.data, raw: rawText, model };
   }
 

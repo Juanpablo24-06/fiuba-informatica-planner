@@ -129,6 +129,55 @@ export const getEnrollmentsForTerm = async (
   });
 };
 
+type EnrollmentSummary = {
+  status: string;
+  subject: {
+    name: string;
+    code: string | null;
+  };
+};
+
+export const getEnrollmentSummaryByTermIds = async (
+  termIds: string[]
+): Promise<Map<string, EnrollmentSummary[]>> => {
+  const uniqueTermIds = [...new Set(termIds.filter(Boolean))];
+  if (uniqueTermIds.length === 0) {
+    return new Map();
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("enrollments")
+    .select("term_id,status,subject:subjects(name,code)")
+    .in("term_id", uniqueTermIds)
+    .order("name", { foreignTable: "subjects", ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  const byTerm = new Map<string, EnrollmentSummary[]>();
+
+  for (const row of data ?? []) {
+    const termId = typeof row?.term_id === "string" ? row.term_id : null;
+    if (!termId) continue;
+
+    const subjectRaw = asSingle<{ name: string; code: string | null }>(row.subject as any);
+    if (!subjectRaw?.name) continue;
+
+    const current = byTerm.get(termId) ?? [];
+    current.push({
+      status: String(row.status ?? ""),
+      subject: {
+        name: String(subjectRaw.name),
+        code: subjectRaw.code ?? null
+      }
+    });
+    byTerm.set(termId, current);
+  }
+
+  return byTerm;
+};
+
 export const getEventsForTerm = async (termId: string): Promise<Event[]> => {
   const { data, hasSchedule } = await queryWithScheduleFallback<any>({
     withSchedule: () =>
