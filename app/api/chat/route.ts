@@ -46,14 +46,100 @@ const reasoningFormatByLevel: Record<z.infer<typeof reasoningLevelSchema>, strin
     "6-10 frases bien estructuradas: analisis, supuestos, verificaciones y por que elegiste esa respuesta."
 };
 
-const CONTEXT_TERM_WINDOW = 8;
-const CONTEXT_TERMS_LIMIT = 16;
-const CONTEXT_SUBJECTS_LIMIT = 42;
-const CONTEXT_COURSES_BY_TERM_LIMIT = 12;
-const CONTEXT_WEEK_ENRICHMENTS_LIMIT = 24;
+const contextProfileByReasoningLevel: Record<
+  z.infer<typeof reasoningLevelSchema>,
+  {
+    termsWindow: number;
+    termsLimit: number;
+    subjectsLimit: number;
+    coursesByTermLimit: number;
+    weekEnrichmentsLimit: number;
+  }
+> = {
+  bajo: {
+    termsWindow: 5,
+    termsLimit: 10,
+    subjectsLimit: 28,
+    coursesByTermLimit: 8,
+    weekEnrichmentsLimit: 12
+  },
+  medio: {
+    termsWindow: 8,
+    termsLimit: 16,
+    subjectsLimit: 42,
+    coursesByTermLimit: 12,
+    weekEnrichmentsLimit: 24
+  },
+  alto: {
+    termsWindow: 12,
+    termsLimit: 24,
+    subjectsLimit: 60,
+    coursesByTermLimit: 18,
+    weekEnrichmentsLimit: 40
+  }
+};
 
 const shouldRetryWithRepairPrompt = (error: string) =>
   error === "invalid_json" || error === "invalid_schema" || error === "empty_response";
+
+const shouldIncludeCalendarContext = (message: string) => {
+  const normalized = normalizeText(message);
+  if (!normalized) return false;
+  return /\b(calendario|agenda|evento|eventos|semana|hoy|manana|mañana|parcial|final|entrega)\b/.test(
+    normalized
+  );
+};
+
+const buildFallbackDiagnostics = (error: string) => {
+  const normalized = error.toLowerCase();
+  if (normalized.includes("timeout")) {
+    return {
+      answer:
+        "El proveedor tardó demasiado en responder. Podés reintentar o usar el modelo predeterminado para más estabilidad.",
+      reasoning:
+        "La solicitud venció por tiempo de espera. Se devolvió una respuesta de contingencia para no romper el flujo.",
+      warningLabel: "Tiempo de espera del proveedor"
+    };
+  }
+  if (
+    normalized.includes("_404") ||
+    normalized.includes("does not exist") ||
+    normalized.includes("no access")
+  ) {
+    return {
+      answer:
+        "El modelo seleccionado no está disponible para esta cuenta/proveedor. Probé recuperación para mantener el chat activo.",
+      reasoning:
+        "Se detectó modelo no disponible o sin permisos y se activó recuperación segura.",
+      warningLabel: "Modelo no disponible en proveedor"
+    };
+  }
+  if (normalized.includes("network")) {
+    return {
+      answer:
+        "Hubo un problema de red al contactar al proveedor del modelo. El chat quedó activo para que puedas reintentar.",
+      reasoning:
+        "Falla de conectividad durante la llamada al proveedor; se activó respuesta de recuperación.",
+      warningLabel: "Problema de red con proveedor"
+    };
+  }
+  if (shouldRetryWithRepairPrompt(error)) {
+    return {
+      answer:
+        "La salida del modelo no cumplió el formato esperado y no pude usarla directamente. El chat sigue activo para reintentar.",
+      reasoning:
+        "El proveedor devolvió contenido incompatible con el esquema JSON requerido.",
+      warningLabel: "Salida incompatible del modelo"
+    };
+  }
+  return {
+    answer:
+      "No pude obtener una respuesta válida del proveedor en este intento, pero el chat sigue activo para reintentar.",
+    reasoning:
+      "Se activó modo de recuperación por error del proveedor o formato no compatible.",
+    warningLabel: "Error del proveedor"
+  };
+};
 
 const monthMap: Record<string, number> = {
   enero: 1,
@@ -450,6 +536,8 @@ export async function POST(request: NextRequest) {
 
   const now = new Date();
   const reasoningLevel = parsed.data.reasoningLevel ?? "medio";
+  const contextProfile = contextProfileByReasoningLevel[reasoningLevel];
+  const includeCalendarContext = shouldIncludeCalendarContext(parsed.data.message);
   const allowActions =
     session.role === "admin" && Boolean(parsed.data.allowActions);
   const weekRange = getWeekRange(now);
@@ -463,13 +551,15 @@ export async function POST(request: NextRequest) {
     historyFromRequest.length > 0
       ? Promise.resolve([] as Array<{ role: "user" | "assistant"; content: string }>)
       : getPersistedHistory(parsed.data.threadId);
-  const rawEventsPromise = supabaseAdmin
-    .from("calendar_events_raw")
-    .select(
-      "provider_event_id,title,starts_at,ends_at,calendar_event_enrichments(kind,instance,tags,needs_review,confidence,subject_id)"
-    )
-    .gte("starts_at", weekRange.start.toISOString())
-    .lte("starts_at", weekRange.end.toISOString());
+  const rawEventsPromise = includeCalendarContext
+    ? supabaseAdmin
+        .from("calendar_events_raw")
+        .select(
+          "provider_event_id,title,starts_at,ends_at,calendar_event_enrichments(kind,instance,tags,needs_review,confidence,subject_id)"
+        )
+        .gte("starts_at", weekRange.start.toISOString())
+        .lte("starts_at", weekRange.end.toISOString())
+    : Promise.resolve({ data: [] as any[] });
 
   const [subjects, terms, historyFromDb, rawEventsResult] = await Promise.all([
     getSubjects(),
@@ -479,7 +569,7 @@ export async function POST(request: NextRequest) {
   ]);
 
   const currentTerm = resolveCurrentTerm(terms);
-  const contextTerms = terms.slice(0, CONTEXT_TERM_WINDOW);
+  const contextTerms = terms.slice(0, contextProfile.termsWindow);
   const termIdsForSummary = Array.from(new Set(contextTerms.map((term) => term.id)));
   if (currentTerm && !termIdsForSummary.includes(currentTerm.id)) {
     termIdsForSummary.unshift(currentTerm.id);
@@ -487,7 +577,9 @@ export async function POST(request: NextRequest) {
 
   const [enrollmentsByTermMap, termEvents] = await Promise.all([
     getEnrollmentSummaryByTermIds(termIdsForSummary),
-    currentTerm ? getEventsForTerm(currentTerm.id) : Promise.resolve([])
+    includeCalendarContext && currentTerm
+      ? getEventsForTerm(currentTerm.id)
+      : Promise.resolve([])
   ]);
 
   const currentTermEnrollments = currentTerm
@@ -498,7 +590,7 @@ export async function POST(request: NextRequest) {
     return {
       term_label: term.label,
       total: termEnrollments.length,
-      courses: termEnrollments.slice(0, CONTEXT_COURSES_BY_TERM_LIMIT).map((enrollment) => ({
+      courses: termEnrollments.slice(0, contextProfile.coursesByTermLimit).map((enrollment) => ({
         subject: enrollment.subject.name,
         code: enrollment.subject.code,
         status: enrollment.status
@@ -533,7 +625,7 @@ export async function POST(request: NextRequest) {
         needs_review: enrichment.needs_review ?? false
       }))
     )
-    .slice(0, CONTEXT_WEEK_ENRICHMENTS_LIMIT);
+    .slice(0, contextProfile.weekEnrichmentsLimit);
 
   const context = {
     now: now.toISOString(),
@@ -545,13 +637,13 @@ export async function POST(request: NextRequest) {
           end_date: currentTerm.end_date
         }
       : null,
-    terms: terms.slice(0, CONTEXT_TERMS_LIMIT).map((term) => ({
+    terms: terms.slice(0, contextProfile.termsLimit).map((term) => ({
       label: term.label,
       start_date: term.start_date,
       end_date: term.end_date,
       is_current: term.is_current
     })),
-    subjects: subjects.slice(0, CONTEXT_SUBJECTS_LIMIT).map((subject) => ({
+    subjects: subjects.slice(0, contextProfile.subjectsLimit).map((subject) => ({
       name: subject.name,
       code: subject.code
     })),
@@ -560,8 +652,8 @@ export async function POST(request: NextRequest) {
       status: enrollment.status
     })),
     enrollments_by_term: enrollmentsByTerm,
-    week_events: weekEvents,
-    week_enrichments: enrichments,
+    week_events: includeCalendarContext ? weekEvents : [],
+    week_enrichments: includeCalendarContext ? enrichments : [],
     role_capabilities:
       (assistantRules.roles as Record<string, unknown>)[session.role] ?? null
   };
@@ -641,6 +733,7 @@ export async function POST(request: NextRequest) {
         : [];
   } else {
     usedFallback = true;
+    const diagnostics = buildFallbackDiagnostics(result.error);
     const inferredActions = allowActions
       ? [
           ...inferTermActionFromMessages(recentMessages),
@@ -666,17 +759,17 @@ export async function POST(request: NextRequest) {
       answer:
         successCount > 0
           ? `Listo, apliqué ${successCount} cambio(s) en la base.`
-          : "No pude parsear bien la salida del modelo, pero mantengo el chat activo para reintentar sin perder contexto.",
-      reasoning:
-        "Se activó modo de recuperación por salida no compatible del modelo.",
+          : diagnostics.answer,
+      reasoning: diagnostics.reasoning,
       follow_up_questions:
         successCount > 0
           ? ["¿Querés que marque este cuatrimestre como actual también?"]
           : [
-              "Si querés, pasame el cuatrimestre en formato exacto (ej: 2026-2) y fechas YYYY-MM-DD para aplicarlo directo."
+              "Si querés, te puedo reintentar automáticamente con el modelo predeterminado del proveedor.",
+              "También podés pasarme el cuatrimestre exacto (ej: 2026-2) con fechas YYYY-MM-DD para aplicarlo directo."
             ],
       warnings: [
-        `Salida AI inválida recuperada: ${result.error}`,
+        `${diagnostics.warningLabel}: ${result.error}`,
         ...(failCount > 0 ? [`Hubo ${failCount} acción(es) que no se pudieron aplicar.`] : [])
       ],
       actions: inferredActions,

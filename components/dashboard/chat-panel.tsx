@@ -51,21 +51,25 @@ type StreamProfile = {
 const persistenceEnabled = process.env.NEXT_PUBLIC_CHAT_PERSISTENCE === "true";
 const CHAT_HISTORY_KEY = "synapse-chat-history-v2";
 const MAX_STORED_SESSIONS = 16;
+const MODEL_DEFAULT_VALUE = "__default__";
 
 const modelOptions: Record<
   Exclude<AIProvider, "auto">,
   Array<{ value: string; label: string }>
 > = {
   cerebras: [
-    { value: "openai/gpt-oss-120b", label: "gpt-oss-120b" },
-    { value: "openai/gpt-oss-20b", label: "gpt-oss-20b" }
+    { value: MODEL_DEFAULT_VALUE, label: "Predeterminado" },
+    { value: "llama3.1-70b", label: "llama3.1-70b" },
+    { value: "qwen-3-32b", label: "qwen-3-32b" }
   ],
   nvidia: [
+    { value: MODEL_DEFAULT_VALUE, label: "Predeterminado" },
     { value: "z-ai/glm4.7", label: "GLM 4.7" },
     { value: "z-ai/glm5", label: "GLM 5" },
     { value: "minimaxai/minimax-m2.5", label: "MiniMax M2.5" }
   ],
   gemini: [
+    { value: MODEL_DEFAULT_VALUE, label: "Predeterminado" },
     { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
     { value: "gemini-2.0-flash-lite", label: "Gemini 2.0 Flash Lite" },
     { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro" }
@@ -81,16 +85,7 @@ const reasoningLabelByLevel: Record<ReasoningLevel, string> = {
 };
 
 const buildId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-const getStreamProfile = (level: ReasoningLevel): StreamProfile => {
-  if (level === "bajo") {
-    return { intervalMs: 10, reasoningStep: 8, answerStep: 7 };
-  }
-  if (level === "alto") {
-    return { intervalMs: 42, reasoningStep: 1, answerStep: 1 };
-  }
-  return { intervalMs: 22, reasoningStep: 4, answerStep: 3 };
-};
+const STREAM_PROFILE: StreamProfile = { intervalMs: 12, reasoningStep: 12, answerStep: 14 };
 
 const deriveSessionTitle = (messages: ChatMessage[]) => {
   const firstUser = messages.find((message) => message.role === "user");
@@ -394,7 +389,7 @@ export default function ChatPanel({
   const storeHistory = persistenceEnabled;
   const [reasoningLevel, setReasoningLevel] = useState<ReasoningLevel>("medio");
   const [provider, setProvider] = useState<AIProvider>("cerebras");
-  const [selectedModel, setSelectedModel] = useState("openai/gpt-oss-120b");
+  const [selectedModel, setSelectedModel] = useState(MODEL_DEFAULT_VALUE);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [historyReady, setHistoryReady] = useState(false);
@@ -402,7 +397,8 @@ export default function ChatPanel({
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const canEditWithAI = role === "admin";
-  const selectedModelOverride = selectedModel.trim();
+  const selectedModelOverride =
+    selectedModel === MODEL_DEFAULT_VALUE ? "" : selectedModel.trim();
   const hasLiveReasoning = messages.some(
     (message) =>
       message.role === "assistant" &&
@@ -586,12 +582,12 @@ export default function ChatPanel({
     });
   };
 
-  const startStreaming = (messageId: string, level: ReasoningLevel) => {
+  const startStreaming = (messageId: string) => {
     if (streamRef.current) {
       window.clearInterval(streamRef.current);
     }
 
-    const profile = getStreamProfile(level);
+    const profile = STREAM_PROFILE;
 
     streamRef.current = window.setInterval(() => {
       let completed = false;
@@ -750,7 +746,7 @@ export default function ChatPanel({
           isStreaming: true
         }
       ]);
-      startStreaming(assistantId, streamingLevel);
+      startStreaming(assistantId);
       setThreadId(data?.threadId ?? threadId);
     } catch {
       const message = "No se pudo contactar al asistente.";

@@ -37,6 +37,17 @@ const getFallbackModel = (provider: ResolvedProvider, modelOverride?: string) =>
   return process.env.GEMINI_MODEL ?? "gemini-1.5-pro";
 };
 
+const shouldRetryWithDefaultModel = (error: string) => {
+  const normalized = error.toLowerCase();
+  return (
+    normalized.includes("_404") ||
+    normalized.includes("_400") ||
+    normalized.includes("does not exist") ||
+    normalized.includes("not found") ||
+    normalized.includes("no access")
+  );
+};
+
 const callProvider = async <T>({
   provider,
   prompt,
@@ -59,6 +70,28 @@ const callProvider = async <T>({
         raw: result.raw
       };
     }
+
+    if (model?.trim() && shouldRetryWithDefaultModel(result.error)) {
+      const fallbackResult = await callCerebrasJSON(prompt, schema);
+      if (fallbackResult.ok) {
+        return {
+          ok: true,
+          data: fallbackResult.data,
+          provider,
+          model: fallbackResult.model,
+          raw: fallbackResult.raw
+        };
+      }
+      return {
+        ok: false,
+        error: fallbackResult.error,
+        provider,
+        model: getFallbackModel(provider),
+        raw: fallbackResult.raw,
+        issues: fallbackResult.issues
+      };
+    }
+
     return {
       ok: false,
       error: result.error,
@@ -80,6 +113,28 @@ const callProvider = async <T>({
         raw: result.raw
       };
     }
+
+    if (model?.trim() && shouldRetryWithDefaultModel(result.error)) {
+      const fallbackResult = await callNvidiaJSON(prompt, schema);
+      if (fallbackResult.ok) {
+        return {
+          ok: true,
+          data: fallbackResult.data,
+          provider,
+          model: fallbackResult.model,
+          raw: fallbackResult.raw
+        };
+      }
+      return {
+        ok: false,
+        error: fallbackResult.error,
+        provider,
+        model: getFallbackModel(provider),
+        raw: fallbackResult.raw,
+        issues: fallbackResult.issues
+      };
+    }
+
     return {
       ok: false,
       error: result.error,
@@ -100,6 +155,28 @@ const callProvider = async <T>({
       raw: result.raw
     };
   }
+
+  if (model?.trim() && shouldRetryWithDefaultModel(result.error)) {
+    const fallbackResult = await callGeminiJSON(prompt, schema);
+    if (fallbackResult.ok) {
+      return {
+        ok: true,
+        data: fallbackResult.data,
+        provider,
+        model: fallbackResult.model,
+        raw: fallbackResult.raw
+      };
+    }
+    return {
+      ok: false,
+      error: fallbackResult.error,
+      provider,
+      model: getFallbackModel(provider),
+      raw: fallbackResult.raw,
+      issues: fallbackResult.issues
+    };
+  }
+
   return {
     ok: false,
     error: result.error,
