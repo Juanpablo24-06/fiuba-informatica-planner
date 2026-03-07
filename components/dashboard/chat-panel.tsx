@@ -193,6 +193,7 @@ export default function ChatPanel({
   const [threadId, setThreadId] = useState<string | null>(null);
   const [storeHistory, setStoreHistory] = useState(persistenceEnabled);
   const [reasoningLevel, setReasoningLevel] = useState<ReasoningLevel>("medio");
+  const [allowActions, setAllowActions] = useState(false);
   const [provider, setProvider] = useState<AIProvider>("cerebras");
   const [selectedModel, setSelectedModel] = useState("openai/gpt-oss-120b");
   const [customModel, setCustomModel] = useState("");
@@ -497,7 +498,7 @@ export default function ChatPanel({
         storeHistory: storeHistory && persistenceEnabled,
         reasoningLevel: streamingLevel,
         provider,
-        allowActions: role === "admin" ? allowActions : false,
+        allowActions: canEditWithAI ? allowActions : false,
         history: recentHistory.slice(-14)
       };
       if (provider !== "auto" && selectedModelOverride) {
@@ -784,6 +785,18 @@ export default function ChatPanel({
                     {reasoningLabelByLevel[level]}
                   </button>
                 ))}
+                {canEditWithAI ? (
+                  <button
+                    type="button"
+                    onClick={() => setAllowActions((current) => !current)}
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-all duration-200 border whitespace-nowrap ${allowActions
+                      ? "bg-accent/15 text-accent border-accent/40"
+                      : "text-muted hover:text-text border-border/40"
+                      }`}
+                  >
+                    {allowActions ? "Acciones activas" : "Acciones apagadas"}
+                  </button>
+                ) : null}
               </div>
               <div className="flex flex-1 flex-col gap-2">
                 <Textarea
