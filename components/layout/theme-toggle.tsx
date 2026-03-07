@@ -1,7 +1,7 @@
 "use client";
 
 import { MoonStar, SunMedium } from "lucide-react";
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   commitAppearancePreferences,
@@ -18,7 +18,6 @@ const getToggleTheme = (resolvedTheme: "light" | "dark"): ThemePreference =>
 
 export default function ThemeToggle({ className }: { className?: string }) {
   const [preferences, setPreferences] = useState<AppearancePreferences | null>(null);
-  const transitionGuardRef = useRef(false);
 
   useEffect(() => {
     const next = readAppearancePreferences();
@@ -50,8 +49,8 @@ export default function ThemeToggle({ className }: { className?: string }) {
     setPreferences(commitAppearancePreferences(nextPreferences));
   };
 
-  const handleToggle = (event: MouseEvent<HTMLButtonElement>) => {
-    if (!preferences || transitionGuardRef.current) return;
+  const handleToggle = () => {
+    if (!preferences) return;
 
     const nextPreferences: AppearancePreferences = {
       ...preferences,
@@ -59,52 +58,7 @@ export default function ThemeToggle({ className }: { className?: string }) {
       palette: getAutoPaletteForTheme(nextTheme)
     };
 
-    if (!document.startViewTransition) {
-      commitThemeChange(nextPreferences);
-      return;
-    }
-
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = rect.left + rect.width / 2;
-    const y = rect.top + rect.height / 2;
-    const endRadius = Math.hypot(
-      Math.max(x, innerWidth - x),
-      Math.max(y, innerHeight - y)
-    );
-
-    transitionGuardRef.current = true;
-    document.body.classList.add("theme-transitioning");
-
-    try {
-      const transition = document.startViewTransition(() => {
-        commitThemeChange(nextPreferences);
-      });
-
-      transition.ready.then(() => {
-        document.documentElement.animate(
-          {
-            clipPath: [
-              `circle(0px at ${x}px ${y}px)`,
-              `circle(${endRadius}px at ${x}px ${y}px)`
-            ]
-          },
-          {
-            duration: 800,
-            easing: "cubic-bezier(0.4, 0, 0.2, 1)",
-            pseudoElement: "::view-transition-new(root)"
-          }
-        );
-      });
-
-      transition.finished.finally(() => {
-        transitionGuardRef.current = false;
-        document.body.classList.remove("theme-transitioning");
-      });
-    } catch {
-      commitThemeChange(nextPreferences);
-      transitionGuardRef.current = false;
-      document.body.classList.remove("theme-transitioning");
-    }
+    commitThemeChange(nextPreferences);
   };
 
   return (
@@ -113,13 +67,13 @@ export default function ThemeToggle({ className }: { className?: string }) {
       onClick={handleToggle}
       title={`Cambiar a modo ${nextLabel}`}
       aria-label={`Cambiar a modo ${nextLabel}`}
+      aria-pressed={resolvedTheme === "dark"}
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border border-border/70 bg-surface px-3 py-2 text-xs font-semibold text-text transition hover:border-accent/60 hover:text-accent",
+        "inline-flex h-10 w-10 items-center justify-center rounded-full text-muted transition-all duration-200 hover:bg-surface-2/65 hover:text-accent active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
         className
       )}
     >
       <Icon className="h-4 w-4" />
-      <span>Tema</span>
     </button>
   );
 }

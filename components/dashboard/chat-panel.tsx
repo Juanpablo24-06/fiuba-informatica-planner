@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Sparkles, X } from "lucide-react";
+import { Gauge, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select } from "@/components/ui/select";
@@ -51,29 +51,39 @@ type StreamProfile = {
 const persistenceEnabled = process.env.NEXT_PUBLIC_CHAT_PERSISTENCE === "true";
 const CHAT_HISTORY_KEY = "synapse-chat-history-v2";
 const MAX_STORED_SESSIONS = 16;
-const MODEL_DEFAULT_VALUE = "__default__";
+const CUSTOM_MODEL_VALUE = "__custom__";
+
+const providerLabels: Record<AIProvider, string> = {
+  auto: "Auto",
+  cerebras: "Cerebras",
+  nvidia: "NVIDIA",
+  gemini: "Gemini"
+};
 
 const modelOptions: Record<
   Exclude<AIProvider, "auto">,
   Array<{ value: string; label: string }>
 > = {
   cerebras: [
-    { value: MODEL_DEFAULT_VALUE, label: "Predeterminado" },
-    { value: "llama3.1-70b", label: "llama3.1-70b" },
-    { value: "qwen-3-32b", label: "qwen-3-32b" }
+    { value: "openai/gpt-oss-120b", label: "gpt-oss-120b" },
+    { value: "openai/gpt-oss-20b", label: "gpt-oss-20b" }
   ],
   nvidia: [
-    { value: MODEL_DEFAULT_VALUE, label: "Predeterminado" },
     { value: "z-ai/glm4.7", label: "GLM 4.7" },
     { value: "z-ai/glm5", label: "GLM 5" },
     { value: "minimaxai/minimax-m2.5", label: "MiniMax M2.5" }
   ],
   gemini: [
-    { value: MODEL_DEFAULT_VALUE, label: "Predeterminado" },
     { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
     { value: "gemini-2.0-flash-lite", label: "Gemini 2.0 Flash Lite" },
     { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro" }
   ]
+};
+
+const reasoningIndexByLevel: Record<ReasoningLevel, number> = {
+  bajo: 0,
+  medio: 1,
+  alto: 2
 };
 
 const reasoningByIndex: ReasoningLevel[] = ["bajo", "medio", "alto"];
@@ -85,7 +95,22 @@ const reasoningLabelByLevel: Record<ReasoningLevel, string> = {
 };
 
 const buildId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-const STREAM_PROFILE: StreamProfile = { intervalMs: 12, reasoningStep: 12, answerStep: 14 };
+
+const getStreamProfile = (level: ReasoningLevel): StreamProfile => {
+  if (level === "bajo") {
+    return { intervalMs: 10, reasoningStep: 8, answerStep: 7 };
+  }
+  if (level === "alto") {
+    return { intervalMs: 42, reasoningStep: 1, answerStep: 1 };
+  }
+  return { intervalMs: 22, reasoningStep: 4, answerStep: 3 };
+};
+
+const getPreflightDelayMs = (level: ReasoningLevel) => {
+  if (level === "alto") return 1400;
+  if (level === "medio") return 350;
+  return 0;
+};
 
 const deriveSessionTitle = (messages: ChatMessage[]) => {
   const firstUser = messages.find((message) => message.role === "user");
@@ -114,262 +139,43 @@ const buildSessionLabel = (session: ChatSession) => {
   return `${date} · ${session.title}`;
 };
 
-const INLINE_MARKDOWN_TOKEN =
-  /(\[[^\]]+\]\((https?:\/\/[^\s)]+)\)|`[^`\n]+`|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_)/g;
-
-const renderInlineMarkdown = (text: string, keyPrefix: string) => {
-  const nodes: React.ReactNode[] = [];
-  let cursor = 0;
-  let tokenIndex = 0;
-
-  for (const match of text.matchAll(INLINE_MARKDOWN_TOKEN)) {
-    const token = match[0];
-    const tokenStart = match.index ?? 0;
-    const tokenEnd = tokenStart + token.length;
-
-    if (tokenStart > cursor) {
-      nodes.push(text.slice(cursor, tokenStart));
-    }
-
-    if (token.startsWith("`") && token.endsWith("`")) {
-      nodes.push(
-        <code
-          key={`${keyPrefix}-code-${tokenIndex}`}
-          className="rounded bg-surface px-1 py-0.5 font-mono text-[0.9em]"
-        >
-          {token.slice(1, -1)}
-        </code>
-      );
-    } else if (
-      (token.startsWith("**") && token.endsWith("**")) ||
-      (token.startsWith("__") && token.endsWith("__"))
-    ) {
-      nodes.push(
-        <strong key={`${keyPrefix}-strong-${tokenIndex}`}>
-          {token.slice(2, -2)}
-        </strong>
-      );
-    } else if (
-      (token.startsWith("*") && token.endsWith("*")) ||
-      (token.startsWith("_") && token.endsWith("_"))
-    ) {
-      nodes.push(
-        <em key={`${keyPrefix}-em-${tokenIndex}`}>
-          {token.slice(1, -1)}
-        </em>
-      );
-    } else if (token.startsWith("[") && token.includes("](") && token.endsWith(")")) {
-      const linkMatch = token.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
-      if (linkMatch) {
-        const [, label, href] = linkMatch;
-        nodes.push(
-          <a
-            key={`${keyPrefix}-link-${tokenIndex}`}
-            href={href}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="text-accent underline underline-offset-2"
-          >
-            {label}
-          </a>
-        );
-      } else {
-        nodes.push(token);
-      }
-    } else {
-      nodes.push(token);
-    }
-
-    tokenIndex += 1;
-    cursor = tokenEnd;
-  }
-
-  if (cursor < text.length) {
-    nodes.push(text.slice(cursor));
-  }
-
-  if (nodes.length === 0) {
-    return [text];
-  }
-  return nodes;
-};
-
-type MarkdownBlock =
-  | { type: "heading"; level: number; text: string }
-  | { type: "paragraph"; text: string }
-  | { type: "unordered_list"; items: string[] }
-  | { type: "ordered_list"; items: string[] }
-  | { type: "quote"; text: string }
-  | { type: "code"; text: string };
-
-const isListBullet = (line: string) => /^\s*[-*]\s+/.test(line);
-const isOrderedBullet = (line: string) => /^\s*\d+\.\s+/.test(line);
-const isHeading = (line: string) => /^\s{0,3}#{1,6}\s+/.test(line);
-const isQuote = (line: string) => /^\s*>\s+/.test(line);
-const isCodeFence = (line: string) => line.trim().startsWith("```");
-
-const isBlockStart = (line: string) =>
-  isCodeFence(line) || isHeading(line) || isListBullet(line) || isOrderedBullet(line) || isQuote(line);
-
-const parseMarkdownBlocks = (raw: string): MarkdownBlock[] => {
-  const lines = raw.replace(/\r\n/g, "\n").split("\n");
-  const blocks: MarkdownBlock[] = [];
-  let index = 0;
-
-  while (index < lines.length) {
-    const line = lines[index];
-    if (line.trim().length === 0) {
-      index += 1;
-      continue;
-    }
-
-    if (isCodeFence(line)) {
-      index += 1;
-      const codeLines: string[] = [];
-      while (index < lines.length && !isCodeFence(lines[index])) {
-        codeLines.push(lines[index]);
-        index += 1;
-      }
-      if (index < lines.length && isCodeFence(lines[index])) {
-        index += 1;
-      }
-      blocks.push({ type: "code", text: codeLines.join("\n") });
-      continue;
-    }
-
-    const headingMatch = line.match(/^\s{0,3}(#{1,6})\s+(.+)$/);
-    if (headingMatch) {
-      blocks.push({
-        type: "heading",
-        level: headingMatch[1].length,
-        text: headingMatch[2].trim()
-      });
-      index += 1;
-      continue;
-    }
-
-    if (isQuote(line)) {
-      const quoteLines: string[] = [];
-      while (index < lines.length && isQuote(lines[index])) {
-        quoteLines.push(lines[index].replace(/^\s*>\s?/, ""));
-        index += 1;
-      }
-      blocks.push({ type: "quote", text: quoteLines.join("\n") });
-      continue;
-    }
-
-    if (isListBullet(line)) {
-      const items: string[] = [];
-      while (index < lines.length && isListBullet(lines[index])) {
-        items.push(lines[index].replace(/^\s*[-*]\s+/, ""));
-        index += 1;
-      }
-      blocks.push({ type: "unordered_list", items });
-      continue;
-    }
-
-    if (isOrderedBullet(line)) {
-      const items: string[] = [];
-      while (index < lines.length && isOrderedBullet(lines[index])) {
-        items.push(lines[index].replace(/^\s*\d+\.\s+/, ""));
-        index += 1;
-      }
-      blocks.push({ type: "ordered_list", items });
-      continue;
-    }
-
-    const paragraphLines: string[] = [line];
-    index += 1;
-    while (
-      index < lines.length &&
-      lines[index].trim().length > 0 &&
-      !isBlockStart(lines[index])
-    ) {
-      paragraphLines.push(lines[index]);
-      index += 1;
-    }
-    blocks.push({ type: "paragraph", text: paragraphLines.join("\n") });
-  }
-
-  return blocks;
-};
-
-const renderMarkdownContent = (content: string, keyPrefix: string) => {
-  const blocks = parseMarkdownBlocks(content);
-  return (
-    <div className="space-y-2">
-      {blocks.map((block, index) => {
-        const key = `${keyPrefix}-block-${index}`;
-
-        if (block.type === "heading") {
-          const headingSizeClass =
-            block.level <= 2
-              ? "text-base font-semibold"
-              : block.level === 3
-                ? "text-sm font-semibold"
-                : "text-sm font-medium";
-          return (
-            <p key={key} className={headingSizeClass}>
-              {renderInlineMarkdown(block.text, key)}
-            </p>
-          );
-        }
-
-        if (block.type === "unordered_list") {
-          return (
-            <ul key={key} className="list-disc space-y-1 pl-5">
-              {block.items.map((item, itemIndex) => (
-                <li key={`${key}-item-${itemIndex}`}>
-                  {renderInlineMarkdown(item, `${key}-item-${itemIndex}`)}
-                </li>
-              ))}
-            </ul>
-          );
-        }
-
-        if (block.type === "ordered_list") {
-          return (
-            <ol key={key} className="list-decimal space-y-1 pl-5">
-              {block.items.map((item, itemIndex) => (
-                <li key={`${key}-item-${itemIndex}`}>
-                  {renderInlineMarkdown(item, `${key}-item-${itemIndex}`)}
-                </li>
-              ))}
-            </ol>
-          );
-        }
-
-        if (block.type === "quote") {
-          return (
-            <blockquote
-              key={key}
-              className="border-l-2 border-border/70 pl-3 text-muted whitespace-pre-wrap"
-            >
-              {renderInlineMarkdown(block.text, key)}
-            </blockquote>
-          );
-        }
-
-        if (block.type === "code") {
-          return (
-            <pre
-              key={key}
-              className="overflow-x-auto rounded-xl border border-border/60 bg-surface px-3 py-2 text-[12px] leading-relaxed"
-            >
-              <code>{block.text}</code>
-            </pre>
-          );
-        }
-
-        return (
-          <p key={key} className="whitespace-pre-wrap">
-            {renderInlineMarkdown(block.text, key)}
-          </p>
-        );
-      })}
+const InlineToggle = ({
+  checked,
+  onChange,
+  label,
+  description,
+  disabled = false
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label: string;
+  description?: string;
+  disabled?: boolean;
+}) => (
+  <button
+    type="button"
+    onClick={() => !disabled && onChange(!checked)}
+    disabled={disabled}
+    className="flex w-full items-center justify-between gap-3 rounded-2xl border border-border/70 bg-surface px-3 py-2 text-left text-xs text-text transition hover:border-accent/40 disabled:cursor-not-allowed disabled:opacity-60"
+  >
+    <div>
+      <p className="font-medium">{label}</p>
+      {description ? <p className="mt-0.5 text-[11px] text-muted">{description}</p> : null}
     </div>
-  );
-};
+    <span
+      className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border transition ${checked
+        ? "border-accent/40 bg-accent/25"
+        : "border-border/80 bg-surface-2"
+        }`}
+      aria-hidden="true"
+    >
+      <span
+        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition ${checked ? "left-[1.35rem]" : "left-0.5"
+          }`}
+      />
+    </span>
+  </button>
+);
 
 export default function ChatPanel({
   trigger,
@@ -383,13 +189,14 @@ export default function ChatPanel({
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
-  const [slowThinking, setSlowThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
-  const storeHistory = persistenceEnabled;
+  const [storeHistory, setStoreHistory] = useState(persistenceEnabled);
   const [reasoningLevel, setReasoningLevel] = useState<ReasoningLevel>("medio");
+  const [allowActions, setAllowActions] = useState(false);
   const [provider, setProvider] = useState<AIProvider>("cerebras");
-  const [selectedModel, setSelectedModel] = useState(MODEL_DEFAULT_VALUE);
+  const [selectedModel, setSelectedModel] = useState("openai/gpt-oss-120b");
+  const [customModel, setCustomModel] = useState("");
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [historyReady, setHistoryReady] = useState(false);
@@ -397,8 +204,19 @@ export default function ChatPanel({
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const canEditWithAI = role === "admin";
+  const modelSelectionEnabled = provider !== "auto";
+  const providerModelOptions = provider === "auto" ? [] : modelOptions[provider];
   const selectedModelOverride =
-    selectedModel === MODEL_DEFAULT_VALUE ? "" : selectedModel.trim();
+    selectedModel === CUSTOM_MODEL_VALUE
+      ? customModel.trim()
+      : selectedModel.trim();
+  const reasoningIndex = reasoningIndexByLevel[reasoningLevel];
+  const reasoningHint =
+    reasoningLevel === "alto"
+      ? "Análisis más profundo, respuesta más lenta."
+      : reasoningLevel === "medio"
+        ? "Balance entre velocidad y detalle."
+        : "Respuesta rápida con síntesis corta.";
   const hasLiveReasoning = messages.some(
     (message) =>
       message.role === "assistant" &&
@@ -423,18 +241,16 @@ export default function ChatPanel({
     });
   }, [messages, isThinking]);
 
+  const handleReasoningSlider = (value: number) => {
+    const safeValue = Math.min(2, Math.max(0, Math.round(value)));
+    const nextLevel = reasoningByIndex[safeValue] ?? "medio";
+    setReasoningLevel(nextLevel);
+  };
+
   useEffect(() => {
-    if (!isThinking) {
-      setSlowThinking(false);
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      setSlowThinking(true);
-    }, 3200);
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [isThinking]);
+    setSelectedModel("");
+    setCustomModel("");
+  }, [provider]);
 
   useEffect(() => {
     try {
@@ -582,12 +398,12 @@ export default function ChatPanel({
     });
   };
 
-  const startStreaming = (messageId: string) => {
+  const startStreaming = (messageId: string, level: ReasoningLevel) => {
     if (streamRef.current) {
       window.clearInterval(streamRef.current);
     }
 
-    const profile = STREAM_PROFILE;
+    const profile = getStreamProfile(level);
 
     streamRef.current = window.setInterval(() => {
       let completed = false;
@@ -682,7 +498,7 @@ export default function ChatPanel({
         storeHistory: storeHistory && persistenceEnabled,
         reasoningLevel: streamingLevel,
         provider,
-        allowActions: canEditWithAI,
+        allowActions: canEditWithAI ? allowActions : false,
         history: recentHistory.slice(-14)
       };
       if (provider !== "auto" && selectedModelOverride) {
@@ -690,6 +506,11 @@ export default function ChatPanel({
       }
       if (threadId) {
         requestBody.threadId = threadId;
+      }
+
+      const preflightDelay = getPreflightDelayMs(streamingLevel);
+      if (preflightDelay > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, preflightDelay));
       }
 
       const response = await fetch("/api/chat", {
@@ -746,7 +567,7 @@ export default function ChatPanel({
           isStreaming: true
         }
       ]);
-      startStreaming(assistantId);
+      startStreaming(assistantId, streamingLevel);
       setThreadId(data?.threadId ?? threadId);
     } catch {
       const message = "No se pudo contactar al asistente.";
@@ -882,8 +703,8 @@ export default function ChatPanel({
                       <div
                         className={
                           isUser
-                            ? "ml-auto inline-block w-fit max-w-[85%] animate-message-in rounded-3xl border border-accent/45 bg-accent/18 px-4 py-3 text-text"
-                            : "mr-auto inline-block max-w-[85%] animate-message-in rounded-3xl border border-border/70 bg-surface-2 px-4 py-3 text-text"
+                            ? "ml-auto max-w-[85%] animate-message-in rounded-3xl border border-accent/45 bg-accent/18 px-4 py-3 text-text"
+                            : "mr-auto max-w-[85%] animate-message-in rounded-3xl border border-border/70 bg-surface-2 px-4 py-3 text-text"
                         }
                       >
                         {!isUser && message.reasoning ? (
@@ -900,21 +721,14 @@ export default function ChatPanel({
                                   : "Ver razonamiento"}
                             </button>
                             {message.reasoningOpen ? (
-                              <div className="mt-2">
-                                {renderMarkdownContent(
-                                  visibleReasoning,
-                                  `${message.id}-reasoning`
-                                )}
-                              </div>
+                              <p className="mt-2 whitespace-pre-wrap">{visibleReasoning}</p>
                             ) : null}
                           </div>
                         ) : null}
 
-                        {content ? (
-                          renderMarkdownContent(content, `${message.id}-content`)
-                        ) : message.streamStage === "reasoning" ? (
-                          <p className="whitespace-pre-wrap">Preparando respuesta...</p>
-                        ) : null}
+                        <p className="whitespace-pre-wrap">
+                          {content || (message.streamStage === "reasoning" ? "Preparando respuesta..." : "")}
+                        </p>
 
                         {!isUser && message.actionResults?.length ? (
                           <div className="mt-3 rounded-2xl border border-border/60 bg-surface/70 p-2 text-xs text-muted">
@@ -943,9 +757,7 @@ export default function ChatPanel({
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:0ms]" />
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:120ms]" />
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:240ms]" />
-                  {slowThinking
-                    ? "Synapse está consultando al modelo..."
-                    : "Synapse está preparando el contexto..."}
+                  Synapse está preparando el contexto...
                 </div>
               </div>
             ) : null}
@@ -973,6 +785,18 @@ export default function ChatPanel({
                     {reasoningLabelByLevel[level]}
                   </button>
                 ))}
+                {canEditWithAI ? (
+                  <button
+                    type="button"
+                    onClick={() => setAllowActions((current) => !current)}
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-all duration-200 border whitespace-nowrap ${allowActions
+                      ? "bg-accent/15 text-accent border-accent/40"
+                      : "text-muted hover:text-text border-border/40"
+                      }`}
+                  >
+                    {allowActions ? "Acciones activas" : "Acciones apagadas"}
+                  </button>
+                ) : null}
               </div>
               <div className="flex flex-1 flex-col gap-2">
                 <Textarea

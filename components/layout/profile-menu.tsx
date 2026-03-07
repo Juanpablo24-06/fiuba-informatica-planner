@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, Palette, SwatchBook } from "lucide-react";
+import { ChevronDown, Palette, SwatchBook, User } from "lucide-react";
 import LogoutButton from "@/components/layout/logout-button";
 import {
   applyAppearancePreferences,
@@ -87,21 +87,15 @@ export default function ProfileMenu({ role }: { role?: "admin" | "viewer" }) {
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex items-center gap-2 rounded-full border border-border/70 bg-surface px-2 py-1.5"
+        className="flex items-center gap-2 px-0 py-1 text-sm font-semibold text-text transition-colors duration-200 hover:text-accent"
       >
-        <Image
-          src="/avatar-generico.svg"
-          alt="Perfil"
-          width={34}
-          height={34}
-          className="rounded-full border border-border/60"
-        />
-        <span className="hidden text-xs font-semibold text-text sm:inline">Perfil</span>
+        <User className="h-4 w-4" />
+        <span className="hidden sm:inline">Perfil</span>
         <ChevronDown className="h-4 w-4 text-muted" />
       </button>
 
       {open ? (
-        <div className="absolute right-0 mt-2 w-[300px] rounded-2xl border border-border/70 bg-surface p-4 shadow-glow">
+        <div className="absolute right-0 mt-3 w-[300px] rounded-2xl border border-border/70 bg-surface p-4 shadow-glow">
           <div className="mb-4 flex items-center gap-3">
             <Image
               src="/avatar-generico.svg"
@@ -174,12 +168,9 @@ export default function ProfileMenu({ role }: { role?: "admin" | "viewer" }) {
             </div>
 
             <div className="border-t border-border/60 pt-3">
-              <LogoutButton
-                className="w-full rounded-xl bg-surface-2/70 px-4 py-2.5 text-sm"
-                onLoggedOut={() => setOpen(false)}
-              >
-                Salir
-              </LogoutButton>
+              <div className="flex justify-end">
+                <LogoutButton />
+              </div>
             </div>
           </div>
         </div>
