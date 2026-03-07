@@ -1,87 +1,79 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { MoonStar, SunMedium } from "lucide-react";
+import { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
+import {
+  commitAppearancePreferences,
+  getAutoPaletteForTheme,
+  readAppearancePreferences,
+  resolveTheme,
+  subscribeToAppearancePreferences,
+  type AppearancePreferences,
+  type ThemePreference
+} from "@/lib/theme-preferences";
 
-type ThemePreference = "light" | "dark" | "system";
+const getToggleTheme = (resolvedTheme: "light" | "dark"): ThemePreference =>
+  resolvedTheme === "dark" ? "light" : "dark";
 
-const STORAGE_KEY = "fiuba-theme";
-
-const resolveTheme = (preference: ThemePreference) => {
-  if (preference !== "system") return preference;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-};
-
-export default function ThemeToggle() {
-  const [preference, setPreference] = useState<ThemePreference>("system");
-
-  const preferenceLabel = useMemo(() => {
-    if (preference === "light") return "Claro";
-    if (preference === "dark") return "Oscuro";
-    return "Sistema";
-  }, [preference]);
+export default function ThemeToggle({ className }: { className?: string }) {
+  const [preferences, setPreferences] = useState<AppearancePreferences | null>(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === "light" || stored === "dark" || stored === "system") {
-      setPreference(stored);
-      return;
-    }
-    setPreference("system");
+    const next = readAppearancePreferences();
+    setPreferences(next);
+
+    const unsubscribe = subscribeToAppearancePreferences((value) => {
+      setPreferences(value);
+    });
+
+    return unsubscribe;
   }, []);
 
   useEffect(() => {
-    const apply = () => {
-      const resolved = resolveTheme(preference);
-      document.documentElement.dataset.theme = resolved;
-      document.documentElement.style.colorScheme = resolved;
-    };
-    apply();
-
-    if (preference !== "system") return;
+    if (!preferences || preferences.theme !== "system") return;
     const query = window.matchMedia("(prefers-color-scheme: dark)");
-    query.addEventListener("change", apply);
-    return () => query.removeEventListener("change", apply);
-  }, [preference]);
+    const handleSystemChange = () => {
+      setPreferences((current) => (current ? { ...current } : current));
+    };
+    query.addEventListener("change", handleSystemChange);
+    return () => query.removeEventListener("change", handleSystemChange);
+  }, [preferences]);
 
-  const handleChange = (next: ThemePreference) => {
-    setPreference(next);
-    localStorage.setItem(STORAGE_KEY, next);
+  const resolvedTheme = preferences ? resolveTheme(preferences.theme) : "light";
+  const nextTheme = getToggleTheme(resolvedTheme);
+  const nextLabel = nextTheme === "dark" ? "oscuro" : "claro";
+  const Icon = nextTheme === "dark" ? MoonStar : SunMedium;
+
+  const commitThemeChange = (nextPreferences: AppearancePreferences) => {
+    setPreferences(commitAppearancePreferences(nextPreferences));
   };
 
-  const cycleTheme = () => {
-    const next =
-      preference === "light" ? "dark" : preference === "dark" ? "system" : "light";
-    handleChange(next);
+  const handleToggle = () => {
+    if (!preferences) return;
+
+    const nextPreferences: AppearancePreferences = {
+      ...preferences,
+      theme: nextTheme,
+      palette: getAutoPaletteForTheme(nextTheme)
+    };
+
+    commitThemeChange(nextPreferences);
   };
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={cycleTheme}
-        className="rounded-full border border-border/70 bg-surface px-3 py-1.5 text-[11px] font-semibold text-text sm:hidden"
-      >
-        {preferenceLabel}
-      </button>
-      <div className="hidden items-center gap-1 rounded-full border border-border/70 bg-surface px-1 py-1 sm:flex">
-        {(["light", "dark", "system"] as ThemePreference[]).map((option) => (
-          <button
-            key={option}
-            type="button"
-            onClick={() => handleChange(option)}
-            className={`rounded-full px-3 py-1.5 text-[11px] font-semibold transition ${
-              preference === option
-                ? "bg-accent text-accent-contrast"
-                : "text-muted hover:bg-surface-2 hover:text-text"
-            }`}
-            aria-label={`Cambiar tema a ${option}`}
-            aria-pressed={preference === option}
-          >
-            {option === "light" ? "Claro" : option === "dark" ? "Oscuro" : "Sistema"}
-          </button>
-        ))}
-        <span className="sr-only">Tema actual: {preferenceLabel}</span>
-      </div>
-    </>
+    <button
+      type="button"
+      onClick={handleToggle}
+      title={`Cambiar a modo ${nextLabel}`}
+      aria-label={`Cambiar a modo ${nextLabel}`}
+      aria-pressed={resolvedTheme === "dark"}
+      className={cn(
+        "inline-flex h-10 w-10 items-center justify-center rounded-full text-muted transition-all duration-200 hover:bg-surface-2/65 hover:text-accent active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
+        className
+      )}
+    >
+      <Icon className="h-4 w-4" />
+    </button>
   );
 }

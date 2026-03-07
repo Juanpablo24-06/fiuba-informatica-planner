@@ -121,7 +121,7 @@ export default async function DashboardPage() {
   const progressPct = requiredSubjects.length
     ? Math.round((approved / requiredSubjects.length) * 100)
     : 0;
-  const nextEvents = mergedEvents.slice(0, 6);
+  const nextEvents = mergedEvents.slice(0, 4);
   const load = calcLoad(mergedEvents);
 
   const cbcSubjects = requiredSubjects.filter((subject) => isCbcSubject(subject));
@@ -154,7 +154,6 @@ export default async function DashboardPage() {
   const professionalWeightPct = Math.max(0, 100 - cbcWeightPct);
   const professionalFillPct = Math.round((professionalWeightPct * professionalPct) / 100);
   const careerProgressPct = progressPct;
-
   const phraseSeed = Math.floor(now.getTime() / DAY_MS) + approved + enrollments.length;
   const editorialPhrase = PHRASES_EDITORIALES[Math.abs(phraseSeed) % PHRASES_EDITORIALES.length];
 
@@ -176,25 +175,29 @@ export default async function DashboardPage() {
                 <h1 className="mt-1 text-4xl font-semibold text-text">Resumen Académico</h1>
               </div>
               <Badge className="border-accent/40 bg-accent/10 text-accent">
-                Cuatrimestre actual: {currentTerm?.label ?? "Sin definir"}
+                {currentTerm?.label ?? "Sin cuatrimestre"}
               </Badge>
             </div>
 
             <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-muted">
               <span className="rounded-full border border-border/60 bg-surface-2/60 px-3 py-1">
-                {approved} de {requiredSubjects.length} materias obligatorias aprobadas
+                Obligatorias {approved}/{requiredSubjects.length}
               </span>
               {electives.length ? (
                 <span className="rounded-full border border-border/60 bg-surface-2/60 px-3 py-1">
-                  Electivas: {approvedElectives}/{electives.length} aprobadas
+                  Electivas {approvedElectives}/{electives.length}
                 </span>
               ) : null}
-              <span className="rounded-full border border-border/60 bg-surface-2/60 px-3 py-1">
-                Avance total: {careerProgressPct}%
+              <span className="rounded-full border border-accent/35 bg-accent/10 px-3 py-1 text-accent">
+                Progreso {careerProgressPct}%
               </span>
             </div>
 
             <div className="mt-6">
+              <div className="mb-2 flex items-center justify-between gap-3 text-xs uppercase tracking-[0.22em] text-muted">
+                <span>Avance de la carrera</span>
+                <span>{careerProgressPct}% completo</span>
+              </div>
               <div className="relative h-2.5 overflow-hidden rounded-full bg-border/35">
                 {cbcWeightPct > 0 ? (
                   <div
@@ -239,10 +242,10 @@ export default async function DashboardPage() {
             <div className="mb-4 flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.24em] text-muted">Materias activas</p>
-                <h2 className="mt-1 text-3xl font-semibold text-text">Tu cuatrimestre en foco</h2>
+                <h2 className="mt-1 text-3xl font-semibold text-text">Cursada actual</h2>
               </div>
               <Link href="/mapa" className="inline-flex items-center gap-2 text-sm font-semibold text-accent">
-                Ir al mapa <ArrowRight className="h-4 w-4" />
+                Ver mapa <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
 
@@ -266,7 +269,7 @@ export default async function DashboardPage() {
                       trigger={
                         <button
                           type="button"
-                          className="group relative overflow-hidden rounded-2xl border border-border/40 bg-surface/40 px-5 py-5 text-left shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-accent/40 hover:bg-surface/80 hover:shadow-md"
+                          className="group relative overflow-hidden rounded-2xl border border-border/45 bg-surface/75 px-5 py-5 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-accent/40 hover:shadow-md"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div>
@@ -293,12 +296,14 @@ export default async function DashboardPage() {
                           </div>
 
                           <p className="mt-3 text-xs text-muted">
-                            {formatSchedulePreview(enrollment.schedule, { maxBlocks: 1 })}
+                            {enrollment.schedule.length
+                              ? formatSchedulePreview(enrollment.schedule, { maxBlocks: 1 })
+                              : "Horario por definir"}
                           </p>
                           <p className="mt-1 text-xs text-muted">
-                            {nextEvent ? `Próximo evento: ${formatDateTime(nextEvent.starts_at)}` : "Sin eventos cargados"}
+                            {nextEvent ? `Próximo: ${formatDateTime(nextEvent.starts_at)}` : "Sin fechas cargadas"}
                           </p>
-                          <p className="mt-2 text-xs font-semibold text-accent">Abrir ficha completa</p>
+                          <p className="mt-2 text-xs font-semibold text-accent">Ver detalle</p>
                         </button>
                       }
                     />
@@ -309,10 +314,10 @@ export default async function DashboardPage() {
           </section>
         </section>
 
-        <aside className="panel flex h-fit flex-col gap-8 p-8">
+        <aside className="panel flex h-fit flex-col gap-8 bg-surface/88 p-8">
           <section>
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-3xl font-semibold leading-none text-text">Ahora</h3>
+              <h3 className="text-3xl font-semibold leading-none text-text">Próximas fechas</h3>
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent/12 text-accent">
                 <Clock3 className="h-4 w-4" />
               </span>
@@ -338,7 +343,9 @@ export default async function DashboardPage() {
                       })}
                     </p>
                     <p className="text-base font-semibold text-text">{event.title}</p>
-                    <p className="text-sm text-muted">{event.subject ?? "Evento general"}</p>
+                    {event.subject ? (
+                      <p className="text-sm text-muted">{event.subject}</p>
+                    ) : null}
                   </div>
                 ))
               )}
@@ -348,14 +355,14 @@ export default async function DashboardPage() {
               href="/horario"
               className="mt-5 inline-flex w-full items-center justify-center rounded-xl border border-border/65 bg-surface-2/55 px-4 py-3 text-sm font-semibold text-text"
             >
-              Ver agenda completa
+              Abrir agenda
             </Link>
           </section>
 
           <div className="h-px w-full bg-border/40" />
 
           <section>
-            <p className="text-xs uppercase tracking-[0.26em] text-muted">Semáforo de carga</p>
+            <p className="text-xs uppercase tracking-[0.26em] text-muted">Carga semanal</p>
             <div className="mt-3 flex items-center gap-2">
               <span
                 className={`h-3 w-3 rounded-full transition ${load.level === "baja" ? "scale-125 bg-success shadow-soft" : "bg-success/40"}`}
@@ -370,7 +377,7 @@ export default async function DashboardPage() {
             <p className="mt-3 text-4xl font-semibold text-text">{load.label}</p>
             <p className="text-sm text-muted">{load.mood}</p>
             <p className="mt-1 text-xs text-muted">
-              {load.weekEvents} eventos próximos · {load.exams} evaluaciones exigentes
+              {load.weekEvents} actividades en los próximos 7 días · {load.exams} evaluaciones exigentes
             </p>
           </section>
 

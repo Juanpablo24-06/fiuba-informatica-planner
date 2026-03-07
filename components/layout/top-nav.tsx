@@ -7,8 +7,8 @@ import { useEffect, useMemo, useRef } from "react";
 import type { CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 import BrandLogo from "@/components/layout/brand-logo";
-import LogoutButton from "@/components/layout/logout-button";
 import ProfileMenu from "@/components/layout/profile-menu";
+import ThemeToggle from "@/components/layout/theme-toggle";
 
 const baseItems = [
   { href: "/", label: "Resumen", icon: LayoutGrid },
@@ -62,17 +62,23 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
   }, []);
 
   return (
-    <header ref={headerRef} className="sticky top-0 z-40 border-b border-border/60 bg-surface/97 shadow-[0_1px_8px_rgb(var(--shadow-color)/0.08)] backdrop-blur-xl">
-      <div className="mx-auto flex w-full max-w-[1360px] items-center justify-between gap-4 px-6 py-4">
-        <div className="flex items-center gap-3">
-          <BrandLogo />
-          <div>
+    <header
+      ref={headerRef}
+      className="sticky top-0 z-40 border-b border-accent/24 shadow-[0_10px_28px_rgb(var(--shadow-color)/0.08)] backdrop-blur-2xl"
+      style={{
+        backgroundColor: "rgb(var(--color-accent) / 0.16)"
+      }}
+    >
+      <div className="mx-auto grid w-full max-w-[1360px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-6 px-6 py-4">
+        <div className="flex shrink-0 items-center gap-3">
+          <BrandLogo className="shadow-[0_14px_28px_rgb(var(--color-accent)/0.16)]" />
+          <div className="min-w-0">
             <p className="text-[1.55rem] font-bold leading-none text-text">Plan Ing Informática</p>
             <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-muted">Plan 2023 · FIUBA</p>
           </div>
         </div>
 
-        <nav className="hidden items-center gap-7 md:flex">
+        <nav className="hidden items-center justify-center gap-10 md:flex">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = activeHref === item.href;
@@ -82,14 +88,18 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
                 href={item.href}
                 data-active={active ? "true" : "false"}
                 className={cn(
-                  "group relative inline-flex items-center gap-2 pb-1 text-base font-medium transition-colors duration-200",
-                  active ? "text-accent" : "text-muted hover:text-text"
+                  "group relative inline-flex items-center gap-2.5 py-2 text-base font-medium tracking-[0.01em] transition-all duration-200",
+                  active
+                    ? "text-accent"
+                    : "text-muted hover:text-text"
                 )}
               >
                 <Icon
                   className={cn(
-                    "h-4 w-4 transition-colors duration-200 motion-reduce:animate-none",
-                    active ? "text-accent" : "group-hover:text-accent",
+                    "h-[17px] w-[17px] transition-colors duration-200 motion-reduce:animate-none",
+                    active
+                      ? "text-accent"
+                      : "group-hover:text-accent",
                     iconMotionClassByHref[item.href] ?? ""
                   )}
                   style={iconStyleByHref[item.href]}
@@ -98,7 +108,7 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
                 {item.label}
                 <span
                   className={cn(
-                    "absolute -bottom-0.5 left-0 h-[2px] w-full origin-left rounded-full bg-accent transition-transform duration-200",
+                    "absolute -bottom-[1px] left-0 right-0 h-[2.5px] origin-center rounded-full bg-accent transition-transform duration-200",
                     active ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
                   )}
                 />
@@ -107,9 +117,9 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
           })}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center justify-self-end gap-3">
           <ProfileMenu role={role} />
-          <LogoutButton />
+          <ThemeToggle className="text-text/80 hover:text-accent" />
         </div>
       </div>
 
@@ -124,9 +134,9 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
                 href={item.href}
                 data-active={active ? "true" : "false"}
                 className={cn(
-                  "group rounded-full border px-3 py-2 text-center text-xs font-semibold transition",
+                  "group rounded-full border px-3 py-2 text-center text-xs font-semibold transition-all duration-200",
                   active
-                    ? "border-accent/50 bg-accent text-accent-contrast"
+                    ? "border-accent/40 bg-accent/12 text-accent shadow-[inset_0_0_0_1px_rgb(var(--color-accent)/0.14)]"
                     : "border-border/70 bg-surface text-muted"
                 )}
               >
@@ -134,6 +144,7 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
                   <Icon
                     className={cn(
                       "h-3.5 w-3.5 transition-colors duration-200 motion-reduce:animate-none",
+                      active ? "text-accent" : "",
                       iconMotionClassByHref[item.href] ?? ""
                     )}
                     style={iconStyleByHref[item.href]}
