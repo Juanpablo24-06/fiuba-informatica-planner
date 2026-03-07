@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { EvaluationTemplate } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { formatEvaluationTemplate } from "@/lib/templates";
@@ -351,34 +351,30 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
     return map;
   }, [nodesById, orderByTerm, showElectives, terms]);
 
-  const searchNormalized = search.trim().toLowerCase();
+  const deferredSearch = useDeferredValue(search.trim().toLowerCase());
 
-  const searchMatches = useMemo(() => {
-    if (!searchNormalized) return new Set<string>();
-    return new Set(
-      nodes
-        .filter((node) => {
-          const nameMatch = node.name.toLowerCase().includes(searchNormalized);
-          const codeMatch = node.code?.toLowerCase().includes(searchNormalized);
-          const electiveMatch = showElectives || node.type !== "electiva";
-          return electiveMatch && (nameMatch || codeMatch);
-        })
-        .map((node) => node.id)
-    );
-  }, [nodes, searchNormalized, showElectives]);
+  const { searchMatches, searchResults } = useMemo(() => {
+    if (!deferredSearch) {
+      return {
+        searchMatches: new Set<string>(),
+        searchResults: [] as MapNode[]
+      };
+    }
 
-  const searchResults = useMemo(() => {
-    if (!searchNormalized) return [] as MapNode[];
-    return nodes
+    const matchedNodes = nodes
       .filter((node) => {
-        const nameMatch = node.name.toLowerCase().includes(searchNormalized);
-        const codeMatch = node.code?.toLowerCase().includes(searchNormalized);
+        const nameMatch = node.name.toLowerCase().includes(deferredSearch);
+        const codeMatch = node.code?.toLowerCase().includes(deferredSearch);
         const electiveMatch = showElectives || node.type !== "electiva";
         return electiveMatch && (nameMatch || codeMatch);
       })
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .slice(0, 8);
-  }, [nodes, searchNormalized, showElectives]);
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    return {
+      searchMatches: new Set(matchedNodes.map((node) => node.id)),
+      searchResults: matchedNodes.slice(0, 8)
+    };
+  }, [deferredSearch, nodes, showElectives]);
 
   const activeId = selectedId ?? hoveredId;
   const selectedNode = selectedId ? nodesById.get(selectedId) : null;
@@ -386,25 +382,17 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
   const getPrereqIds = useCallback(
     (id: string | null) => {
       if (!id) return new Set<string>();
-      const set = new Set<string>();
-      edges.forEach((edge) => {
-        if (edge.to === id) set.add(edge.from);
-      });
-      return set;
+      return new Set(edgeIndex.prereqMap.get(id) ?? []);
     },
-    [edges]
+    [edgeIndex]
   );
 
   const getUnlockIds = useCallback(
     (id: string | null) => {
       if (!id) return new Set<string>();
-      const set = new Set<string>();
-      edges.forEach((edge) => {
-        if (edge.from === id) set.add(edge.to);
-      });
-      return set;
+      return new Set(edgeIndex.unlockMap.get(id) ?? []);
     },
-    [edges]
+    [edgeIndex]
   );
 
   const prereqIds = useMemo(() => getPrereqIds(activeId), [activeId, getPrereqIds]);
@@ -913,7 +901,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
                   const isMuted = Boolean(
                     activeId
                       ? !isActiveLine
-                      : searchNormalized &&
+                      : deferredSearch &&
                           !searchMatches.has(line.from) &&
                           !searchMatches.has(line.to)
                   );
@@ -952,7 +940,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
                       const showMeta = isDesktop && (isActive || canPreview);
                       const isDimmed = activeId
                         ? !isActive && !isPrereq && !isUnlock
-                        : searchNormalized
+                        : deferredSearch
                         ? !searchMatches.has(node.id)
                         : false;
                       const statusLabel = node.status ? STATUS_LABELS[node.status] : null;
@@ -1103,7 +1091,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
                   onBlur={() => setTimeout(() => setIsSearchOpen(false), 160)}
                   onKeyDown={handleSearchKeyDown}
                 />
-                {isSearchOpen && searchNormalized ? (
+                {isSearchOpen && deferredSearch ? (
                   <div
                     className="absolute z-30 mt-2 w-full rounded-2xl border border-border/60 bg-surface/95 p-2 shadow-lg"
                     onMouseDown={(event) => event.preventDefault()}
@@ -1163,7 +1151,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
                   ))}
                 </div>
               </details>
-              {searchNormalized ? (
+              {deferredSearch ? (
                 <p className="text-[10px] text-muted">
                   {searchMatches.size} coincidencia{searchMatches.size === 1 ? "" : "s"}
                 </p>

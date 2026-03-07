@@ -1,9 +1,14 @@
+import dynamic from "next/dynamic";
 import AppBackground from "@/components/layout/app-background";
 import AppShell from "@/components/layout/app-shell";
 import ShortcutHandler from "@/components/layout/shortcut-handler";
-import SynapseLauncher from "@/components/layout/synapse-launcher";
 import TopNav from "@/components/layout/top-nav";
 import { getSession } from "@/lib/auth";
+
+const SynapseLauncher = dynamic(() => import("@/components/layout/synapse-launcher"), {
+  ssr: false,
+  loading: () => null
+});
 
 export default async function AppLayout({
   children

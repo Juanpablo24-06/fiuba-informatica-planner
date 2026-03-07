@@ -93,20 +93,25 @@ const calcLoad = (events: CalendarEvent[]) => {
 };
 
 export default async function DashboardPage() {
-  const session = await getSession();
+  const now = new Date();
+  const [session, currentTerm, subjects, latestStatusMap, calendarEvents] = await Promise.all([
+    getSession(),
+    getCurrentTerm(),
+    getSubjects(),
+    getLatestEnrollmentStatus(),
+    getCalendarEvents(
+      now.toISOString(),
+      new Date(now.getTime() + 10 * DAY_MS).toISOString()
+    )
+  ]);
   const isAdmin = session?.role === "admin";
 
-  const currentTerm = await getCurrentTerm();
-  const subjects = await getSubjects();
-  const latestStatusMap = await getLatestEnrollmentStatus();
-  const enrollments = currentTerm ? await getEnrollmentsForTerm(currentTerm.id) : [];
-  const termEvents = currentTerm ? await getEventsForTerm(currentTerm.id) : [];
-
-  const now = new Date();
-  const calendarEvents = await getCalendarEvents(
-    now.toISOString(),
-    new Date(now.getTime() + 10 * DAY_MS).toISOString()
-  );
+  const [enrollments, termEvents] = currentTerm
+    ? await Promise.all([
+        getEnrollmentsForTerm(currentTerm.id),
+        getEventsForTerm(currentTerm.id)
+      ])
+    : [[], []];
 
   const mergedEvents = [...calendarEvents, ...buildInternalEvents(termEvents)].sort(
     (a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime()
@@ -163,6 +168,16 @@ export default async function DashboardPage() {
     const list = eventsByEnrollment.get(event.enrollment_id) ?? [];
     list.push(event);
     eventsByEnrollment.set(event.enrollment_id, list);
+  }
+
+  const nextEventByEnrollment = new Map<string, Event | undefined>();
+  for (const [enrollmentId, events] of eventsByEnrollment.entries()) {
+    nextEventByEnrollment.set(
+      enrollmentId,
+      [...events].sort(
+        (a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()
+      )[0]
+    );
   }
 
   return (
@@ -253,9 +268,7 @@ export default async function DashboardPage() {
             ) : (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {enrollments.map((enrollment) => {
-                  const nextEvent = (eventsByEnrollment.get(enrollment.id) ?? []).sort(
-                    (a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()
-                  )[0];
+                  const nextEvent = nextEventByEnrollment.get(enrollment.id);
 
                   return (
                     <CourseWorkspaceDrawer

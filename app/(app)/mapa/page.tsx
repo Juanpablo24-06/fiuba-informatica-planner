@@ -2,9 +2,11 @@ import MapView from "@/components/map/map-view";
 import { getLatestEnrollmentStatus, getPrerequisites, getSubjects } from "@/lib/queries";
 
 export default async function MapaPage() {
-  const subjects = await getSubjects();
-  const prerequisites = await getPrerequisites();
-  const statusMap = await getLatestEnrollmentStatus();
+  const [subjects, prerequisites, statusMap] = await Promise.all([
+    getSubjects(),
+    getPrerequisites(),
+    getLatestEnrollmentStatus()
+  ]);
 
   const nodes = subjects.map((subject) => {
     const status = statusMap.get(subject.id);

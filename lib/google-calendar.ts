@@ -53,14 +53,20 @@ const fetchCalendarEvents = async (
     source: "calendar" as const
   }));
 
-  await supabaseAdmin.from("calendar_sources").upsert(
-    {
-      calendar_id: config.calendarId,
-      timezone: config.timezone,
-      last_synced_at: new Date().toISOString()
-    },
-    { onConflict: "calendar_id" }
-  );
+  void supabaseAdmin
+    .from("calendar_sources")
+    .upsert(
+      {
+        calendar_id: config.calendarId,
+        timezone: config.timezone,
+        last_synced_at: new Date().toISOString()
+      },
+      { onConflict: "calendar_id" }
+    )
+    .then(
+      () => null,
+      () => null
+    );
 
   return events;
 };

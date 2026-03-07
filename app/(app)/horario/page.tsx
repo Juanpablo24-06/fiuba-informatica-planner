@@ -129,26 +129,25 @@ const buildEnrichmentTags = (enrichment: {
 };
 
 export default async function HorarioPage() {
-  const currentTerm = await getCurrentTerm();
-  const subjects = await getSubjects();
-  const enrollments = currentTerm ? await getEnrollmentsForTerm(currentTerm.id) : [];
-  const termEvents = currentTerm ? await getEventsForTerm(currentTerm.id) : [];
-  const upcomingInternal = currentTerm ? await getUpcomingEvents(currentTerm.id) : [];
-
   const now = new Date();
   const upcomingEnd = new Date(now.getTime() + 14 * DAY_MS);
   const weekRange = getWeekRange(now);
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthEndExclusive = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const monthEndInclusive = new Date(monthEndExclusive.getTime() - 1);
-  const calendarRange = await getCalendarEvents(
-    now.toISOString(),
-    upcomingEnd.toISOString()
-  );
-  const calendarMonthRange = await getCalendarEvents(
-    monthStart.toISOString(),
-    monthEndInclusive.toISOString()
-  );
+  const [currentTerm, subjects, calendarRange, calendarMonthRange] = await Promise.all([
+    getCurrentTerm(),
+    getSubjects(),
+    getCalendarEvents(now.toISOString(), upcomingEnd.toISOString()),
+    getCalendarEvents(monthStart.toISOString(), monthEndInclusive.toISOString())
+  ]);
+  const [enrollments, termEvents, upcomingInternal] = currentTerm
+    ? await Promise.all([
+        getEnrollmentsForTerm(currentTerm.id),
+        getEventsForTerm(currentTerm.id),
+        getUpcomingEvents(currentTerm.id)
+      ])
+    : [[], [], []];
   const calendarWeekEvents = calendarRange.filter((event) => {
     const date = new Date(event.startsAt).getTime();
     return date >= weekRange.start.getTime() && date < weekRange.end.getTime();

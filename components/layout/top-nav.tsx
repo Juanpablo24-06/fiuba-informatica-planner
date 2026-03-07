@@ -7,8 +7,8 @@ import { useEffect, useMemo, useRef } from "react";
 import type { CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 import BrandLogo from "@/components/layout/brand-logo";
-import LogoutButton from "@/components/layout/logout-button";
 import ProfileMenu from "@/components/layout/profile-menu";
+import ThemeToggle from "@/components/layout/theme-toggle";
 
 const baseItems = [
   { href: "/", label: "Resumen", icon: LayoutGrid },
@@ -108,8 +108,8 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
         </nav>
 
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           <ProfileMenu role={role} />
-          <LogoutButton />
         </div>
       </div>
 
