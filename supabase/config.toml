@@ -1,0 +1,10 @@
+# Shared Supabase CLI config for this repo.
+# Local link state stays under supabase/.temp/ and is ignored by Git.
+project_id = "Pagina_ing_informatica"
+
+[db]
+major_version = 17
+
+[db.seed]
+enabled = false
+sql_paths = []

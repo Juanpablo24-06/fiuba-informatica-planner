@@ -12,8 +12,17 @@ Web privada para organizar la carrera de Ingeniería en Informática (FIUBA). In
 
 ### 1) Supabase
 1. Crear proyecto en Supabase.
-2. Ejecutar las migrations en orden desde `supabase/migrations/` (`001_init.sql`, `002_ai_calendar.sql`, `003_enrollment_schedule.sql` y `004_subject_type_cbc_backfill.sql`).
-3. Copiar la URL y las keys (anon + service role).
+2. El repo versiona `supabase/config.toml` y `supabase/migrations/` como parte del flujo oficial con Supabase CLI.
+3. Hacer el link local una sola vez:
+   - `npm run sb:login`
+   - `npm run sb:link -- --project-ref <tu-project-ref>` o `npm run sb:link` y elegir el proyecto
+4. Ejecutar las migrations en orden desde `supabase/migrations/` (`001_init.sql`, `002_ai_calendar.sql`, `003_enrollment_schedule.sql` y `004_subject_type_cbc_backfill.sql`) o usar la CLI (`npm run sb:push` / `npm run sb:pull`) segun tu flujo.
+5. Copiar la URL y las keys (anon + service role).
+
+Notas de versionado:
+- `supabase/config.toml` se comparte en Git porque describe la configuracion del proyecto.
+- El estado local del link y archivos temporales de la CLI viven en `supabase/.temp/`, `supabase/.branches/` y `.env` locales, y quedan ignorados por `supabase/.gitignore`.
+- Los scripts `sb:*` fijan la version de la CLI (`2.76.15`) sin agregarla a `package.json`, asi evitamos ruido innecesario en `package-lock.json`.
 
 ### 2) Variables de entorno
 Copiar `.env.example` a `.env.local` y completar:

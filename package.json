@@ -8,7 +8,12 @@
     "start": "next start",
     "lint": "next lint",
     "seed": "node scripts/seed.mjs",
-    "hash-password": "node scripts/hash-password.mjs"
+    "hash-password": "node scripts/hash-password.mjs",
+    "sb:login": "npx --yes supabase@2.76.15 login",
+    "sb:link": "npx --yes supabase@2.76.15 link",
+    "sb:migrations": "npx --yes supabase@2.76.15 migration list",
+    "sb:pull": "npx --yes supabase@2.76.15 db pull",
+    "sb:push": "npx --yes supabase@2.76.15 db push"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.0.5",
