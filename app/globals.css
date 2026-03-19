@@ -117,7 +117,9 @@ body {
   font-family: var(--font-sans), ui-sans-serif, system-ui;
   font-weight: 500;
   line-height: 1.5;
-  transition: background-color 180ms ease, color 180ms ease;
+  transition:
+    background-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 220ms cubic-bezier(0.22, 1, 0.36, 1);
   background-image:
     radial-gradient(860px 520px at 6% -16%, rgb(var(--color-accent) / 0.17), transparent 62%),
     radial-gradient(620px 370px at 92% -12%, rgb(var(--color-accent-4) / 0.12), transparent 62%),
@@ -130,6 +132,13 @@ body :is(div, section, article, aside, header, footer, nav, button, a, input, se
     border-color 180ms ease,
     color 180ms ease,
     box-shadow 180ms ease;
+}
+
+:root[data-theme-lock="true"] *,
+:root[data-theme-lock="true"] *::before,
+:root[data-theme-lock="true"] *::after {
+  transition: none !important;
+  animation: none !important;
 }
 
 ::selection {

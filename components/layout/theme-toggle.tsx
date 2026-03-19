@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   commitAppearancePreferences,
-  getAutoPaletteForTheme,
   readAppearancePreferences,
   resolveTheme,
   subscribeToAppearancePreferences,
@@ -54,8 +53,7 @@ export default function ThemeToggle({ className }: { className?: string }) {
 
     const nextPreferences: AppearancePreferences = {
       ...preferences,
-      theme: nextTheme,
-      palette: getAutoPaletteForTheme(nextTheme)
+      theme: nextTheme
     };
 
     commitThemeChange(nextPreferences);

@@ -13,6 +13,7 @@ export const PALETTE_KEY = "fiuba-palette";
 export const DENSITY_KEY = "fiuba-density";
 
 const APPEARANCE_EVENT = "fiuba:appearance-change";
+const THEME_TRANSITION_LOCK = "data-theme-lock";
 
 export const DEFAULT_APPEARANCE: AppearancePreferences = {
   theme: "system",
@@ -54,11 +55,19 @@ export const readAppearancePreferences = (): AppearancePreferences => {
 
 export const applyAppearancePreferences = (preferences: AppearancePreferences) => {
   if (typeof document === "undefined") return;
+  const root = document.documentElement;
   const resolved = resolveTheme(preferences.theme);
-  document.documentElement.dataset.theme = resolved;
-  document.documentElement.dataset.palette = preferences.palette;
-  document.documentElement.dataset.density = preferences.density;
-  document.documentElement.style.colorScheme = resolved;
+  root.setAttribute(THEME_TRANSITION_LOCK, "true");
+  root.dataset.theme = resolved;
+  root.dataset.palette = preferences.palette;
+  root.dataset.density = preferences.density;
+  root.style.colorScheme = resolved;
+
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      root.removeAttribute(THEME_TRANSITION_LOCK);
+    });
+  });
 };
 
 export const commitAppearancePreferences = (preferences: AppearancePreferences) => {

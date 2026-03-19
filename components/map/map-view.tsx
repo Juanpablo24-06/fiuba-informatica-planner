@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { EvaluationTemplate } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { formatEvaluationTemplate } from "@/lib/templates";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 export type MapNode = {
   id: string;
@@ -46,6 +45,20 @@ type NodeLayout = {
   y: number;
   width: number;
   height: number;
+  lane: number;
+};
+
+type SectionLayout = {
+  term: number;
+  top: number;
+  height: number;
+};
+
+type LayoutResult = {
+  nodeLayouts: Record<string, NodeLayout>;
+  sections: SectionLayout[];
+  width: number;
+  height: number;
 };
 
 const STATUS_STYLES: Record<string, string> = {
@@ -68,111 +81,33 @@ const CYCLE_LABELS: Record<string, string> = {
 };
 
 const TERMS = Array.from({ length: 10 }, (_, index) => index + 1);
-const MIN_ZOOM = 0.6;
+const MIN_ZOOM = 0.12;
 const MAX_ZOOM = 1.7;
 const ZOOM_FACTOR = 1.12;
-const DESKTOP_PANEL_WIDTH = 320;
+const DESKTOP_PANEL_WIDTH = 340;
 
-const getNodeTerm = (node?: MapNode) => node?.term ?? 0;
+const WORLD_PADDING_X = 86;
+const WORLD_PADDING_TOP = 34;
+const SECTION_GAP = 40;
+const SECTION_HEADER_HEIGHT = 12;
+const SECTION_BOTTOM_PADDING = 26;
+const ROW_GAP = 40;
+const LANE_COUNT = 7;
+const NODE_WIDTH = 208;
+const NODE_MIN_HEIGHT = 108;
+const SLOT_GAP = 76;
+const GENERIC_ELECTIVE_NAMES = new Set(["Electivas/Optativas I", "Electivas/Optativas II"]);
+const DRAG_THRESHOLD = 8;
 
-const buildOrderByTerm = (nodes: MapNode[], edges: MapEdge[]) => {
-  const nodesById = new Map(nodes.map((node) => [node.id, node]));
-  const order = new Map<number, string[]>();
-  const incomingByNode = new Map<string, string[]>();
-  const outgoingByNode = new Map<string, string[]>();
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(Math.max(value, min), max);
 
-  TERMS.forEach((term) => order.set(term, []));
-
-  for (const node of nodes) {
-    const term = getNodeTerm(node);
-    if (!order.has(term)) order.set(term, []);
-    order.get(term)?.push(node.id);
+const chunk = <T,>(items: T[], size: number) => {
+  const rows: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    rows.push(items.slice(index, index + size));
   }
-
-  for (const [term, ids] of order.entries()) {
-    ids.sort((firstId, secondId) => {
-      const first = nodesById.get(firstId);
-      const second = nodesById.get(secondId);
-      if (!first || !second) return 0;
-      return first.name.localeCompare(second.name);
-    });
-    order.set(term, ids);
-  }
-
-  for (const edge of edges) {
-    const fromTerm = getNodeTerm(nodesById.get(edge.from));
-    const toTerm = getNodeTerm(nodesById.get(edge.to));
-    if (fromTerm === toTerm) continue;
-
-    if (!incomingByNode.has(edge.to)) incomingByNode.set(edge.to, []);
-    incomingByNode.get(edge.to)?.push(edge.from);
-
-    if (!outgoingByNode.has(edge.from)) outgoingByNode.set(edge.from, []);
-    outgoingByNode.get(edge.from)?.push(edge.to);
-  }
-
-  const sortedTerms = Array.from(order.keys()).sort((a, b) => a - b);
-
-  const buildIndexMap = () => {
-    const map = new Map<string, number>();
-    for (const term of sortedTerms) {
-      const list = order.get(term) ?? [];
-      list.forEach((id, index) => map.set(id, index));
-    }
-    return map;
-  };
-
-  const reorderTerm = (
-    term: number,
-    neighborMap: Map<string, string[]>,
-    compareTerm: (nodeTerm: number, currentTerm: number) => boolean
-  ) => {
-    const list = order.get(term);
-    if (!list || list.length < 2) return;
-    const indexById = buildIndexMap();
-    const currentOrder = new Map(list.map((id, index) => [id, index]));
-    const next = [...list].sort((first, second) => {
-      const firstNeighbors = (neighborMap.get(first) ?? []).filter((neighborId) => {
-        const neighborTerm = getNodeTerm(nodesById.get(neighborId));
-        return compareTerm(neighborTerm, term);
-      });
-      const secondNeighbors = (neighborMap.get(second) ?? []).filter((neighborId) => {
-        const neighborTerm = getNodeTerm(nodesById.get(neighborId));
-        return compareTerm(neighborTerm, term);
-      });
-
-      const average = (items: string[]) => {
-        if (items.length === 0) return Number.NaN;
-        const total = items.reduce((sum, id) => sum + (indexById.get(id) ?? 0), 0);
-        return total / items.length;
-      };
-
-      const firstScore = average(firstNeighbors);
-      const secondScore = average(secondNeighbors);
-      const firstHasScore = Number.isFinite(firstScore);
-      const secondHasScore = Number.isFinite(secondScore);
-
-      if (firstHasScore && secondHasScore && firstScore !== secondScore) {
-        return firstScore - secondScore;
-      }
-      if (firstHasScore !== secondHasScore) return firstHasScore ? -1 : 1;
-
-      return (currentOrder.get(first) ?? 0) - (currentOrder.get(second) ?? 0);
-    });
-
-    order.set(term, next);
-  };
-
-  for (let iteration = 0; iteration < 7; iteration += 1) {
-    for (const term of sortedTerms) {
-      reorderTerm(term, incomingByNode, (neighborTerm, currentTerm) => neighborTerm < currentTerm);
-    }
-    for (const term of [...sortedTerms].reverse()) {
-      reorderTerm(term, outgoingByNode, (neighborTerm, currentTerm) => neighborTerm > currentTerm);
-    }
-  }
-
-  return order;
+  return rows;
 };
 
 const formatList = (items?: string[] | null) => {
@@ -187,13 +122,279 @@ const formatPreviewList = (items: string[]) => {
   return extra > 0 ? `${slice.join(" · ")} +${extra}` : slice.join(" · ");
 };
 
-const clamp = (value: number, min: number, max: number) =>
-  Math.min(Math.max(value, min), max);
+const getNodeTerm = (node?: MapNode) => node?.term ?? 0;
+
+const isGenericElectiveNode = (node: MapNode) => GENERIC_ELECTIVE_NAMES.has(node.name);
+
+const buildEdgeMaps = (edges: MapEdge[]) => {
+  const incomingByNode = new Map<string, string[]>();
+  const outgoingByNode = new Map<string, string[]>();
+
+  edges.forEach((edge) => {
+    if (!incomingByNode.has(edge.to)) incomingByNode.set(edge.to, []);
+    incomingByNode.get(edge.to)?.push(edge.from);
+
+    if (!outgoingByNode.has(edge.from)) outgoingByNode.set(edge.from, []);
+    outgoingByNode.get(edge.from)?.push(edge.to);
+  });
+
+  return { incomingByNode, outgoingByNode };
+};
+
+const sortByAnchor = (
+  items: MapNode[],
+  incomingByNode: Map<string, string[]>,
+  placements: Record<string, NodeLayout>,
+  nodesById: Map<string, MapNode>
+) => {
+  const centerLane = (LANE_COUNT - 1) / 2;
+
+  const getAnchorLane = (node: MapNode) => {
+    const parentIds = incomingByNode.get(node.id) ?? [];
+    const weights = parentIds
+      .map((parentId) => {
+        const layout = placements[parentId];
+        const parent = nodesById.get(parentId);
+        if (!layout || !parent) return null;
+        const weight = parent.type === "electiva" ? 1.35 : 1;
+        return { lane: layout.lane, weight };
+      })
+      .filter(Boolean) as Array<{ lane: number; weight: number }>;
+
+    if (!weights.length) return centerLane;
+
+    const weightedTotal = weights.reduce((sum, item) => sum + item.lane * item.weight, 0);
+    const totalWeight = weights.reduce((sum, item) => sum + item.weight, 0);
+    return weightedTotal / totalWeight;
+  };
+
+  return [...items].sort((first, second) => {
+    const firstAnchor = getAnchorLane(first);
+    const secondAnchor = getAnchorLane(second);
+    if (firstAnchor !== secondAnchor) return firstAnchor - secondAnchor;
+    return first.name.localeCompare(second.name);
+  });
+};
+
+const assignLanes = (
+  items: MapNode[],
+  incomingByNode: Map<string, string[]>,
+  placements: Record<string, NodeLayout>,
+  nodesById: Map<string, MapNode>
+) => {
+  if (items.length >= LANE_COUNT) {
+    return items.map((_, index) => index);
+  }
+
+  const centerLane = (LANE_COUNT - 1) / 2;
+  const anchors = items.map((node) => {
+    const parentIds = incomingByNode.get(node.id) ?? [];
+    const parentLanes = parentIds
+      .map((parentId) => {
+        const layout = placements[parentId];
+        const parent = nodesById.get(parentId);
+        if (!layout || !parent) return null;
+        const weight = parent.type === "electiva" ? 1.35 : 1;
+        return { lane: layout.lane, weight };
+      })
+      .filter(Boolean) as Array<{ lane: number; weight: number }>;
+
+    if (!parentLanes.length) return centerLane;
+
+    const weightedTotal = parentLanes.reduce((sum, item) => sum + item.lane * item.weight, 0);
+    const totalWeight = parentLanes.reduce((sum, item) => sum + item.weight, 0);
+    return weightedTotal / totalWeight;
+  });
+
+  const averageAnchor =
+    anchors.reduce((sum, value) => sum + value, 0) / Math.max(anchors.length, 1);
+  const startLane = clamp(
+    Math.round(averageAnchor - (items.length - 1) / 2),
+    0,
+    LANE_COUNT - items.length
+  );
+
+  return items.map((_, index) => startLane + index);
+};
+
+const computeVerticalLayout = (nodes: MapNode[], edges: MapEdge[]): LayoutResult => {
+  const nodesById = new Map(nodes.map((node) => [node.id, node]));
+  const { incomingByNode } = buildEdgeMaps(edges);
+  const placements: Record<string, NodeLayout> = {};
+  const sections: SectionLayout[] = [];
+  const slotWidth = NODE_WIDTH + SLOT_GAP;
+  const laneToX = (lane: number) => WORLD_PADDING_X + lane * slotWidth;
+
+  let currentTop = WORLD_PADDING_TOP;
+
+  for (const term of TERMS) {
+    const termNodes = nodes.filter((node) => getNodeTerm(node) === term);
+    if (!termNodes.length) continue;
+
+    const sectionTop = currentTop;
+    let cursorY = sectionTop + SECTION_HEADER_HEIGHT;
+
+    const genericElectives = termNodes
+      .filter((node) => isGenericElectiveNode(node))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    const mainNodes = sortByAnchor(
+      termNodes.filter((node) => node.type !== "electiva"),
+      incomingByNode,
+      placements,
+      nodesById
+    );
+
+    const electiveNodes = termNodes.filter(
+      (node) => node.type === "electiva" && !isGenericElectiveNode(node)
+    );
+
+    const placeRow = (rowNodes: MapNode[]) => {
+      const sorted = sortByAnchor(rowNodes, incomingByNode, placements, nodesById);
+      const rows = chunk(sorted, LANE_COUNT);
+
+      rows.forEach((row) => {
+        const lanes = assignLanes(row, incomingByNode, placements, nodesById);
+        row.forEach((node, index) => {
+          placements[node.id] = {
+            x: laneToX(lanes[index]),
+            y: cursorY,
+            width: NODE_WIDTH,
+            height: NODE_MIN_HEIGHT,
+            lane: lanes[index]
+          };
+        });
+        cursorY += NODE_MIN_HEIGHT + ROW_GAP;
+      });
+    };
+
+    if (mainNodes.length) {
+      placeRow(mainNodes);
+    }
+
+    if (electiveNodes.length) {
+      const sameTermElectiveIds = new Set(electiveNodes.map((node) => node.id));
+      const levelMemo = new Map<string, number>();
+
+      const getElectiveLevel = (nodeId: string): number => {
+        const cached = levelMemo.get(nodeId);
+        if (typeof cached === "number") return cached;
+
+        const parents = (incomingByNode.get(nodeId) ?? []).filter((parentId) =>
+          sameTermElectiveIds.has(parentId)
+        );
+
+        const nextLevel = parents.length
+          ? Math.max(...parents.map((parentId) => getElectiveLevel(parentId))) + 1
+          : 0;
+
+        levelMemo.set(nodeId, nextLevel);
+        return nextLevel;
+      };
+
+      const levels = new Map<number, MapNode[]>();
+
+      electiveNodes.forEach((node) => {
+        const level = getElectiveLevel(node.id);
+        if (!levels.has(level)) levels.set(level, []);
+        levels.get(level)?.push(node);
+      });
+
+      Array.from(levels.keys())
+        .sort((a, b) => a - b)
+        .forEach((level) => {
+          placeRow(levels.get(level) ?? []);
+        });
+    }
+
+    if (genericElectives.length) {
+      placeRow(genericElectives);
+    }
+
+    const sectionHeight = cursorY - sectionTop + SECTION_BOTTOM_PADDING;
+    sections.push({
+      term,
+      top: sectionTop,
+      height: sectionHeight
+    });
+
+    currentTop += sectionHeight + SECTION_GAP;
+  }
+
+  const width = WORLD_PADDING_X * 2 + LANE_COUNT * NODE_WIDTH + (LANE_COUNT - 1) * SLOT_GAP;
+  const height = currentTop - SECTION_GAP + WORLD_PADDING_TOP;
+
+  return {
+    nodeLayouts: placements,
+    sections,
+    width,
+    height
+  };
+};
+
+const buildLinePaths = (positions: Record<string, NodeLayout>, edges: MapEdge[]): LinePath[] => {
+  const outgoingTotal = new Map<string, number>();
+  const incomingTotal = new Map<string, number>();
+
+  edges.forEach((edge) => {
+    outgoingTotal.set(edge.from, (outgoingTotal.get(edge.from) ?? 0) + 1);
+    incomingTotal.set(edge.to, (incomingTotal.get(edge.to) ?? 0) + 1);
+  });
+
+  const outgoingSeen = new Map<string, number>();
+  const incomingSeen = new Map<string, number>();
+
+  return edges
+    .map((edge) => {
+      const from = positions[edge.from];
+      const to = positions[edge.to];
+      if (!from || !to) return null;
+
+      const fromTotal = outgoingTotal.get(edge.from) ?? 1;
+      const toTotal = incomingTotal.get(edge.to) ?? 1;
+      const fromOrder = outgoingSeen.get(edge.from) ?? 0;
+      const toOrder = incomingSeen.get(edge.to) ?? 0;
+
+      outgoingSeen.set(edge.from, fromOrder + 1);
+      incomingSeen.set(edge.to, toOrder + 1);
+
+      const fromLaneOffset =
+        ((fromOrder + 1) / (fromTotal + 1) - 0.5) * Math.max(22, from.width * 0.5);
+      const toLaneOffset =
+        ((toOrder + 1) / (toTotal + 1) - 0.5) * Math.max(22, to.width * 0.5);
+
+      const inset = 18;
+      const x1 = clamp(
+        from.x + from.width / 2 + fromLaneOffset,
+        from.x + inset,
+        from.x + from.width - inset
+      );
+      const y1 = from.y + from.height + 1;
+      const x2 = clamp(
+        to.x + to.width / 2 + toLaneOffset,
+        to.x + inset,
+        to.x + to.width - inset
+      );
+      const y2 = to.y - 1;
+      const deltaY = y2 - y1;
+      const safeDelta = Math.max(44, deltaY);
+      const curveY = Math.max(48, Math.min(180, safeDelta * 0.4));
+      const horizontalDrift = Math.min(26, Math.abs(x2 - x1) * 0.16);
+      const driftDirection = x2 >= x1 ? 1 : -1;
+      const c1x = x1 + horizontalDrift * driftDirection;
+      const c2x = x2 - horizontalDrift * driftDirection;
+      const d = `M ${x1} ${y1} C ${c1x} ${y1 + curveY} ${c2x} ${y2 - curveY} ${x2} ${y2}`;
+
+      return { from: edge.from, to: edge.to, d };
+    })
+    .filter(Boolean) as LinePath[];
+};
 
 export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: MapEdge[] }) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const worldRef = useRef<HTMLDivElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const cameraAnimationRef = useRef<number | null>(null);
   const transformRef = useRef<Transform>({ x: 0, y: 0, scale: 1 });
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
   const panRef = useRef<{
@@ -202,6 +403,8 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
     originX: number;
     originY: number;
   } | null>(null);
+  const dragDistanceRef = useRef(0);
+  const pressedNodeIdRef = useRef<string | null>(null);
   const pinchRef = useRef<{
     distance: number;
     scale: number;
@@ -214,24 +417,20 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
   const sheetDragRef = useRef<{ startY: number; startHeight: number } | null>(null);
 
   const [transform, setTransform] = useState<Transform>(transformRef.current);
-  const [lines, setLines] = useState<LinePath[]>([]);
-  const [nodeLayouts, setNodeLayouts] = useState<Record<string, NodeLayout>>({});
   const [worldSize, setWorldSize] = useState({ width: 0, height: 0 });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [showElectives, setShowElectives] = useState(true);
-  const [search, setSearch] = useState("");
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [orderByTerm, setOrderByTerm] = useState(() => buildOrderByTerm(nodes, edges));
   const [panelState, setPanelState] = useState<"collapsed" | "half" | "full">("collapsed");
   const [sheetHeight, setSheetHeight] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
   const [isDesktop, setIsDesktop] = useState(false);
   const [isDraggingSheet, setIsDraggingSheet] = useState(false);
 
-  useEffect(() => {
-    setOrderByTerm(buildOrderByTerm(nodes, edges));
-  }, [edges, nodes]);
+  const clearSelection = useCallback(() => {
+    setSelectedId(null);
+    setHoveredId(null);
+  }, []);
 
   useEffect(() => {
     if (!selectedId) {
@@ -266,16 +465,16 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
   }, []);
 
   const sheetSizes = useMemo(() => {
-    const collapsed = 120;
-    const half = Math.max(240, Math.min(420, viewportHeight * 0.5));
-    const full = Math.max(360, Math.min(680, viewportHeight * 0.8));
+    const collapsed = 126;
+    const half = Math.max(256, Math.min(430, viewportHeight * 0.54));
+    const full = Math.max(360, Math.min(700, viewportHeight * 0.84));
     return { collapsed, half, full };
   }, [viewportHeight]);
 
   useEffect(() => {
     if (isDraggingSheet) return;
     setSheetHeight(sheetSizes[panelState]);
-  }, [panelState, sheetSizes, isDraggingSheet]);
+  }, [isDraggingSheet, panelState, sheetSizes]);
 
   useEffect(() => {
     if (showElectives) return;
@@ -290,8 +489,6 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      const target = event.target as HTMLElement | null;
-      if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
       if (selectedId || hoveredId) {
         clearSelection();
       }
@@ -299,17 +496,9 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [hoveredId, selectedId]);
+  }, [clearSelection, hoveredId, selectedId]);
 
   const nodesById = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
-
-  const terms = useMemo(() => {
-    const extraTerms = Array.from(orderByTerm.keys())
-      .filter((term) => term !== 0 && !TERMS.includes(term))
-      .sort((a, b) => a - b);
-    const withZero = orderByTerm.has(0) ? [0] : [];
-    return [...TERMS, ...extraTerms, ...withZero];
-  }, [orderByTerm]);
 
   const visibleNodeIds = useMemo(() => {
     const ids = new Set<string>();
@@ -321,60 +510,53 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
     return ids;
   }, [nodes, showElectives]);
 
+  const visibleNodes = useMemo(
+    () => nodes.filter((node) => visibleNodeIds.has(node.id)),
+    [nodes, visibleNodeIds]
+  );
+
   const visibleEdges = useMemo(
     () => edges.filter((edge) => visibleNodeIds.has(edge.from) && visibleNodeIds.has(edge.to)),
     [edges, visibleNodeIds]
   );
 
+  const layout = useMemo(
+    () => computeVerticalLayout(visibleNodes, visibleEdges),
+    [visibleEdges, visibleNodes]
+  );
+  const nodeLayouts = layout.nodeLayouts;
+  const lines = useMemo(() => buildLinePaths(nodeLayouts, visibleEdges), [nodeLayouts, visibleEdges]);
+
+  const defaultFocusBounds = useMemo(() => {
+    const candidates = visibleNodes.filter((node) => node.status !== "aprobado");
+    const source = candidates.length ? candidates : visibleNodes;
+    const layouts = source
+      .map((node) => layout.nodeLayouts[node.id])
+      .filter(Boolean) as NodeLayout[];
+
+    if (!layouts.length) return null;
+
+    return {
+      minX: Math.min(...layouts.map((item) => item.x)),
+      maxX: Math.max(...layouts.map((item) => item.x + item.width)),
+      minY: Math.min(...layouts.map((item) => item.y)),
+      maxY: Math.max(...layouts.map((item) => item.y + item.height))
+    };
+  }, [layout.nodeLayouts, visibleNodes]);
+
   const edgeIndex = useMemo(() => {
     const prereqMap = new Map<string, string[]>();
     const unlockMap = new Map<string, string[]>();
+
     edges.forEach((edge) => {
       if (!prereqMap.has(edge.to)) prereqMap.set(edge.to, []);
       prereqMap.get(edge.to)?.push(edge.from);
       if (!unlockMap.has(edge.from)) unlockMap.set(edge.from, []);
       unlockMap.get(edge.from)?.push(edge.to);
     });
+
     return { prereqMap, unlockMap };
   }, [edges]);
-
-  const nodesByTerm = useMemo(() => {
-    const map = new Map<number, MapNode[]>();
-    terms.forEach((term) => map.set(term, []));
-    orderByTerm.forEach((ids, term) => {
-      const list = ids
-        .map((id) => nodesById.get(id))
-        .filter(Boolean) as MapNode[];
-      const filtered = showElectives ? list : list.filter((node) => node.type !== "electiva");
-      map.set(term, filtered);
-    });
-    return map;
-  }, [nodesById, orderByTerm, showElectives, terms]);
-
-  const deferredSearch = useDeferredValue(search.trim().toLowerCase());
-
-  const { searchMatches, searchResults } = useMemo(() => {
-    if (!deferredSearch) {
-      return {
-        searchMatches: new Set<string>(),
-        searchResults: [] as MapNode[]
-      };
-    }
-
-    const matchedNodes = nodes
-      .filter((node) => {
-        const nameMatch = node.name.toLowerCase().includes(deferredSearch);
-        const codeMatch = node.code?.toLowerCase().includes(deferredSearch);
-        const electiveMatch = showElectives || node.type !== "electiva";
-        return electiveMatch && (nameMatch || codeMatch);
-      })
-      .sort((a, b) => a.name.localeCompare(b.name));
-
-    return {
-      searchMatches: new Set(matchedNodes.map((node) => node.id)),
-      searchResults: matchedNodes.slice(0, 8)
-    };
-  }, [deferredSearch, nodes, showElectives]);
 
   const activeId = selectedId ?? hoveredId;
   const selectedNode = selectedId ? nodesById.get(selectedId) : null;
@@ -397,14 +579,8 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
 
   const prereqIds = useMemo(() => getPrereqIds(activeId), [activeId, getPrereqIds]);
   const unlockIds = useMemo(() => getUnlockIds(activeId), [activeId, getUnlockIds]);
-  const selectedPrereqIds = useMemo(
-    () => getPrereqIds(selectedId),
-    [selectedId, getPrereqIds]
-  );
-  const selectedUnlockIds = useMemo(
-    () => getUnlockIds(selectedId),
-    [selectedId, getUnlockIds]
-  );
+  const selectedPrereqIds = useMemo(() => getPrereqIds(selectedId), [getPrereqIds, selectedId]);
+  const selectedUnlockIds = useMemo(() => getUnlockIds(selectedId), [getUnlockIds, selectedId]);
 
   const resolveNodeNames = useCallback(
     (ids: Iterable<string>) => {
@@ -423,12 +599,10 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
     () => resolveNodeNames(selectedPrereqIds),
     [resolveNodeNames, selectedPrereqIds]
   );
-
   const selectedUnlocks = useMemo(
     () => resolveNodeNames(selectedUnlockIds),
     [resolveNodeNames, selectedUnlockIds]
   );
-
   const selectedStatusLabel = selectedNode?.status ? STATUS_LABELS[selectedNode.status] : null;
 
   const scheduleTransform = useCallback((next: Transform) => {
@@ -440,25 +614,39 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
     });
   }, []);
 
+  const stopCameraAnimation = useCallback(() => {
+    if (cameraAnimationRef.current !== null) {
+      window.cancelAnimationFrame(cameraAnimationRef.current);
+      cameraAnimationRef.current = null;
+    }
+  }, []);
+
   const clampTransform = useCallback(
     (next: Transform) => {
       const viewport = viewportRef.current;
       if (!viewport || !worldSize.width || !worldSize.height) return next;
+
       const width = viewport.clientWidth;
       const height = viewport.clientHeight;
       const scaledWidth = worldSize.width * next.scale;
       const scaledHeight = worldSize.height * next.scale;
+      const extraX = Math.max(220, width * 0.38);
+      const extraY = Math.max(220, height * 0.34);
 
-      let minX = Math.min(0, width - scaledWidth);
-      let maxX = Math.max(0, width - scaledWidth);
-      let minY = Math.min(0, height - scaledHeight);
-      let maxY = Math.max(0, height - scaledHeight);
+      let minX = Math.min(0, width - scaledWidth) - extraX;
+      let maxX = Math.max(0, width - scaledWidth) + extraX;
+      let minY = Math.min(0, height - scaledHeight) - extraY;
+      let maxY = Math.max(0, height - scaledHeight) + extraY;
 
       if (scaledWidth <= width) {
-        minX = maxX = (width - scaledWidth) / 2;
+        const centered = (width - scaledWidth) / 2;
+        minX = centered - extraX;
+        maxX = centered + extraX;
       }
       if (scaledHeight <= height) {
-        minY = maxY = (height - scaledHeight) / 2;
+        const centered = (height - scaledHeight) / 2;
+        minY = centered - extraY;
+        maxY = centered + extraY;
       }
 
       return {
@@ -477,206 +665,145 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
     [clampTransform, scheduleTransform]
   );
 
-  useLayoutEffect(() => {
-    const container = worldRef.current;
-    if (!container) return;
-
-    const compute = () => {
-      const nodeEls = Array.from(container.querySelectorAll<HTMLElement>("[data-node-id]"));
-      const positions: Record<string, NodeLayout> = {};
-      const containerRect = container.getBoundingClientRect();
-      const scale = transformRef.current.scale;
-
-      nodeEls.forEach((el) => {
-        const id = el.dataset.nodeId ?? "";
-        const rect = el.getBoundingClientRect();
-        positions[id] = {
-          x: (rect.left - containerRect.left) / scale,
-          y: (rect.top - containerRect.top) / scale,
-          width: rect.width / scale,
-          height: rect.height / scale
-        };
-      });
-
-      const outgoingTotal = new Map<string, number>();
-      const incomingTotal = new Map<string, number>();
-      visibleEdges.forEach((edge) => {
-        outgoingTotal.set(edge.from, (outgoingTotal.get(edge.from) ?? 0) + 1);
-        incomingTotal.set(edge.to, (incomingTotal.get(edge.to) ?? 0) + 1);
-      });
-
-      const outgoingSeen = new Map<string, number>();
-      const incomingSeen = new Map<string, number>();
-
-      const nextLines = visibleEdges
-        .map((edge) => {
-          const from = positions[edge.from];
-          const to = positions[edge.to];
-          if (!from || !to) return null;
-
-          const fromTotal = outgoingTotal.get(edge.from) ?? 1;
-          const toTotal = incomingTotal.get(edge.to) ?? 1;
-          const fromOrder = outgoingSeen.get(edge.from) ?? 0;
-          const toOrder = incomingSeen.get(edge.to) ?? 0;
-          outgoingSeen.set(edge.from, fromOrder + 1);
-          incomingSeen.set(edge.to, toOrder + 1);
-
-          const fromLane = ((fromOrder + 1) / (fromTotal + 1) - 0.5) * Math.max(16, from.height * 0.6);
-          const toLane = ((toOrder + 1) / (toTotal + 1) - 0.5) * Math.max(16, to.height * 0.6);
-
-          const inset = 8;
-          const x1 = from.x + from.width - inset;
-          const y1 = from.y + from.height / 2 + fromLane;
-          const x2 = to.x + inset;
-          const y2 = to.y + to.height / 2 + toLane;
-          const delta = x2 - x1;
-
-          if (delta >= 24) {
-            const curve = Math.max(46, Math.min(180, delta * 0.38));
-            const c1x = x1 + curve;
-            const c2x = x2 - curve;
-            const d = `M ${x1} ${y1} C ${c1x} ${y1} ${c2x} ${y2} ${x2} ${y2}`;
-            return { from: edge.from, to: edge.to, d };
-          }
-
-          const backCurve = Math.max(72, Math.min(180, Math.abs(delta) * 0.45 + 70));
-          const midX = x1 + backCurve;
-          const midY = y1 + (y2 - y1) * 0.5;
-          const d = `M ${x1} ${y1} C ${midX} ${y1} ${midX} ${midY} ${midX} ${midY} C ${midX} ${midY} ${x2 - 18} ${y2} ${x2} ${y2}`;
-          return { from: edge.from, to: edge.to, d };
-        })
-        .filter(Boolean) as LinePath[];
-
-      setNodeLayouts(positions);
-      setLines(nextLines);
-      setWorldSize({
-        width: container.scrollWidth,
-        height: container.scrollHeight
-      });
-    };
-
-    compute();
-    const observer = new ResizeObserver(() => {
-      window.requestAnimationFrame(compute);
-    });
-
-    observer.observe(container);
-    window.addEventListener("resize", compute);
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", compute);
-    };
-  }, [orderByTerm, visibleEdges]);
+  useEffect(() => {
+    setWorldSize({ width: layout.width, height: layout.height });
+  }, [layout.height, layout.width]);
 
   useEffect(() => {
-    if (!worldSize.width || !worldSize.height) return;
+    if (!layout.width || !layout.height) return;
     setTransformSafe({ ...transformRef.current });
+
     if (!hasUserMovedRef.current) {
       const viewport = viewportRef.current;
       if (!viewport) return;
-      const scaledWidth = worldSize.width * transformRef.current.scale;
-      const scaledHeight = worldSize.height * transformRef.current.scale;
-      const x = scaledWidth < viewport.clientWidth
-        ? (viewport.clientWidth - scaledWidth) / 2
-        : transformRef.current.x;
-      const y = scaledHeight < viewport.clientHeight
-        ? (viewport.clientHeight - scaledHeight) / 2
-        : transformRef.current.y;
+
+      if (defaultFocusBounds) {
+        const paddingX = 90;
+        const paddingY = 90;
+        const groupWidth = defaultFocusBounds.maxX - defaultFocusBounds.minX;
+        const groupHeight = defaultFocusBounds.maxY - defaultFocusBounds.minY;
+        const scale = clamp(
+          Math.min(
+            (viewport.clientWidth - paddingX * 2) / Math.max(groupWidth, NODE_WIDTH),
+            (viewport.clientHeight - paddingY * 2) / Math.max(groupHeight, NODE_MIN_HEIGHT)
+          ),
+          MIN_ZOOM,
+          1
+        );
+        const centerX = (defaultFocusBounds.minX + defaultFocusBounds.maxX) / 2;
+        const centerY = (defaultFocusBounds.minY + defaultFocusBounds.maxY) / 2;
+
+        setTransformSafe({
+          x: viewport.clientWidth / 2 - centerX * scale,
+          y: viewport.clientHeight * 0.44 - centerY * scale,
+          scale
+        });
+        return;
+      }
+
+      const scaledWidth = layout.width * transformRef.current.scale;
+      const scaledHeight = layout.height * transformRef.current.scale;
+      const x =
+        scaledWidth < viewport.clientWidth
+          ? (viewport.clientWidth - scaledWidth) / 2
+          : transformRef.current.x;
+      const y =
+        scaledHeight < viewport.clientHeight
+          ? (viewport.clientHeight - scaledHeight) / 2
+          : Math.min(24, transformRef.current.y);
+
       setTransformSafe({
         x,
         y,
         scale: transformRef.current.scale
       });
     }
-  }, [setTransformSafe, worldSize]);
+  }, [defaultFocusBounds, layout.height, layout.width, setTransformSafe]);
 
-  const clearSelection = () => {
-    setSelectedId(null);
-    setHoveredId(null);
-  };
+  const focusNode = useCallback(
+    (id: string, zoom: boolean) => {
+      const viewport = viewportRef.current;
+      if (!viewport) return;
 
-  const focusNode = (id: string, zoom: boolean) => {
-    const layout = nodeLayouts[id];
-    const viewport = viewportRef.current;
-    if (!layout || !viewport) return;
+      const selectedLayout = nodeLayouts[id];
+      if (!selectedLayout) return;
 
-    const scale = clamp(
-      zoom ? Math.max(transformRef.current.scale, 1.1) : transformRef.current.scale,
-      MIN_ZOOM,
-      MAX_ZOOM
-    );
-    const offsetX = isDesktop ? DESKTOP_PANEL_WIDTH / 2 : 0;
-    const targetX = (viewport.clientWidth - offsetX) / 2;
-    const targetY = viewport.clientHeight / 2;
-    const centerX = layout.x + layout.width / 2;
-    const centerY = layout.y + layout.height / 2;
+      const desiredCardWidth = isDesktop ? viewport.clientWidth * 0.22 : viewport.clientWidth * 0.48;
+      const fittedScale = desiredCardWidth / selectedLayout.width;
+      const scale = clamp(zoom ? fittedScale : transformRef.current.scale, 0.68, 1.24);
 
-    hasUserMovedRef.current = true;
-    setTransformSafe({
-      x: targetX - centerX * scale,
-      y: targetY - centerY * scale,
-      scale
+      const centerX = selectedLayout.x + selectedLayout.width / 2;
+      const centerY = selectedLayout.y + selectedLayout.height / 2;
+      const targetX = (viewport.clientWidth - (isDesktop ? DESKTOP_PANEL_WIDTH : 0)) / 2;
+      const targetY = isDesktop ? viewport.clientHeight / 2 : viewport.clientHeight * 0.38;
+      const target = clampTransform({
+        x: targetX - centerX * scale,
+        y: targetY - centerY * scale,
+        scale
+      });
+
+      stopCameraAnimation();
+      const start = { ...transformRef.current };
+      const startedAt = performance.now();
+      const duration = 320;
+      const ease = (value: number) =>
+        value < 0.5 ? 4 * value * value * value : 1 - Math.pow(-2 * value + 2, 3) / 2;
+
+      const tick = (now: number) => {
+        const progress = Math.min(1, (now - startedAt) / duration);
+        const eased = ease(progress);
+        scheduleTransform({
+          x: start.x + (target.x - start.x) * eased,
+          y: start.y + (target.y - start.y) * eased,
+          scale: start.scale + (target.scale - start.scale) * eased
+        });
+
+        if (progress < 1) {
+          cameraAnimationRef.current = window.requestAnimationFrame(tick);
+        } else {
+          cameraAnimationRef.current = null;
+        }
+      };
+
+      hasUserMovedRef.current = true;
+      cameraAnimationRef.current = window.requestAnimationFrame(tick);
+    },
+    [clampTransform, isDesktop, nodeLayouts, scheduleTransform, stopCameraAnimation]
+  );
+
+  useEffect(() => {
+    if (!selectedId) return;
+    const frame = window.requestAnimationFrame(() => {
+      focusNode(selectedId, true);
     });
-  };
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusNode, selectedId]);
 
-  const zoomAt = (scale: number, centerX: number, centerY: number) => {
-    const clamped = clamp(scale, MIN_ZOOM, MAX_ZOOM);
-    const { x, y, scale: currentScale } = transformRef.current;
-    const worldX = (centerX - x) / currentScale;
-    const worldY = (centerY - y) / currentScale;
-    const nextX = centerX - worldX * clamped;
-    const nextY = centerY - worldY * clamped;
-    hasUserMovedRef.current = true;
-    setTransformSafe({ x: nextX, y: nextY, scale: clamped });
-  };
-
-  const handleZoomIn = () => {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-    zoomAt(transformRef.current.scale * ZOOM_FACTOR, viewport.clientWidth / 2, viewport.clientHeight / 2);
-  };
-
-  const handleZoomOut = () => {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-    zoomAt(transformRef.current.scale / ZOOM_FACTOR, viewport.clientWidth / 2, viewport.clientHeight / 2);
-  };
-
-  const handleReset = () => {
-    hasUserMovedRef.current = false;
-    setTransformSafe({ x: 0, y: 0, scale: 1 });
-  };
-
-  const handleCenter = () => {
-    if (selectedId) {
-      focusNode(selectedId, false);
-      return;
-    }
-    handleReset();
-  };
-
-  const handleSearchSelect = (node: MapNode) => {
-    setSelectedId(node.id);
-    setHoveredId(null);
-    setSearch(node.name);
-    setIsSearchOpen(false);
-    focusNode(node.id, true);
-  };
-
-  const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key !== "Enter") return;
-    if (searchResults.length) {
-      handleSearchSelect(searchResults[0]);
-    }
-  };
+  const zoomAt = useCallback(
+    (scale: number, centerX: number, centerY: number) => {
+      stopCameraAnimation();
+      const clamped = clamp(scale, MIN_ZOOM, MAX_ZOOM);
+      const { x, y, scale: currentScale } = transformRef.current;
+      const worldX = (centerX - x) / currentScale;
+      const worldY = (centerY - y) / currentScale;
+      const nextX = centerX - worldX * clamped;
+      const nextY = centerY - worldY * clamped;
+      hasUserMovedRef.current = true;
+      setTransformSafe({ x: nextX, y: nextY, scale: clamped });
+    },
+    [setTransformSafe, stopCameraAnimation]
+  );
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    const target = event.target as HTMLElement | null;
-    if (target?.closest("[data-node-id]") && event.pointerType === "mouse") return;
     if (!viewportRef.current) return;
+    stopCameraAnimation();
+
     event.currentTarget.setPointerCapture(event.pointerId);
     pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    dragDistanceRef.current = 0;
+    pressedNodeIdRef.current =
+      (event.target as HTMLElement | null)?.closest("[data-node-id]")?.getAttribute("data-node-id") ??
+      null;
 
     if (pointersRef.current.size === 1) {
       panRef.current = {
@@ -734,6 +861,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
     if (panRef.current) {
       const deltaX = event.clientX - panRef.current.startX;
       const deltaY = event.clientY - panRef.current.startY;
+      dragDistanceRef.current = Math.max(dragDistanceRef.current, Math.hypot(deltaX, deltaY));
       hasUserMovedRef.current = true;
       setTransformSafe({
         x: panRef.current.originX + deltaX,
@@ -746,11 +874,14 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
   const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
     event.currentTarget.releasePointerCapture(event.pointerId);
     pointersRef.current.delete(event.pointerId);
-    if (pointersRef.current.size < 2) {
-      pinchRef.current = null;
-    }
+    if (pointersRef.current.size < 2) pinchRef.current = null;
     if (pointersRef.current.size === 0) {
+      if (dragDistanceRef.current <= DRAG_THRESHOLD && pressedNodeIdRef.current) {
+        setSelectedId(pressedNodeIdRef.current);
+        setHoveredId(null);
+      }
       panRef.current = null;
+      pressedNodeIdRef.current = null;
     }
   };
 
@@ -758,11 +889,13 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
     event.preventDefault();
     const viewport = viewportRef.current;
     if (!viewport) return;
+    stopCameraAnimation();
     const rect = viewport.getBoundingClientRect();
     const cursorX = event.clientX - rect.left;
     const cursorY = event.clientY - rect.top;
     const direction = event.deltaY > 0 ? -1 : 1;
-    const nextScale = transformRef.current.scale * (direction > 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR);
+    const nextScale =
+      transformRef.current.scale * (direction > 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR);
     zoomAt(nextScale, cursorX, cursorY);
   };
 
@@ -788,14 +921,17 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
     if (!isDraggingSheet) return;
     setIsDraggingSheet(false);
     sheetDragRef.current = null;
+
     const distances = {
       collapsed: Math.abs(sheetHeight - sheetSizes.collapsed),
       half: Math.abs(sheetHeight - sheetSizes.half),
       full: Math.abs(sheetHeight - sheetSizes.full)
     };
+
     const next = (Object.keys(distances) as Array<keyof typeof distances>).sort(
       (a, b) => distances[a] - distances[b]
     )[0];
+
     setPanelState(next);
   };
 
@@ -856,9 +992,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
       </div>
       <div className="rounded-2xl border border-border/60 bg-surface/80 p-3">
         <p className="text-xs font-semibold text-text">Evaluación</p>
-        <p className="text-xs text-muted">
-          {formatEvaluationTemplate(selectedNode.template)}
-        </p>
+        <p className="text-xs text-muted">{formatEvaluationTemplate(selectedNode.template)}</p>
       </div>
     </>
   ) : null;
@@ -881,8 +1015,10 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
           >
             <div
               ref={worldRef}
-              className="relative flex w-fit gap-6 px-6 py-6"
+              className="relative"
               style={{
+                width: layout.width,
+                height: layout.height,
                 transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
                 transformOrigin: "0 0"
               }}
@@ -893,313 +1029,195 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
                 }
               }}
             >
-              <svg className="pointer-events-none absolute inset-0 z-0 h-full w-full">
+              <svg
+                className="pointer-events-none absolute inset-0 z-10"
+                width={layout.width}
+                height={layout.height}
+              >
                 {lines.map((line) => {
                   const isPrereq = activeId && line.to === activeId;
                   const isUnlock = activeId && line.from === activeId;
                   const isActiveLine = Boolean(isPrereq || isUnlock);
-                  const isMuted = Boolean(
-                    activeId
-                      ? !isActiveLine
-                      : deferredSearch &&
-                          !searchMatches.has(line.from) &&
-                          !searchMatches.has(line.to)
-                  );
+                  const isMuted = Boolean(activeId ? !isActiveLine : false);
                   const stroke = isPrereq
                     ? "rgb(var(--color-prereq))"
                     : isUnlock
                     ? "rgb(var(--color-unlock))"
                     : "rgb(var(--color-border))";
+
                   return (
                     <path
                       key={`${line.from}-${line.to}`}
                       d={line.d}
                       fill="none"
                       stroke={stroke}
-                      strokeWidth={isActiveLine ? 2.2 : 1.2}
+                      strokeWidth={isActiveLine ? 2.5 : 1.6}
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      opacity={isActiveLine ? 0.9 : isMuted ? 0.14 : 0.5}
+                      opacity={isActiveLine ? 0.94 : isMuted ? 0.16 : 0.7}
                       className="transition-all duration-200 ease-out"
                     />
                   );
                 })}
               </svg>
 
-              {terms.map((term) => (
-                <div key={term} className="relative z-10 flex w-[220px] flex-col gap-3 pt-2">
-                  <div className="h-1 w-10 rounded-full bg-border/40" aria-hidden="true" />
-                  <div className="flex flex-col gap-3">
-                    {(nodesByTerm.get(term) ?? []).map((node) => {
-                      const isActive = activeId === node.id;
-                      const isHovered = hoveredId === node.id;
-                      const isPrereq = prereqIds.has(node.id);
-                      const isUnlock = unlockIds.has(node.id);
-                      const isElective = node.type === "electiva";
-                      const canPreview = isDesktop && !selectedId && isHovered;
-                      const showMeta = isDesktop && (isActive || canPreview);
-                      const isDimmed = activeId
-                        ? !isActive && !isPrereq && !isUnlock
-                        : deferredSearch
-                        ? !searchMatches.has(node.id)
-                        : false;
-                      const statusLabel = node.status ? STATUS_LABELS[node.status] : null;
-                      const prereqNames = resolveNodeNames(edgeIndex.prereqMap.get(node.id) ?? []);
-                      const unlockNames = resolveNodeNames(edgeIndex.unlockMap.get(node.id) ?? []);
-                      const prereqSummary = formatPreviewList(prereqNames);
-                      const unlockSummary = formatPreviewList(unlockNames);
-                      const markerClass = isActive
-                        ? "bg-accent"
-                        : isPrereq
-                        ? "bg-prereq"
-                        : isUnlock
-                        ? "bg-unlock"
-                        : isElective
-                        ? "bg-elective"
-                        : "bg-border/60";
+              {visibleNodes.map((node) => {
+                const layoutNode = layout.nodeLayouts[node.id];
+                if (!layoutNode) return null;
 
-                      return (
-                        <button
-                          key={node.id}
-                          type="button"
-                          data-node-id={node.id}
-                          aria-pressed={selectedId === node.id}
-                          onPointerDown={(event) => event.stopPropagation()}
-                          onMouseEnter={() => {
-                            if (!isDesktop || selectedId) return;
-                            setHoveredId(node.id);
-                          }}
-                          onMouseLeave={() => {
-                            if (!isDesktop || selectedId) return;
-                            setHoveredId(null);
-                          }}
-                          onFocus={() => !selectedId && setHoveredId(node.id)}
-                          onBlur={() => !selectedId && setHoveredId(null)}
-                          onClick={() => {
-                            setSelectedId(node.id);
-                            setHoveredId(null);
-                          }}
-                          onKeyDown={(event) => {
-                            if (event.key !== "Enter" && event.key !== " ") return;
-                            event.preventDefault();
-                            setSelectedId(node.id);
-                            setHoveredId(null);
-                          }}
-                          className={cn(
-                            "group relative w-full rounded-2xl border px-3 py-2.5 text-left text-xs font-semibold text-text shadow-tile transition-all duration-200 ease-out",
-                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50",
-                            (isActive || canPreview) && "scale-[1.02]",
-                            isActive && "border-accent/70 bg-surface/95 shadow-glow",
-                            !isActive && isPrereq && "border-prereq/70 bg-prereq/10",
-                            !isActive && isUnlock && "border-unlock/70 bg-unlock/10",
-                            !isActive && !isPrereq && !isUnlock && isElective &&
-                              "border-elective/50 bg-elective/10",
-                            !isActive && !isPrereq && !isUnlock && !isElective &&
-                              "border-border/60 bg-surface/80",
-                            isDimmed && "opacity-35"
-                          )}
-                        >
+                const isActive = activeId === node.id;
+                const isPrereq = prereqIds.has(node.id);
+                const isUnlock = unlockIds.has(node.id);
+                const isElective = node.type === "electiva";
+                const isDimmed = activeId ? !isActive && !isPrereq && !isUnlock : false;
+                const showMeta = isActive || (isDesktop && !selectedId && hoveredId === node.id);
+                const statusLabel = node.status ? STATUS_LABELS[node.status] : null;
+                const prereqNames = resolveNodeNames(edgeIndex.prereqMap.get(node.id) ?? []);
+                const unlockNames = resolveNodeNames(edgeIndex.unlockMap.get(node.id) ?? []);
+                const prereqSummary = formatPreviewList(prereqNames);
+                const unlockSummary = formatPreviewList(unlockNames);
+                const markerClass = isActive
+                  ? "bg-accent"
+                  : isPrereq
+                  ? "bg-prereq"
+                  : isUnlock
+                  ? "bg-unlock"
+                  : isElective
+                  ? "bg-elective"
+                  : "bg-border/60";
+
+                return (
+                  <button
+                    key={node.id}
+                    type="button"
+                    data-node-id={node.id}
+                    aria-pressed={selectedId === node.id}
+                    onMouseEnter={() => {
+                      if (!isDesktop || selectedId) return;
+                      setHoveredId(node.id);
+                    }}
+                    onMouseLeave={() => {
+                      if (!isDesktop || selectedId) return;
+                      setHoveredId(null);
+                    }}
+                    onFocus={() => !selectedId && setHoveredId(node.id)}
+                    onBlur={() => !selectedId && setHoveredId(null)}
+                    className={cn(
+                      "group absolute rounded-2xl border px-3 py-3 text-left text-xs font-semibold text-text shadow-tile transition-all duration-200 ease-out",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50",
+                      (isActive || showMeta) && "z-30 scale-[1.02] shadow-glow",
+                      !isActive && !showMeta && "z-20",
+                      isActive && "border-accent/70 bg-surface shadow-glow",
+                      !isActive && isPrereq && "border-prereq/70 bg-surface",
+                      !isActive && isUnlock && "border-unlock/70 bg-surface",
+                      !isActive && !isPrereq && !isUnlock && isElective &&
+                        "border-elective/55 bg-surface",
+                      !isActive && !isPrereq && !isUnlock && !isElective &&
+                        "border-border/60 bg-surface",
+                      isDimmed && "opacity-55"
+                    )}
+                    style={{
+                      left: layoutNode.x,
+                      top: layoutNode.y,
+                      width: NODE_WIDTH,
+                      minHeight: NODE_MIN_HEIGHT
+                    }}
+                  >
+                    <span
+                      className={cn(
+                        "absolute left-0 top-0 h-full w-1 rounded-l-2xl transition",
+                        markerClass
+                      )}
+                    />
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold leading-tight text-text">
+                          {node.name}
+                        </p>
+                        <p className="text-[11px] text-muted">{node.code ?? "Sin código"}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        {statusLabel ? (
                           <span
                             className={cn(
-                              "absolute left-0 top-0 h-full w-1 rounded-l-2xl transition",
-                              markerClass
-                            )}
-                          />
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="space-y-1">
-                              <p className="text-sm font-semibold leading-tight text-text">
-                                {node.name}
-                              </p>
-                              <p className="text-[11px] text-muted">
-                                {node.code ?? "Sin código"}
-                              </p>
-                            </div>
-                            <div className="flex flex-col items-end gap-1">
-                              {statusLabel ? (
-                                <span
-                                  className={cn(
-                                    "rounded-full border px-2 py-0.5 text-[10px] font-semibold",
-                                    STATUS_STYLES[node.status ?? ""]
-                                  )}
-                                >
-                                  {statusLabel}
-                                </span>
-                              ) : null}
-                              {node.color ? (
-                                <span
-                                  className="h-2.5 w-2.5 rounded-full border border-border/40"
-                                  style={{ backgroundColor: node.color }}
-                                />
-                              ) : null}
-                            </div>
-                          </div>
-                          <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-semibold">
-                            {node.credits ? (
-                              <span className="rounded-full border border-border/60 bg-surface/80 px-2 py-0.5 text-muted">
-                                {node.credits} créditos
-                              </span>
-                            ) : null}
-                            {node.cycle ? (
-                              <span className="rounded-full border border-border/60 bg-surface/80 px-2 py-0.5 text-muted">
-                                {CYCLE_LABELS[node.cycle] ?? node.cycle}
-                              </span>
-                            ) : null}
-                            {isElective ? (
-                              <span className="rounded-full border border-elective/40 bg-elective/10 px-2 py-0.5 text-elective">
-                                Electiva
-                              </span>
-                            ) : null}
-                          </div>
-                          <div
-                            className={cn(
-                              "mt-2 overflow-hidden text-[10px] text-muted transition-all duration-200",
-                              showMeta ? "max-h-24 opacity-100" : "max-h-0 opacity-0"
+                              "rounded-full border px-2 py-0.5 text-[10px] font-semibold",
+                              STATUS_STYLES[node.status ?? ""]
                             )}
                           >
-                            <div className="flex items-center justify-between gap-2">
-                              <span>Correlativas</span>
-                              <span className="text-text">{prereqSummary}</span>
-                            </div>
-                            <div className="mt-1 flex items-center justify-between gap-2">
-                              <span>Habilita</span>
-                              <span className="text-text">{unlockSummary}</span>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+                            {statusLabel}
+                          </span>
+                        ) : null}
+                        {node.color ? (
+                          <span
+                            className="h-2.5 w-2.5 rounded-full border border-border/40"
+                            style={{ backgroundColor: node.color }}
+                          />
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-semibold">
+                      {node.credits ? (
+                        <span className="rounded-full border border-border/60 bg-surface/80 px-2 py-0.5 text-muted">
+                          {node.credits} créditos
+                        </span>
+                      ) : null}
+                      {node.cycle ? (
+                        <span className="rounded-full border border-border/60 bg-surface/80 px-2 py-0.5 text-muted">
+                          {CYCLE_LABELS[node.cycle] ?? node.cycle}
+                        </span>
+                      ) : null}
+                      {isElective ? (
+                        <span className="rounded-full border border-elective/40 bg-elective/10 px-2 py-0.5 text-elective">
+                          Electiva
+                        </span>
+                      ) : null}
+                    </div>
+                    <div
+                      className={cn(
+                        "mt-2 overflow-hidden text-[10px] text-muted transition-all duration-200",
+                        showMeta ? "max-h-28 opacity-100" : "max-h-0 opacity-0"
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span>Correlativas</span>
+                        <span className="text-right text-text">{prereqSummary}</span>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between gap-2">
+                        <span>Habilita</span>
+                        <span className="text-right text-text">{unlockSummary}</span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-
           </div>
 
-          <div className="pointer-events-none absolute inset-0 z-20">
-            <div className="pointer-events-auto absolute left-4 top-4 flex w-[min(360px,calc(100%-2rem))] flex-col gap-3 rounded-3xl border border-border/60 bg-surface/85 p-4 shadow-glow backdrop-blur">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] uppercase tracking-[0.35em] text-muted">Mapa</span>
-                <span className="text-xs font-semibold text-text">Correlativas</span>
-                <span className="text-[10px] text-muted">Pasar cursor expande · Clic fija</span>
-              </div>
-              <div className="relative">
-                <Input
-                  placeholder="Buscar materia o código"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  onFocus={() => setIsSearchOpen(true)}
-                  onBlur={() => setTimeout(() => setIsSearchOpen(false), 160)}
-                  onKeyDown={handleSearchKeyDown}
-                />
-                {isSearchOpen && deferredSearch ? (
-                  <div
-                    className="absolute z-30 mt-2 w-full rounded-2xl border border-border/60 bg-surface/95 p-2 shadow-lg"
-                    onMouseDown={(event) => event.preventDefault()}
-                  >
-                    {searchResults.length ? (
-                      <div className="max-h-52 overflow-auto">
-                        {searchResults.map((node) => (
-                          <button
-                            key={node.id}
-                            type="button"
-                            onClick={() => handleSearchSelect(node)}
-                            className="flex w-full items-center justify-between rounded-xl px-2 py-2 text-left text-xs text-text hover:bg-surface-2/70"
-                          >
-                            <span className="font-semibold">{node.name}</span>
-                            <span className="text-[10px] text-muted">{node.code ?? ""}</span>
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="px-2 py-2 text-xs text-muted">Sin coincidencias.</p>
-                    )}
-                  </div>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  aria-pressed={showElectives}
-                  onClick={() => setShowElectives((value) => !value)}
+          <div className="pointer-events-none absolute inset-0 z-30">
+            <div className="pointer-events-auto absolute bottom-4 left-4">
+              <button
+                type="button"
+                aria-pressed={showElectives}
+                onClick={() => setShowElectives((value) => !value)}
+                className={cn(
+                  "inline-flex items-center gap-3 rounded-full border px-4 py-2 text-sm font-semibold shadow-glow backdrop-blur transition",
+                  showElectives
+                    ? "border-elective/60 bg-surface/92 text-elective"
+                    : "border-border/60 bg-surface/88 text-muted hover:border-elective/40"
+                )}
+              >
+                <span
                   className={cn(
-                    "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition",
-                    showElectives
-                      ? "border-elective/60 bg-elective/10 text-elective"
-                      : "border-border/60 text-muted hover:border-elective/40"
+                    "h-2.5 w-2.5 rounded-full",
+                    showElectives ? "bg-elective" : "bg-border"
                   )}
-                >
-                  <span className="h-2 w-2 rounded-full bg-elective" />
-                  Electivas
-                </button>
-                <Button variant="outline" size="sm" onClick={clearSelection} disabled={!selectedId}>
-                  Limpiar selección
-                </Button>
-              </div>
-              <p className="text-[10px] text-muted">Modo navegación activo: pan, zoom y selección de detalle.</p>
-              <details className="hidden rounded-2xl border border-border/60 bg-surface/80 p-3 text-xs text-muted sm:block">
-                <summary className="cursor-pointer select-none text-[11px] uppercase tracking-[0.3em] text-muted">
-                  Leyenda
-                </summary>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Badge className="bg-prereq/10 text-prereq border-prereq/40">Prerrequisito</Badge>
-                  <Badge className="bg-unlock/10 text-unlock border-unlock/40">Habilita</Badge>
-                  <Badge className="bg-elective/10 text-elective border-elective/40">Electiva</Badge>
-                  {Object.entries(STATUS_LABELS).map(([key, label]) => (
-                    <Badge key={key} className={STATUS_STYLES[key]}>
-                      {label}
-                    </Badge>
-                  ))}
-                </div>
-              </details>
-              {deferredSearch ? (
-                <p className="text-[10px] text-muted">
-                  {searchMatches.size} coincidencia{searchMatches.size === 1 ? "" : "s"}
-                </p>
-              ) : null}
-              {!selectedNode ? (
-                <p className="text-[10px] text-muted">
-                  Seleccioná una materia para abrir el detalle.
-                </p>
-              ) : null}
-            </div>
-
-            <div className="pointer-events-auto absolute right-4 bottom-4 flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={handleZoomIn}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-border/60 bg-surface/80 text-sm font-semibold text-text shadow-glow"
-                aria-label="Acercar"
-              >
-                +
-              </button>
-              <button
-                type="button"
-                onClick={handleZoomOut}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-border/60 bg-surface/80 text-sm font-semibold text-text shadow-glow"
-                aria-label="Alejar"
-              >
-                -
-              </button>
-              <button
-                type="button"
-                onClick={handleCenter}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-border/60 bg-surface/80 text-[11px] font-semibold text-text shadow-glow"
-                aria-label="Centrar"
-              >
-                C
-              </button>
-              <button
-                type="button"
-                onClick={handleReset}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-border/60 bg-surface/80 text-[11px] font-semibold text-text shadow-glow"
-                aria-label="Reiniciar vista"
-              >
-                R
+                />
+                {showElectives ? "Electivas visibles" : "Activar electivas"}
               </button>
             </div>
 
             {selectedNode ? (
-              <aside className="pointer-events-auto absolute right-4 top-4 hidden w-[320px] flex-col rounded-3xl border border-border/60 bg-surface/90 shadow-glow backdrop-blur lg:flex">
+              <aside className="pointer-events-auto absolute right-4 top-4 hidden w-[340px] flex-col rounded-3xl border border-border/60 bg-surface/92 shadow-glow backdrop-blur lg:flex">
                 <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
                   <div>
                     <p className="text-xs uppercase tracking-[0.3em] text-muted">Detalle</p>
@@ -1225,7 +1243,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
                 onPointerCancel={handleSheetPointerUp}
               >
                 <div
-                  className="rounded-t-3xl border border-border/60 bg-surface/90 shadow-glow backdrop-blur"
+                  className="rounded-t-3xl border border-border/60 bg-surface/92 shadow-glow backdrop-blur"
                   style={{ height: sheetHeight }}
                 >
                   <div className="flex items-center justify-center pt-3">
@@ -1274,7 +1292,6 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
           </div>
         </div>
       </div>
-
     </section>
   );
 }
