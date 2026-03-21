@@ -32,33 +32,23 @@
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --color-canvas: 18 18 20;
-  /* neutral dark */
-  --color-surface: 28 28 31;
-  /* warm zinc-900 */
-  --color-surface-2: 40 40 44;
-  /* warm zinc-800 */
-  --color-border: 68 65 62;
-  /* warm border */
-  --color-text: 245 241 237;
-  /* matches light cream */
-  --color-muted: 156 150 142;
-  /* warm muted */
-  --color-accent: 228 100 55;
-  /* brighter coral */
-  --color-accent-contrast: 255 247 241;
-  --color-accent-2: 85 145 180;
-  /* muted teal */
-  --color-accent-3: 218 168 100;
-  /* warm gold */
-  --color-accent-4: 130 140 158;
-  /* cool gray */
-  --color-prereq: 80 180 135;
-  --color-unlock: 120 155 200;
-  --color-elective: 218 145 80;
-  --color-success: 70 180 120;
-  --color-warning: 218 165 75;
-  --color-danger: 210 95 90;
+  --color-canvas: 20 18 16;
+  --color-surface: 30 27 24;
+  --color-surface-2: 40 36 32;
+  --color-border: 60 54 48;
+  --color-text: 238 232 224;
+  --color-muted: 155 145 133;
+  --color-accent: 240 130 80;
+  --color-accent-contrast: 255 248 242;
+  --color-accent-2: 110 175 210;
+  --color-accent-3: 225 180 115;
+  --color-accent-4: 145 152 164;
+  --color-prereq: 85 190 140;
+  --color-unlock: 125 160 210;
+  --color-elective: 225 155 85;
+  --color-success: 85 190 130;
+  --color-warning: 225 175 85;
+  --color-danger: 220 105 100;
   --shadow-color: 0 0 0;
 }
 
@@ -120,10 +110,6 @@ body {
   transition:
     background-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
     color 220ms cubic-bezier(0.22, 1, 0.36, 1);
-  background-image:
-    radial-gradient(860px 520px at 6% -16%, rgb(var(--color-accent) / 0.17), transparent 62%),
-    radial-gradient(620px 370px at 92% -12%, rgb(var(--color-accent-4) / 0.12), transparent 62%),
-    linear-gradient(180deg, rgb(var(--color-canvas) / 1) 0%, rgb(var(--color-canvas) / 1) 100%);
 }
 
 body :is(div, section, article, aside, header, footer, nav, button, a, input, select, textarea) {
@@ -261,6 +247,54 @@ body :is(div, section, article, aside, header, footer, nav, button, a, input, se
     border-radius: var(--radius-panel);
   }
 
+  .ambient-orb {
+    @apply absolute rounded-full;
+    animation: ambient-orb-drift var(--orb-duration, 22s) ease-in-out infinite;
+    animation-delay: var(--orb-delay, 0s);
+    transform: translateZ(0);
+    will-change: translate;
+  }
+
+  .ambient-orb--accent {
+    background: rgb(var(--color-accent) / var(--orb-alpha-light, 0.24));
+  }
+
+  .ambient-orb--accent-2 {
+    background: rgb(var(--color-accent-2) / var(--orb-alpha-light, 0.24));
+  }
+
+  .ambient-orb--accent-3 {
+    background: rgb(var(--color-accent-3) / var(--orb-alpha-light, 0.18));
+  }
+
+  .ambient-orb--accent-4 {
+    background: rgb(var(--color-accent-4) / var(--orb-alpha-light, 0.18));
+  }
+
+  .ambient-orb--elective {
+    background: rgb(var(--color-elective) / var(--orb-alpha-light, 0.16));
+  }
+
+  [data-theme="dark"] .ambient-orb--accent {
+    background: rgb(var(--color-accent) / var(--orb-alpha-dark, 0.18));
+  }
+
+  [data-theme="dark"] .ambient-orb--accent-2 {
+    background: rgb(var(--color-accent-2) / var(--orb-alpha-dark, 0.18));
+  }
+
+  [data-theme="dark"] .ambient-orb--accent-3 {
+    background: rgb(var(--color-accent-3) / var(--orb-alpha-dark, 0.15));
+  }
+
+  [data-theme="dark"] .ambient-orb--accent-4 {
+    background: rgb(var(--color-accent-4) / var(--orb-alpha-dark, 0.16));
+  }
+
+  [data-theme="dark"] .ambient-orb--elective {
+    background: rgb(var(--color-elective) / var(--orb-alpha-dark, 0.14));
+  }
+
   .panel-header {
     @apply flex items-center justify-between gap-4 border-b border-border/70;
     padding: var(--panel-head-y) var(--panel-head-x);
@@ -279,20 +313,37 @@ body :is(div, section, article, aside, header, footer, nav, button, a, input, se
 
   .map-canvas {
     background-image:
-      radial-gradient(760px 430px at 8% -12%, rgb(var(--color-accent) / 0.2), transparent 62%),
-      radial-gradient(660px 380px at 92% -10%, rgb(var(--color-accent-3) / 0.16), transparent 58%),
-      radial-gradient(560px 340px at 74% 108%, rgb(var(--color-accent-4) / 0.12), transparent 60%);
+      radial-gradient(760px 430px at 8% -12%, rgb(var(--color-accent) / 0.08), transparent 62%),
+      radial-gradient(660px 380px at 92% -10%, rgb(var(--color-accent-3) / 0.06), transparent 58%),
+      radial-gradient(560px 340px at 74% 108%, rgb(var(--color-accent-4) / 0.05), transparent 60%);
   }
 
   [data-theme="dark"] .map-canvas {
     background-image:
-      radial-gradient(760px 430px at 8% -12%, rgb(var(--color-accent) / 0.26), transparent 62%),
-      radial-gradient(660px 380px at 92% -10%, rgb(var(--color-accent-2) / 0.18), transparent 58%),
-      radial-gradient(560px 340px at 74% 108%, rgb(var(--color-accent-4) / 0.15), transparent 60%);
+      radial-gradient(760px 430px at 8% -12%, rgb(var(--color-accent) / 0.12), transparent 62%),
+      radial-gradient(660px 380px at 92% -10%, rgb(var(--color-accent-2) / 0.08), transparent 58%),
+      radial-gradient(560px 340px at 74% 108%, rgb(var(--color-accent-4) / 0.08), transparent 60%);
   }
 }
 
 @layer utilities {
+  @keyframes ambient-orb-drift {
+    0%,
+    100% {
+      translate: 0 0;
+    }
+
+    50% {
+      translate: var(--orb-float-x, 0px) var(--orb-float-y, 0px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ambient-orb {
+      animation: none;
+    }
+  }
+
   @keyframes nav-summary-hover {
     0% {
       transform: scale(1) rotate(0deg);
@@ -510,4 +561,74 @@ body :is(div, section, article, aside, header, footer, nav, button, a, input, se
     transition: transform 300ms ease;
     transform: scale(1.1);
   }
+}
+
+/* ─── Dark mode — component-level harmony ─── */
+
+/* Cards and surfaces get a subtle warm border in dark mode */
+[data-theme="dark"] .panel {
+  border-color: rgb(var(--color-border) / 0.5);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3), inset 0 1px 0 rgb(255 255 255 / 0.03);
+}
+
+/* Panels/cards with bg-surface get a tighter, visible border */
+[data-theme="dark"] [class*="bg-surface"] {
+  border-color: rgb(var(--color-border) / 0.35);
+}
+
+/* Drop shadows are deeper in dark mode */
+[data-theme="dark"] [class*="shadow-soft"] {
+  --tw-shadow: 0 8px 32px rgb(0 0 0 / 0.35);
+}
+
+/* Progress bars need more contrast against dark surfaces */
+[data-theme="dark"] [class*="bg-warning"],
+[data-theme="dark"] [class*="bg-accent"],
+[data-theme="dark"] [class*="bg-success"],
+[data-theme="dark"] [class*="bg-danger"] {
+  filter: brightness(1.08);
+}
+
+/* Blockquote accent border more visible */
+[data-theme="dark"] blockquote {
+  border-left-color: rgb(var(--color-accent) / 0.35);
+}
+
+/* Badges/pills with transparency get boosted */
+[data-theme="dark"] [class*="bg-accent\\/1"],
+[data-theme="dark"] [class*="bg-warning\\/1"],
+[data-theme="dark"] [class*="bg-success\\/1"] {
+  backdrop-filter: brightness(1.15);
+}
+
+/* Scrollbar in dark  */
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: rgb(var(--color-canvas));
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgb(var(--color-border) / 0.5);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--color-border) / 0.7);
+}
+
+/* Selection */
+[data-theme="dark"] ::selection {
+  background: rgb(var(--color-accent) / 0.3);
+}
+
+/* Input/select borders more visible */
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  border-color: rgb(var(--color-border) / 0.55);
+}
+
+[data-theme="dark"] input:focus,
+[data-theme="dark"] select:focus,
+[data-theme="dark"] textarea:focus {
+  border-color: rgb(var(--color-accent) / 0.5);
+  box-shadow: 0 0 0 3px rgb(var(--color-accent) / 0.12);
 }

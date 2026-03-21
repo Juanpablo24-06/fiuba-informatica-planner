@@ -1,9 +1,106 @@
+import type { CSSProperties } from "react";
+
 export default function AppBackground() {
   return (
-    <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-      <div className="absolute -top-32 left-0 h-[360px] w-[360px] rounded-full bg-accent/12 blur-[120px]" />
-      <div className="absolute right-0 top-8 h-[420px] w-[420px] rounded-full bg-accent-2/10 blur-[150px]" />
-      <div className="absolute -bottom-24 left-1/2 h-[340px] w-[340px] -translate-x-1/2 rounded-full bg-accent-4/10 blur-[130px]" />
+    <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+      {/* Top-left warm orb — slightly smaller, higher and more to the right so the title sits inside it */}
+      <div
+        className="ambient-orb ambient-orb--accent -left-24 -top-8 z-10 h-[500px] w-[500px]"
+        style={
+          {
+            "--orb-alpha-light": "0.18",
+            "--orb-alpha-dark": "0.12",
+            "--orb-float-x": "14px",
+            "--orb-float-y": "-10px",
+            "--orb-duration": "22s",
+            "--orb-delay": "-4s"
+          } as CSSProperties
+        }
+      />
+
+      {/* Top-right cool accent — slate/blue */}
+      <div
+        className="ambient-orb ambient-orb--accent-4 -right-16 -top-10 h-[340px] w-[340px]"
+        style={
+          {
+            "--orb-alpha-light": "0.16",
+            "--orb-alpha-dark": "0.12",
+            "--orb-float-x": "-12px",
+            "--orb-float-y": "8px",
+            "--orb-duration": "20s",
+            "--orb-delay": "-9s"
+          } as CSSProperties
+        }
+      />
+
+      {/* Center-right subtle gold */}
+      <div
+        className="ambient-orb ambient-orb--accent-3 right-[4%] top-[40%] h-[260px] w-[260px]"
+        style={
+          {
+            "--orb-alpha-light": "0.14",
+            "--orb-alpha-dark": "0.1",
+            "--orb-float-x": "10px",
+            "--orb-float-y": "12px",
+            "--orb-duration": "24s",
+            "--orb-delay": "-14s"
+          } as CSSProperties
+        }
+      />
+
+      {/* Bottom-left blue orb — slightly higher so it frames "Cursada actual" and sits over the orange orb */}
+      <div
+        className="ambient-orb ambient-orb--accent-2 -left-12 top-[20.5rem] z-20 h-[340px] w-[340px]"
+        style={
+          {
+            "--orb-alpha-light": "0.18",
+            "--orb-alpha-dark": "0.14",
+            "--orb-float-x": "12px",
+            "--orb-float-y": "-8px",
+            "--orb-duration": "19s",
+            "--orb-delay": "-6s"
+          } as CSSProperties
+        }
+      />
+
+      {/* Bottom-center elective warm */}
+      <div
+        className="ambient-orb ambient-orb--elective bottom-[-7rem] left-1/2 h-[280px] w-[280px] -translate-x-1/2"
+        style={
+          {
+            "--orb-alpha-light": "0.14",
+            "--orb-alpha-dark": "0.1",
+            "--orb-float-x": "-10px",
+            "--orb-float-y": "-12px",
+            "--orb-duration": "26s",
+            "--orb-delay": "-11s"
+          } as CSSProperties
+        }
+      />
+
+      {/* Bottom-right coral echo */}
+      <div
+        className="ambient-orb ambient-orb--accent bottom-[-3rem] right-[4%] h-[220px] w-[220px]"
+        style={
+          {
+            "--orb-alpha-light": "0.12",
+            "--orb-alpha-dark": "0.08",
+            "--orb-float-x": "-8px",
+            "--orb-float-y": "10px",
+            "--orb-duration": "21s",
+            "--orb-delay": "-16s"
+          } as CSSProperties
+        }
+      />
+
+      {/* Subtle dot pattern */}
+      <div
+        className="absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage: 'radial-gradient(rgb(var(--color-text)) 1px, transparent 1px)',
+          backgroundSize: '32px 32px'
+        }}
+      />
     </div>
   );
 }

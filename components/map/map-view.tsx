@@ -91,13 +91,15 @@ const WORLD_PADDING_TOP = 34;
 const SECTION_GAP = 40;
 const SECTION_HEADER_HEIGHT = 12;
 const SECTION_BOTTOM_PADDING = 26;
-const ROW_GAP = 40;
+const ROW_GAP = 34;
 const LANE_COUNT = 7;
 const NODE_WIDTH = 208;
 const NODE_MIN_HEIGHT = 108;
-const SLOT_GAP = 76;
+const SLOT_GAP = 60;
 const GENERIC_ELECTIVE_NAMES = new Set(["Electivas/Optativas I", "Electivas/Optativas II"]);
 const DRAG_THRESHOLD = 8;
+const MAP_VIEW_STORAGE_KEY = "fiuba-map-view-v2";
+const PAN_DRAG_MULTIPLIER = 1.18;
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
@@ -208,13 +210,22 @@ const assignLanes = (
 
   const averageAnchor =
     anchors.reduce((sum, value) => sum + value, 0) / Math.max(anchors.length, 1);
-  const startLane = clamp(
-    Math.round(averageAnchor - (items.length - 1) / 2),
-    0,
-    LANE_COUNT - items.length
-  );
 
-  return items.map((_, index) => startLane + index);
+  if (items.length === 1) {
+    return [clamp(averageAnchor, 1.1, LANE_COUNT - 2.1)];
+  }
+
+  const edgeInset = 0.7;
+  const desiredSpan = clamp((items.length - 1) * 1.85, 2.9, LANE_COUNT - 1 - edgeInset * 2);
+  const halfSpan = desiredSpan / 2;
+  const center = clamp(
+    averageAnchor,
+    edgeInset + halfSpan,
+    LANE_COUNT - 1 - edgeInset - halfSpan
+  );
+  const step = desiredSpan / (items.length - 1);
+
+  return items.map((_, index) => center - halfSpan + step * index);
 };
 
 const computeVerticalLayout = (nodes: MapNode[], edges: MapEdge[]): LayoutResult => {
@@ -395,6 +406,8 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
   const worldRef = useRef<HTMLDivElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const cameraAnimationRef = useRef<number | null>(null);
+  const initialCameraAppliedRef = useRef(false);
+  const persistedTransformRef = useRef<Transform | null>(null);
   const transformRef = useRef<Transform>({ x: 0, y: 0, scale: 1 });
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
   const panRef = useRef<{
@@ -426,6 +439,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
   const [viewportHeight, setViewportHeight] = useState(0);
   const [isDesktop, setIsDesktop] = useState(false);
   const [isDraggingSheet, setIsDraggingSheet] = useState(false);
+  const [isPanningViewport, setIsPanningViewport] = useState(false);
 
   const clearSelection = useCallback(() => {
     setSelectedId(null);
@@ -462,6 +476,30 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
     handle();
     query.addEventListener("change", handle);
     return () => query.removeEventListener("change", handle);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const raw = window.localStorage.getItem(MAP_VIEW_STORAGE_KEY);
+      if (!raw) return;
+
+      const parsed = JSON.parse(raw) as Partial<Transform>;
+      if (
+        typeof parsed.x === "number" &&
+        typeof parsed.y === "number" &&
+        typeof parsed.scale === "number"
+      ) {
+        persistedTransformRef.current = {
+          x: parsed.x,
+          y: parsed.y,
+          scale: clamp(parsed.scale, MIN_ZOOM, MAX_ZOOM)
+        };
+      }
+    } catch {
+      persistedTransformRef.current = null;
+    }
   }, []);
 
   const sheetSizes = useMemo(() => {
@@ -527,16 +565,35 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
   const nodeLayouts = layout.nodeLayouts;
   const lines = useMemo(() => buildLinePaths(nodeLayouts, visibleEdges), [nodeLayouts, visibleEdges]);
 
-  const defaultFocusBounds = useMemo(() => {
-    const candidates = visibleNodes.filter((node) => node.status !== "aprobado");
-    const source = candidates.length ? candidates : visibleNodes;
+  const defaultFocus = useMemo(() => {
+    const currentCandidates = visibleNodes.filter((node) => node.status === "cursando");
+    const pendingCandidates = visibleNodes.filter(
+      (node) => node.status === "final_pendiente" || node.status === "recursar"
+    );
+    const incompleteCandidates = visibleNodes.filter((node) => node.status !== "aprobado");
+    const source = currentCandidates.length
+      ? currentCandidates
+      : pendingCandidates.length
+      ? pendingCandidates
+      : incompleteCandidates.length
+      ? incompleteCandidates
+      : visibleNodes;
     const layouts = source
       .map((node) => layout.nodeLayouts[node.id])
       .filter(Boolean) as NodeLayout[];
 
     if (!layouts.length) return null;
 
+    const mode = currentCandidates.length
+      ? "current"
+      : pendingCandidates.length
+      ? "pending"
+      : incompleteCandidates.length
+      ? "incomplete"
+      : "all";
+
     return {
+      mode,
       minX: Math.min(...layouts.map((item) => item.x)),
       maxX: Math.max(...layouts.map((item) => item.x + item.width)),
       minY: Math.min(...layouts.map((item) => item.y)),
@@ -607,17 +664,33 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
 
   const scheduleTransform = useCallback((next: Transform) => {
     transformRef.current = next;
-    if (animationFrameRef.current !== null) return;
-    animationFrameRef.current = window.requestAnimationFrame(() => {
+    if (animationFrameRef.current !== null) {
+      window.cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
-      setTransform({ ...transformRef.current });
-    });
+    }
+    setTransform({ ...next });
   }, []);
 
   const stopCameraAnimation = useCallback(() => {
     if (cameraAnimationRef.current !== null) {
       window.cancelAnimationFrame(cameraAnimationRef.current);
       cameraAnimationRef.current = null;
+    }
+  }, []);
+
+  const capturePointerSafely = useCallback((element: HTMLDivElement, pointerId: number) => {
+    try {
+      element.setPointerCapture(pointerId);
+    } catch {
+      // Keep drag working even if the browser rejects pointer capture here.
+    }
+  }, []);
+
+  const releasePointerSafely = useCallback((element: HTMLDivElement, pointerId: number) => {
+    try {
+      element.releasePointerCapture(pointerId);
+    } catch {
+      // Ignore capture release mismatches.
     }
   }, []);
 
@@ -671,31 +744,57 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
 
   useEffect(() => {
     if (!layout.width || !layout.height) return;
-    setTransformSafe({ ...transformRef.current });
+    const viewport = viewportRef.current;
+    if (!viewport) return;
 
-    if (!hasUserMovedRef.current) {
-      const viewport = viewportRef.current;
-      if (!viewport) return;
+    if (!initialCameraAppliedRef.current) {
+      const persisted = persistedTransformRef.current;
+      if (persisted) {
+        hasUserMovedRef.current = true;
+        initialCameraAppliedRef.current = true;
+        setTransformSafe(persisted);
+        return;
+      }
 
-      if (defaultFocusBounds) {
-        const paddingX = 90;
-        const paddingY = 90;
-        const groupWidth = defaultFocusBounds.maxX - defaultFocusBounds.minX;
-        const groupHeight = defaultFocusBounds.maxY - defaultFocusBounds.minY;
+      if (defaultFocus) {
+        const isCurrent = defaultFocus.mode === "current";
+        const paddingX = isDesktop
+          ? isCurrent
+            ? 164
+            : 92
+          : isCurrent
+          ? 34
+          : 24;
+        const paddingY = isDesktop
+          ? isCurrent
+            ? 148
+            : 92
+          : isCurrent
+          ? 44
+          : 28;
+        const groupWidth = defaultFocus.maxX - defaultFocus.minX;
+        const groupHeight = defaultFocus.maxY - defaultFocus.minY;
         const scale = clamp(
           Math.min(
             (viewport.clientWidth - paddingX * 2) / Math.max(groupWidth, NODE_WIDTH),
             (viewport.clientHeight - paddingY * 2) / Math.max(groupHeight, NODE_MIN_HEIGHT)
           ),
           MIN_ZOOM,
-          1
+          isDesktop
+            ? isCurrent
+              ? 1.04
+              : 0.98
+            : isCurrent
+            ? 1.28
+            : 1.16
         );
-        const centerX = (defaultFocusBounds.minX + defaultFocusBounds.maxX) / 2;
-        const centerY = (defaultFocusBounds.minY + defaultFocusBounds.maxY) / 2;
+        const centerX = (defaultFocus.minX + defaultFocus.maxX) / 2;
+        const centerY = (defaultFocus.minY + defaultFocus.maxY) / 2;
 
+        initialCameraAppliedRef.current = true;
         setTransformSafe({
           x: viewport.clientWidth / 2 - centerX * scale,
-          y: viewport.clientHeight * 0.44 - centerY * scale,
+          y: viewport.clientHeight * (isDesktop ? (isCurrent ? 0.5 : 0.43) : isCurrent ? 0.44 : 0.4) - centerY * scale,
           scale
         });
         return;
@@ -712,13 +811,37 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
           ? (viewport.clientHeight - scaledHeight) / 2
           : Math.min(24, transformRef.current.y);
 
+      initialCameraAppliedRef.current = true;
       setTransformSafe({
         x,
         y,
         scale: transformRef.current.scale
       });
+      return;
     }
-  }, [defaultFocusBounds, layout.height, layout.width, setTransformSafe]);
+
+    setTransformSafe({ ...transformRef.current });
+  }, [defaultFocus, isDesktop, layout.height, layout.width, setTransformSafe]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!initialCameraAppliedRef.current) return;
+
+    try {
+      window.localStorage.setItem(MAP_VIEW_STORAGE_KEY, JSON.stringify(transform));
+    } catch {
+      // Ignore storage errors and keep map interactions responsive.
+    }
+  }, [transform]);
+
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current !== null) {
+        window.cancelAnimationFrame(animationFrameRef.current);
+      }
+      stopCameraAnimation();
+    };
+  }, [stopCameraAnimation]);
 
   const focusNode = useCallback(
     (id: string, zoom: boolean) => {
@@ -728,14 +851,14 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
       const selectedLayout = nodeLayouts[id];
       if (!selectedLayout) return;
 
-      const desiredCardWidth = isDesktop ? viewport.clientWidth * 0.22 : viewport.clientWidth * 0.48;
+      const desiredCardWidth = isDesktop ? viewport.clientWidth * 0.22 : viewport.clientWidth * 0.68;
       const fittedScale = desiredCardWidth / selectedLayout.width;
       const scale = clamp(zoom ? fittedScale : transformRef.current.scale, 0.68, 1.24);
 
       const centerX = selectedLayout.x + selectedLayout.width / 2;
       const centerY = selectedLayout.y + selectedLayout.height / 2;
       const targetX = (viewport.clientWidth - (isDesktop ? DESKTOP_PANEL_WIDTH : 0)) / 2;
-      const targetY = isDesktop ? viewport.clientHeight / 2 : viewport.clientHeight * 0.38;
+      const targetY = isDesktop ? viewport.clientHeight / 2 : viewport.clientHeight * 0.34;
       const target = clampTransform({
         x: targetX - centerX * scale,
         y: targetY - centerY * scale,
@@ -797,8 +920,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!viewportRef.current) return;
     stopCameraAnimation();
-
-    event.currentTarget.setPointerCapture(event.pointerId);
+    capturePointerSafely(event.currentTarget, event.pointerId);
     pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     dragDistanceRef.current = 0;
     pressedNodeIdRef.current =
@@ -812,9 +934,11 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
         originX: transformRef.current.x,
         originY: transformRef.current.y
       };
+      setIsPanningViewport(true);
     }
 
     if (pointersRef.current.size === 2) {
+      setIsPanningViewport(false);
       const points = Array.from(pointersRef.current.values());
       const dx = points[0].x - points[1].x;
       const dy = points[0].y - points[1].y;
@@ -859,8 +983,8 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
     }
 
     if (panRef.current) {
-      const deltaX = event.clientX - panRef.current.startX;
-      const deltaY = event.clientY - panRef.current.startY;
+      const deltaX = (event.clientX - panRef.current.startX) * PAN_DRAG_MULTIPLIER;
+      const deltaY = (event.clientY - panRef.current.startY) * PAN_DRAG_MULTIPLIER;
       dragDistanceRef.current = Math.max(dragDistanceRef.current, Math.hypot(deltaX, deltaY));
       hasUserMovedRef.current = true;
       setTransformSafe({
@@ -872,7 +996,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
   };
 
   const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
-    event.currentTarget.releasePointerCapture(event.pointerId);
+    releasePointerSafely(event.currentTarget, event.pointerId);
     pointersRef.current.delete(event.pointerId);
     if (pointersRef.current.size < 2) pinchRef.current = null;
     if (pointersRef.current.size === 0) {
@@ -882,6 +1006,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
       }
       panRef.current = null;
       pressedNodeIdRef.current = null;
+      setIsPanningViewport(false);
     }
   };
 
@@ -998,20 +1123,28 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
   ) : null;
 
   return (
-    <section className="relative h-[calc(100svh-var(--app-header-height,96px))]">
-      <div className="panel relative h-full overflow-hidden rounded-none border-x-0 border-t-0">
-        <div className="relative h-full">
-          <div className="map-canvas pointer-events-none absolute inset-0 opacity-60" />
-          <div className="pointer-events-none absolute inset-0 subtle-grid opacity-20" />
+    <section className="relative h-[100svh]">
+      <div className="relative h-full overflow-hidden">
+        <div className="relative h-full bg-transparent">
+          <div className="map-canvas pointer-events-none absolute inset-0 opacity-0" />
+          <div
+            className="pointer-events-none absolute inset-0 subtle-grid opacity-[0.08]"
+            style={{ backgroundPosition: "0 0, 0 0" }}
+          />
 
           <div
             ref={viewportRef}
-            className="relative h-full w-full overflow-hidden touch-none"
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerUp}
-            onWheel={handleWheel}
+            className={cn(
+              "absolute inset-x-0 overflow-hidden touch-none",
+              "top-[calc(var(--app-header-height,96px)+0.5rem)] bottom-[calc(var(--synapse-launcher-height,72px)+1rem)]",
+              "md:inset-0",
+              isPanningViewport ? "cursor-grabbing" : "cursor-grab"
+            )}
+            onPointerDownCapture={handlePointerDown}
+            onPointerMoveCapture={handlePointerMove}
+            onPointerUpCapture={handlePointerUp}
+            onPointerCancelCapture={handlePointerUp}
+            onWheelCapture={handleWheel}
           >
             <div
               ref={worldRef}
@@ -1194,7 +1327,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
           </div>
 
           <div className="pointer-events-none absolute inset-0 z-30">
-            <div className="pointer-events-auto absolute bottom-4 left-4">
+            <div className="pointer-events-auto absolute bottom-[calc(var(--synapse-launcher-height,72px)+1rem)] left-4 md:bottom-4">
               <button
                 type="button"
                 aria-pressed={showElectives}

@@ -32,7 +32,7 @@ const iconStyleByHref: Record<string, CSSProperties | undefined> = {
 
 export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
   const pathname = usePathname();
-  const headerRef = useRef<HTMLDivElement | null>(null);
+  const headerRef = useRef<HTMLElement | null>(null);
   const navItems = role === "admin"
     ? [...baseItems, { href: "/admin", label: "Admin", icon: Settings }]
     : baseItems;
@@ -64,97 +64,108 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
   return (
     <header
       ref={headerRef}
-      className="sticky top-0 z-40 border-b border-accent/24 shadow-[0_10px_28px_rgb(var(--shadow-color)/0.08)] backdrop-blur-2xl"
-      style={{
-        backgroundColor: "rgb(var(--color-accent) / 0.16)"
-      }}
+      className="pointer-events-none fixed inset-x-0 top-0 z-50 px-4 pt-2.5"
     >
-      <div className="mx-auto grid w-full max-w-[1360px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-6 px-6 py-4">
-        <div className="flex shrink-0 items-center gap-3">
-          <BrandLogo className="shadow-[0_14px_28px_rgb(var(--color-accent)/0.16)]" />
-          <div className="min-w-0">
-            <p className="text-[1.55rem] font-bold leading-none text-text">Plan Ing Informática</p>
-            <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-muted">Plan 2023 · FIUBA</p>
+      <div
+        className="pointer-events-auto relative mx-auto w-full max-w-[1360px] rounded-xl border border-border/70 bg-surface px-4 py-2 shadow-[0_18px_38px_-24px_rgb(var(--shadow-color)/0.28)]"
+        style={{ backgroundColor: "rgb(var(--color-surface))" }}
+      >
+        <div className="flex items-center gap-3">
+          {/* Logo */}
+          <div className="flex shrink-0 items-center gap-2.5">
+            <BrandLogo />
+            <div className="min-w-0 hidden sm:block">
+              <p className="text-base font-bold leading-tight text-text">Plan Ing Informática</p>
+              <p className="text-[9px] uppercase tracking-[0.18em] text-muted">Plan 2023 · FIUBA</p>
+            </div>
           </div>
-        </div>
 
-        <nav className="hidden items-center justify-center gap-10 md:flex">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = activeHref === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                data-active={active ? "true" : "false"}
-                className={cn(
-                  "group relative inline-flex items-center gap-2.5 py-2 text-base font-medium tracking-[0.01em] transition-all duration-200",
-                  active
-                    ? "text-accent"
-                    : "text-muted hover:text-text"
-                )}
-              >
-                <Icon
+          {/* Separator */}
+          <div className="hidden h-6 w-px bg-border/40 md:block" />
+
+          {/* Nav links */}
+          <nav className="hidden items-center gap-8 md:flex">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const active = activeHref === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  data-active={active ? "true" : "false"}
                   className={cn(
-                    "h-[17px] w-[17px] transition-colors duration-200 motion-reduce:animate-none",
+                    "group relative inline-flex items-center gap-2 py-1.5 text-sm font-medium transition-all duration-200",
                     active
                       ? "text-accent"
-                      : "group-hover:text-accent",
-                    iconMotionClassByHref[item.href] ?? ""
+                      : "text-muted hover:text-text"
                   )}
-                  style={iconStyleByHref[item.href]}
-                  strokeWidth={active ? 2.05 : 1.9}
-                />
-                {item.label}
-                <span
-                  className={cn(
-                    "absolute -bottom-[1px] left-0 right-0 h-[2.5px] origin-center rounded-full bg-accent transition-transform duration-200",
-                    active ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
-                  )}
-                />
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="ml-auto flex shrink-0 items-center justify-self-end gap-3">
-          <ProfileMenu role={role} />
-          <ThemeToggle className="text-text/80 hover:text-accent" />
-        </div>
-      </div>
-
-      <div className="border-t border-border/50 px-4 pb-3 pt-2 md:hidden">
-        <nav className={cn("grid gap-2", navItems.length >= 4 ? "grid-cols-4" : "grid-cols-3")}>
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = activeHref === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                data-active={active ? "true" : "false"}
-                className={cn(
-                  "group rounded-full border px-3 py-2 text-center text-xs font-semibold transition-all duration-200",
-                  active
-                    ? "border-accent/40 bg-accent/12 text-accent shadow-[inset_0_0_0_1px_rgb(var(--color-accent)/0.14)]"
-                    : "border-border/70 bg-surface text-muted"
-                )}
-              >
-                <span className="inline-flex items-center gap-1">
+                >
                   <Icon
                     className={cn(
-                      "h-3.5 w-3.5 transition-colors duration-200 motion-reduce:animate-none",
-                      active ? "text-accent" : "",
+                      "h-4 w-4 transition-colors duration-200 motion-reduce:animate-none",
+                      active
+                        ? "text-accent"
+                        : "group-hover:text-accent",
                       iconMotionClassByHref[item.href] ?? ""
                     )}
                     style={iconStyleByHref[item.href]}
+                    strokeWidth={active ? 2 : 1.8}
                   />
                   {item.label}
-                </span>
-              </Link>
-            );
-          })}
-        </nav>
+                  <span
+                    className={cn(
+                      "absolute -bottom-1 left-0 right-0 h-[2px] origin-center rounded-full bg-accent transition-transform duration-200",
+                      active ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
+                    )}
+                  />
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Right side */}
+          <div className="flex shrink-0 items-center gap-2">
+            <ThemeToggle className="text-text/70 hover:text-accent" />
+            <ProfileMenu role={role} />
+          </div>
+        </div>
+
+        <div className="mt-2 border-t border-border/50 pt-2 md:hidden">
+          <nav className={cn("grid gap-2", navItems.length >= 4 ? "grid-cols-4" : "grid-cols-3")}>
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const active = activeHref === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  data-active={active ? "true" : "false"}
+                  className={cn(
+                    "group rounded-full border px-3 py-2 text-center text-xs font-semibold transition-all duration-200",
+                    active
+                      ? "border-accent/40 bg-accent/12 text-accent shadow-[inset_0_0_0_1px_rgb(var(--color-accent)/0.14)]"
+                      : "border-border/70 bg-surface text-muted"
+                  )}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    <Icon
+                      className={cn(
+                        "h-3.5 w-3.5 transition-colors duration-200 motion-reduce:animate-none",
+                        active ? "text-accent" : "",
+                        iconMotionClassByHref[item.href] ?? ""
+                      )}
+                      style={iconStyleByHref[item.href]}
+                    />
+                    {item.label}
+                  </span>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
       </div>
     </header>
   );

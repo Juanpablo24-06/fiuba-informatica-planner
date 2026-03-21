@@ -282,7 +282,7 @@ export default async function DashboardPage() {
                       trigger={
                         <button
                           type="button"
-                          className="group relative overflow-hidden rounded-2xl border border-border/45 bg-surface/75 px-5 py-5 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-accent/40 hover:shadow-md"
+                          className="group relative overflow-hidden rounded-2xl border border-border/45 bg-surface/80 px-5 py-5 text-left shadow-sm backdrop-blur-[6px] transition-all duration-300 hover:-translate-y-1 hover:border-accent/40 hover:shadow-md"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div>
@@ -327,7 +327,7 @@ export default async function DashboardPage() {
           </section>
         </section>
 
-        <aside className="panel flex h-fit flex-col gap-8 bg-surface/88 p-8">
+        <aside className="panel flex h-fit flex-col gap-8 bg-surface/80 p-8 backdrop-blur-[8px]">
           <section>
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-3xl font-semibold leading-none text-text">Próximas fechas</h3>
@@ -366,7 +366,7 @@ export default async function DashboardPage() {
 
             <Link
               href="/horario"
-              className="mt-5 inline-flex w-full items-center justify-center rounded-xl border border-border/65 bg-surface-2/55 px-4 py-3 text-sm font-semibold text-text"
+              className="mt-5 inline-flex w-full items-center justify-center rounded-xl border border-border/65 bg-surface-2/45 px-4 py-3 text-sm font-semibold text-text backdrop-blur-[4px]"
             >
               Abrir agenda
             </Link>
