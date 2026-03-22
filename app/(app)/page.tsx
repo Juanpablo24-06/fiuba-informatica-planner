@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Clock3 } from "lucide-react";
+import { ArrowRight, CalendarDays, Clock3 } from "lucide-react";
 import CourseWorkspaceDrawer from "@/components/dashboard/course-workspace-drawer";
 import { Badge } from "@/components/ui/badge";
 import { getSession } from "@/lib/auth";
@@ -7,6 +7,7 @@ import { formatDateTime } from "@/lib/date";
 import { getCalendarEvents } from "@/lib/google-calendar";
 import { getCurrentTerm, getEnrollmentsForTerm, getEventsForTerm, getLatestEnrollmentStatus, getSubjects } from "@/lib/queries";
 import { formatSchedulePreview } from "@/lib/schedule";
+import { cn } from "@/lib/utils";
 import type { CalendarEvent, Event } from "@/lib/types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -18,12 +19,19 @@ const STATUS_LABELS: Record<string, string> = {
   recursar: "Recursar"
 };
 
-const STATUS_TONE: Record<string, string> = {
-  cursando: "bg-accent/10 text-accent border-accent/40",
-  final_pendiente: "bg-warning/10 text-warning border-warning/40",
-  aprobado: "bg-success/10 text-success border-success/40",
-  recursar: "bg-danger/10 text-danger border-danger/40"
+const STATUS_PILL_TONE: Record<string, string> = {
+  cursando: "bg-accent/10 text-accent",
+  final_pendiente: "bg-warning/10 text-warning",
+  aprobado: "bg-success/10 text-success",
+  recursar: "bg-danger/10 text-danger"
 };
+
+const OFFICIAL_CBC_CREDITS = 38;
+const OFFICIAL_SECOND_CYCLE_CREDITS = 188;
+const OFFICIAL_REQUIRED_CREDITS = 202;
+const OFFICIAL_ELECTIVE_CREDITS = 24;
+const OFFICIAL_TOTAL_CREDITS = 226;
+const GENERIC_ELECTIVE_NAMES = new Set(["Electivas/Optativas I", "Electivas/Optativas II"]);
 
 const PHRASES_EDITORIALES = [
   "Una materia a la vez, una carrera completa.",
@@ -53,6 +61,29 @@ const buildInternalEvents = (events: Event[]): CalendarEvent[] =>
     type: event.type,
     color: event.enrollment?.color ?? undefined
   }));
+
+const splitSchedulePreview = (preview: string) => {
+  const match = preview.match(/^(.*?)(\d{2}:\d{2}-\d{2}:\d{2}.*)$/);
+  if (!match) {
+    return { days: preview.trim(), time: null as string | null };
+  }
+
+  return {
+    days: match[1].trim(),
+    time: match[2].trim()
+  };
+};
+
+const getSubjectCredits = (subject: {
+  credits?: number | null;
+  weekly_hours?: number | null;
+}) => subject.credits ?? subject.weekly_hours ?? 0;
+
+const isGenericElectiveSubject = (subject: { name: string }) =>
+  GENERIC_ELECTIVE_NAMES.has(subject.name);
+
+const isFinalProjectStage = (subject: { name: string }) =>
+  /Trabajo Integrador Final|Tesis\/Trabajo Profesional/i.test(subject.name);
 
 const calcLoad = (events: CalendarEvent[]) => {
   const now = Date.now();
@@ -120,46 +151,61 @@ export default async function DashboardPage() {
   const requiredSubjects = subjects.filter(
     (subject) => (subject.type ?? "").toLowerCase() !== "electiva"
   );
-  const approved = requiredSubjects.filter(
-    (subject) => latestStatusMap.get(subject.id)?.status === "aprobado"
-  ).length;
-  const progressPct = requiredSubjects.length
-    ? Math.round((approved / requiredSubjects.length) * 100)
-    : 0;
+  const nonFinalRequiredSubjects = requiredSubjects.filter((subject) => !isFinalProjectStage(subject));
+  const finalProjectStages = requiredSubjects.filter((subject) => isFinalProjectStage(subject));
+  const totalRequiredCourses =
+    nonFinalRequiredSubjects.length + (finalProjectStages.length > 0 ? 1 : 0);
+  const approvedRequiredCount =
+    nonFinalRequiredSubjects.filter((subject) => latestStatusMap.get(subject.id)?.status === "aprobado").length +
+    (finalProjectStages.length > 0 &&
+    finalProjectStages.every((subject) => latestStatusMap.get(subject.id)?.status === "aprobado")
+      ? 1
+      : 0);
   const nextEvents = mergedEvents.slice(0, 4);
   const load = calcLoad(mergedEvents);
 
   const cbcSubjects = requiredSubjects.filter((subject) => isCbcSubject(subject));
-  const cbcApproved = cbcSubjects.filter(
-    (subject) => latestStatusMap.get(subject.id)?.status === "aprobado"
-  ).length;
-  const cbcPct = cbcSubjects.length
-    ? Math.round((cbcApproved / cbcSubjects.length) * 100)
-    : 0;
+  const approvedCbcCredits = cbcSubjects
+    .filter((subject) => latestStatusMap.get(subject.id)?.status === "aprobado")
+    .reduce((sum, subject) => sum + getSubjectCredits(subject), 0);
+  const cbcPct = Math.round((approvedCbcCredits / OFFICIAL_CBC_CREDITS) * 100);
 
-  const professionalSubjects = requiredSubjects.filter(
+  const secondCycleRequiredSubjects = requiredSubjects.filter(
     (subject) => !isCbcSubject(subject)
   );
-  const professionalApproved = professionalSubjects.filter(
-    (subject) => latestStatusMap.get(subject.id)?.status === "aprobado"
-  ).length;
-  const professionalPct = professionalSubjects.length
-    ? Math.round((professionalApproved / professionalSubjects.length) * 100)
-    : 0;
+  const approvedRequiredCredits = requiredSubjects
+    .filter((subject) => latestStatusMap.get(subject.id)?.status === "aprobado")
+    .reduce((sum, subject) => sum + getSubjectCredits(subject), 0);
+  const approvedSecondCycleRequiredCredits = secondCycleRequiredSubjects
+    .filter((subject) => latestStatusMap.get(subject.id)?.status === "aprobado")
+    .reduce((sum, subject) => sum + getSubjectCredits(subject), 0);
   const electives = subjects.filter(
-    (subject) => (subject.type ?? "").toLowerCase() === "electiva"
+    (subject) =>
+      (subject.type ?? "").toLowerCase() === "electiva" && !isGenericElectiveSubject(subject)
   );
-  const approvedElectives = electives.filter(
-    (subject) => latestStatusMap.get(subject.id)?.status === "aprobado"
-  ).length;
-  const cbcWeightPct = requiredSubjects.length
-    ? Math.round((cbcSubjects.length / requiredSubjects.length) * 100)
-    : 0;
+  const approvedElectiveCredits = Math.min(
+    OFFICIAL_ELECTIVE_CREDITS,
+    electives
+      .filter((subject) => latestStatusMap.get(subject.id)?.status === "aprobado")
+      .reduce((sum, subject) => sum + getSubjectCredits(subject), 0)
+  );
+  const approvedSecondCycleCredits = Math.min(
+    OFFICIAL_SECOND_CYCLE_CREDITS,
+    approvedSecondCycleRequiredCredits + approvedElectiveCredits
+  );
+  const progressPct = Math.round(
+    ((approvedRequiredCredits + approvedElectiveCredits) / OFFICIAL_TOTAL_CREDITS) * 100
+  );
+  const cbcWeightPct = Math.round((OFFICIAL_CBC_CREDITS / OFFICIAL_TOTAL_CREDITS) * 100);
   const cbcFillPct = Math.round((cbcWeightPct * cbcPct) / 100);
   const professionalWeightPct = Math.max(0, 100 - cbcWeightPct);
-  const professionalFillPct = Math.round((professionalWeightPct * professionalPct) / 100);
+  const secondCyclePct = Math.round(
+    (approvedSecondCycleCredits / OFFICIAL_SECOND_CYCLE_CREDITS) * 100
+  );
+  const professionalFillPct = Math.round((professionalWeightPct * secondCyclePct) / 100);
   const careerProgressPct = progressPct;
-  const phraseSeed = Math.floor(now.getTime() / DAY_MS) + approved + enrollments.length;
+  const phraseSeed =
+    Math.floor(now.getTime() / DAY_MS) + approvedRequiredCredits + approvedElectiveCredits;
   const editorialPhrase = PHRASES_EDITORIALES[Math.abs(phraseSeed) % PHRASES_EDITORIALES.length];
 
   const eventsByEnrollment = new Map<string, Event[]>();
@@ -196,22 +242,19 @@ export default async function DashboardPage() {
 
             <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-muted">
               <span className="rounded-full border border-border/60 bg-surface-2/60 px-3 py-1">
-                Obligatorias {approved}/{requiredSubjects.length}
+                Obligatorias {approvedRequiredCount}/{totalRequiredCourses} cursos
               </span>
               {electives.length ? (
                 <span className="rounded-full border border-border/60 bg-surface-2/60 px-3 py-1">
-                  Electivas {approvedElectives}/{electives.length}
+                  Electivas {approvedElectiveCredits}/{OFFICIAL_ELECTIVE_CREDITS}
                 </span>
               ) : null}
-              <span className="rounded-full border border-accent/35 bg-accent/10 px-3 py-1 text-accent">
-                Progreso {careerProgressPct}%
-              </span>
             </div>
 
             <div className="mt-6">
               <div className="mb-2 flex items-center justify-between gap-3 text-xs uppercase tracking-[0.22em] text-muted">
                 <span>Avance de la carrera</span>
-                <span>{careerProgressPct}% completo</span>
+                <span className="font-semibold text-accent">{careerProgressPct}% completo</span>
               </div>
               <div className="relative h-2.5 overflow-hidden rounded-full bg-border/35">
                 {cbcWeightPct > 0 ? (
@@ -247,7 +290,7 @@ export default async function DashboardPage() {
                   Tramo CBC {cbcPct}%
                 </span>
                 <span className="rounded-full border border-accent/45 bg-accent/10 px-2.5 py-1 text-accent">
-                  Tramo profesional {professionalPct}%
+                  Segundo ciclo {secondCyclePct}%
                 </span>
               </div>
             </div>
@@ -272,6 +315,10 @@ export default async function DashboardPage() {
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {enrollments.map((enrollment) => {
                   const nextEvent = nextEventByEnrollment.get(enrollment.id);
+                  const schedulePreview = enrollment.schedule.length
+                    ? formatSchedulePreview(enrollment.schedule, { maxBlocks: 1 })
+                    : "Horario por definir";
+                  const scheduleParts = splitSchedulePreview(schedulePreview);
 
                   return (
                     <CourseWorkspaceDrawer
@@ -284,39 +331,64 @@ export default async function DashboardPage() {
                           type="button"
                           className="group relative overflow-hidden rounded-2xl border border-border/45 bg-surface/80 px-5 py-5 text-left shadow-sm backdrop-blur-[6px] transition-all duration-300 hover:-translate-y-1 hover:border-accent/40 hover:shadow-md"
                         >
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="font-mono text-xs text-muted">{enrollment.subject.code ?? "SIN-COD"}</p>
-                              <p className="mt-1 text-lg font-semibold leading-tight text-text group-hover:text-accent">
-                                {enrollment.subject.name}
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <span
+                                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                style={{ backgroundColor: enrollment.color ?? "rgb(var(--color-accent))" }}
+                              />
+                              <p className="font-mono text-[13px] tracking-[0.16em] text-muted">
+                                {enrollment.subject.code ?? "SIN-COD"}
                               </p>
                             </div>
                             <span
-                              className="mt-1 h-3 w-3 rounded-full border border-border/50"
-                              style={{ backgroundColor: enrollment.color ?? "rgb(var(--color-accent))" }}
-                            />
-                          </div>
-
-                          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                            <Badge className={STATUS_TONE[enrollment.status] ?? "border-border/60 bg-surface text-muted"}>
+                              className={cn(
+                                "rounded-full px-4 py-1 text-[10px] font-semibold uppercase tracking-[0.22em]",
+                                STATUS_PILL_TONE[enrollment.status] ?? "bg-surface-2 text-muted"
+                              )}
+                            >
                               {STATUS_LABELS[enrollment.status] ?? enrollment.status}
-                            </Badge>
-                            {enrollment.subject.credits ? (
-                              <span className="rounded-full border border-border/60 bg-surface px-2 py-0.5 text-muted">
-                                {enrollment.subject.credits} créditos
-                              </span>
-                            ) : null}
+                            </span>
                           </div>
 
-                          <p className="mt-3 text-xs text-muted">
-                            {enrollment.schedule.length
-                              ? formatSchedulePreview(enrollment.schedule, { maxBlocks: 1 })
-                              : "Horario por definir"}
-                          </p>
-                          <p className="mt-1 text-xs text-muted">
-                            {nextEvent ? `Próximo: ${formatDateTime(nextEvent.starts_at)}` : "Sin fechas cargadas"}
-                          </p>
-                          <p className="mt-2 text-xs font-semibold text-accent">Ver detalle</p>
+                          <div className="mt-5">
+                            <p
+                              className="font-display text-[1rem] font-medium leading-[1.06] tracking-[-0.015em] text-text/92 transition-colors duration-300 group-hover:text-accent sm:text-[1.08rem]"
+                            >
+                              {enrollment.subject.name}
+                            </p>
+                          </div>
+
+                          <div className="mt-5 space-y-3">
+                            <div className="flex items-start gap-3">
+                              <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center text-[#8b776e]">
+                                <CalendarDays className="h-[15px] w-[15px]" />
+                              </span>
+                              <div className="space-y-1">
+                                <p className="text-[13px] leading-none text-muted">
+                                  {scheduleParts.days}
+                                </p>
+                                {scheduleParts.time ? (
+                                  <p className="text-[15px] font-medium leading-none text-[#7b6b62]">
+                                    {scheduleParts.time}
+                                  </p>
+                                ) : null}
+                              </div>
+                            </div>
+                            <div className="flex items-start gap-3">
+                              <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center text-accent">
+                                <Clock3 className="h-[15px] w-[15px]" />
+                              </span>
+                              <div className="space-y-1">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">
+                                  Próximo
+                                </p>
+                                <p className="text-[15px] font-semibold leading-none text-text">
+                                  {nextEvent ? formatDateTime(nextEvent.starts_at) : "Sin fechas cargadas"}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
                         </button>
                       }
                     />

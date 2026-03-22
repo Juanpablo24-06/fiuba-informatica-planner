@@ -67,7 +67,7 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
       className="pointer-events-none fixed inset-x-0 top-0 z-50 px-4 pt-2.5"
     >
       <div
-        className="pointer-events-auto relative mx-auto w-full max-w-[1360px] rounded-xl border border-border/70 bg-surface px-4 py-2 shadow-[0_18px_38px_-24px_rgb(var(--shadow-color)/0.28)]"
+        className="pointer-events-auto relative mx-auto w-full max-w-[1270px] rounded-xl border border-border/70 bg-surface px-3 py-2 shadow-[0_18px_38px_-24px_rgb(var(--shadow-color)/0.28)]"
         style={{ backgroundColor: "rgb(var(--color-surface))" }}
       >
         <div className="flex items-center gap-3">

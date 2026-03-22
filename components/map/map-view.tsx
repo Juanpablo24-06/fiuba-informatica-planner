@@ -50,8 +50,8 @@ type NodeLayout = {
 
 type SectionLayout = {
   term: number;
-  top: number;
-  height: number;
+  left: number;
+  width: number;
 };
 
 type LayoutResult = {
@@ -60,6 +60,8 @@ type LayoutResult = {
   width: number;
   height: number;
 };
+
+type FinalProjectTrack = "tesis" | "trabajo_profesional";
 
 const STATUS_STYLES: Record<string, string> = {
   cursando: "bg-accent/10 text-accent border-accent/40",
@@ -86,20 +88,47 @@ const MAX_ZOOM = 1.7;
 const ZOOM_FACTOR = 1.12;
 const DESKTOP_PANEL_WIDTH = 340;
 
-const WORLD_PADDING_X = 86;
-const WORLD_PADDING_TOP = 34;
-const SECTION_GAP = 40;
-const SECTION_HEADER_HEIGHT = 12;
-const SECTION_BOTTOM_PADDING = 26;
-const ROW_GAP = 34;
+const WORLD_PADDING_X = 72;
+const WORLD_PADDING_Y = 52;
+const SECTION_GAP = 84;
+const SECTION_SIDE_PADDING = 16;
+const ROW_GAP = 18;
 const LANE_COUNT = 7;
 const NODE_WIDTH = 208;
 const NODE_MIN_HEIGHT = 108;
-const SLOT_GAP = 60;
+const SLOT_GAP = 58;
 const GENERIC_ELECTIVE_NAMES = new Set(["Electivas/Optativas I", "Electivas/Optativas II"]);
 const DRAG_THRESHOLD = 8;
 const MAP_VIEW_STORAGE_KEY = "fiuba-map-view-v2";
+const MAP_FINAL_TRACK_STORAGE_KEY = "fiuba-map-final-track-v1";
 const PAN_DRAG_MULTIPLIER = 1.18;
+const OFFICIAL_ELECTIVE_ORDER = [
+  "Lenguajes y Compiladores I",
+  "Fundamentos Matemáticos de la Criptografía",
+  "Criptografía I",
+  "Criptografía II",
+  "Sistemas Distribuidos II",
+  "Técnicas de Ingeniería Inversa",
+  "Criptoanálisis",
+  "Ingeniería de Datos",
+  "Optimización Convexa",
+  "Aprendizaje Automático",
+  "Aprendizaje Profundo",
+  "Aprendizaje por Refuerzo",
+  "Simulación",
+  "Sistemas Complejos",
+  "Redes Complejas",
+  "Teoría Algorítmica de Juegos",
+  "Teoría de Computabilidad",
+  "Teoría de la Información",
+  "Computación Cuántica",
+  "Lenguajes y Compiladores II",
+  "Análisis Matemático III",
+  "Arquitectura de Software"
+] as const;
+const ELECTIVE_ORDER_INDEX = new Map<string, number>(
+  OFFICIAL_ELECTIVE_ORDER.map((name, index) => [name, index])
+);
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
@@ -127,6 +156,26 @@ const formatPreviewList = (items: string[]) => {
 const getNodeTerm = (node?: MapNode) => node?.term ?? 0;
 
 const isGenericElectiveNode = (node: MapNode) => GENERIC_ELECTIVE_NAMES.has(node.name);
+
+const isFinalProjectNode = (node?: MapNode | null) =>
+  Boolean(node?.name && /Trabajo Integrador Final|Tesis\/Trabajo Profesional/i.test(node.name));
+
+const getFinalProjectStage = (node?: MapNode | null) =>
+  node?.term === 10 || /II$/i.test(node?.name ?? "") ? "II" : "I";
+
+const getDisplayNodeName = (node: MapNode, track: FinalProjectTrack) => {
+  if (!isFinalProjectNode(node)) return node.name;
+  const base =
+    track === "tesis"
+      ? "Tesis de Ingeniería Informática"
+      : "Trabajo Profesional de Ingeniería Informática";
+  return `${base} ${getFinalProjectStage(node)}`;
+};
+
+const getDisplayNodeMeta = (node: MapNode) => {
+  if (!isFinalProjectNode(node)) return node.code ?? "Sin código";
+  return `TIF · ${getNodeTerm(node)}° cuatrimestre`;
+};
 
 const buildEdgeMaps = (edges: MapEdge[]) => {
   const incomingByNode = new Map<string, string[]>();
@@ -171,6 +220,13 @@ const sortByAnchor = (
   };
 
   return [...items].sort((first, second) => {
+    if (first.type === "electiva" && second.type === "electiva") {
+      const firstIndex = ELECTIVE_ORDER_INDEX.get(first.name);
+      const secondIndex = ELECTIVE_ORDER_INDEX.get(second.name);
+      if (typeof firstIndex === "number" && typeof secondIndex === "number" && firstIndex !== secondIndex) {
+        return firstIndex - secondIndex;
+      }
+    }
     const firstAnchor = getAnchorLane(first);
     const secondAnchor = getAnchorLane(second);
     if (firstAnchor !== secondAnchor) return firstAnchor - secondAnchor;
@@ -228,22 +284,22 @@ const assignLanes = (
   return items.map((_, index) => center - halfSpan + step * index);
 };
 
-const computeVerticalLayout = (nodes: MapNode[], edges: MapEdge[]): LayoutResult => {
+const computeHorizontalLayout = (nodes: MapNode[], edges: MapEdge[]): LayoutResult => {
   const nodesById = new Map(nodes.map((node) => [node.id, node]));
   const { incomingByNode } = buildEdgeMaps(edges);
   const placements: Record<string, NodeLayout> = {};
   const sections: SectionLayout[] = [];
-  const slotWidth = NODE_WIDTH + SLOT_GAP;
-  const laneToX = (lane: number) => WORLD_PADDING_X + lane * slotWidth;
+  const slotHeight = NODE_MIN_HEIGHT + ROW_GAP;
+  const laneToY = (lane: number) => WORLD_PADDING_Y + lane * slotHeight;
 
-  let currentTop = WORLD_PADDING_TOP;
+  let currentLeft = WORLD_PADDING_X;
 
   for (const term of TERMS) {
     const termNodes = nodes.filter((node) => getNodeTerm(node) === term);
     if (!termNodes.length) continue;
 
-    const sectionTop = currentTop;
-    let cursorY = sectionTop + SECTION_HEADER_HEIGHT;
+    const sectionLeft = currentLeft;
+    let cursorX = sectionLeft + SECTION_SIDE_PADDING;
 
     const genericElectives = termNodes
       .filter((node) => isGenericElectiveNode(node))
@@ -260,27 +316,27 @@ const computeVerticalLayout = (nodes: MapNode[], edges: MapEdge[]): LayoutResult
       (node) => node.type === "electiva" && !isGenericElectiveNode(node)
     );
 
-    const placeRow = (rowNodes: MapNode[]) => {
-      const sorted = sortByAnchor(rowNodes, incomingByNode, placements, nodesById);
-      const rows = chunk(sorted, LANE_COUNT);
+    const placeColumn = (columnNodes: MapNode[]) => {
+      const sorted = sortByAnchor(columnNodes, incomingByNode, placements, nodesById);
+      const columns = chunk(sorted, LANE_COUNT);
 
-      rows.forEach((row) => {
-        const lanes = assignLanes(row, incomingByNode, placements, nodesById);
-        row.forEach((node, index) => {
+      columns.forEach((column) => {
+        const lanes = assignLanes(column, incomingByNode, placements, nodesById);
+        column.forEach((node, index) => {
           placements[node.id] = {
-            x: laneToX(lanes[index]),
-            y: cursorY,
+            x: cursorX,
+            y: laneToY(lanes[index]),
             width: NODE_WIDTH,
             height: NODE_MIN_HEIGHT,
             lane: lanes[index]
           };
         });
-        cursorY += NODE_MIN_HEIGHT + ROW_GAP;
+        cursorX += NODE_WIDTH + SLOT_GAP;
       });
     };
 
     if (mainNodes.length) {
-      placeRow(mainNodes);
+      placeColumn(mainNodes);
     }
 
     if (electiveNodes.length) {
@@ -314,26 +370,31 @@ const computeVerticalLayout = (nodes: MapNode[], edges: MapEdge[]): LayoutResult
       Array.from(levels.keys())
         .sort((a, b) => a - b)
         .forEach((level) => {
-          placeRow(levels.get(level) ?? []);
+          placeColumn(levels.get(level) ?? []);
         });
     }
 
     if (genericElectives.length) {
-      placeRow(genericElectives);
+      placeColumn(genericElectives);
     }
 
-    const sectionHeight = cursorY - sectionTop + SECTION_BOTTOM_PADDING;
+    const contentWidth = Math.max(NODE_WIDTH, cursorX - sectionLeft - SLOT_GAP);
+    const sectionWidth = contentWidth + SECTION_SIDE_PADDING * 2;
     sections.push({
       term,
-      top: sectionTop,
-      height: sectionHeight
+      left: sectionLeft,
+      width: sectionWidth
     });
 
-    currentTop += sectionHeight + SECTION_GAP;
+    currentLeft += sectionWidth + SECTION_GAP;
   }
 
-  const width = WORLD_PADDING_X * 2 + LANE_COUNT * NODE_WIDTH + (LANE_COUNT - 1) * SLOT_GAP;
-  const height = currentTop - SECTION_GAP + WORLD_PADDING_TOP;
+  const width = Math.max(
+    WORLD_PADDING_X * 2 + NODE_WIDTH,
+    currentLeft - SECTION_GAP + WORLD_PADDING_X
+  );
+  const height =
+    WORLD_PADDING_Y * 2 + NODE_MIN_HEIGHT + (LANE_COUNT - 1) * (NODE_MIN_HEIGHT + ROW_GAP);
 
   return {
     nodeLayouts: placements,
@@ -370,31 +431,34 @@ const buildLinePaths = (positions: Record<string, NodeLayout>, edges: MapEdge[])
       incomingSeen.set(edge.to, toOrder + 1);
 
       const fromLaneOffset =
-        ((fromOrder + 1) / (fromTotal + 1) - 0.5) * Math.max(22, from.width * 0.5);
+        ((fromOrder + 1) / (fromTotal + 1) - 0.5) * Math.max(20, from.height * 0.54);
       const toLaneOffset =
-        ((toOrder + 1) / (toTotal + 1) - 0.5) * Math.max(22, to.width * 0.5);
+        ((toOrder + 1) / (toTotal + 1) - 0.5) * Math.max(20, to.height * 0.54);
 
       const inset = 18;
-      const x1 = clamp(
-        from.x + from.width / 2 + fromLaneOffset,
-        from.x + inset,
-        from.x + from.width - inset
+      const x1 = from.x + from.width + 1;
+      const y1 = clamp(
+        from.y + from.height / 2 + fromLaneOffset,
+        from.y + inset,
+        from.y + from.height - inset
       );
-      const y1 = from.y + from.height + 1;
-      const x2 = clamp(
-        to.x + to.width / 2 + toLaneOffset,
-        to.x + inset,
-        to.x + to.width - inset
+      const x2 = to.x - 1;
+      const y2 = clamp(
+        to.y + to.height / 2 + toLaneOffset,
+        to.y + inset,
+        to.y + to.height - inset
       );
-      const y2 = to.y - 1;
-      const deltaY = y2 - y1;
-      const safeDelta = Math.max(44, deltaY);
-      const curveY = Math.max(48, Math.min(180, safeDelta * 0.4));
-      const horizontalDrift = Math.min(26, Math.abs(x2 - x1) * 0.16);
-      const driftDirection = x2 >= x1 ? 1 : -1;
-      const c1x = x1 + horizontalDrift * driftDirection;
-      const c2x = x2 - horizontalDrift * driftDirection;
-      const d = `M ${x1} ${y1} C ${c1x} ${y1 + curveY} ${c2x} ${y2 - curveY} ${x2} ${y2}`;
+      const deltaX = x2 - x1;
+      const travelX = Math.max(56, Math.abs(deltaX));
+      const curveX = Math.max(52, Math.min(220, travelX * 0.42));
+      const verticalDrift = Math.min(28, Math.abs(y2 - y1) * 0.18);
+      const horizontalDirection = x2 >= x1 ? 1 : -1;
+      const verticalDirection = y2 >= y1 ? 1 : -1;
+      const c1x = x1 + curveX * horizontalDirection;
+      const c2x = x2 - curveX * horizontalDirection;
+      const c1y = y1 + verticalDrift * verticalDirection;
+      const c2y = y2 - verticalDrift * verticalDirection;
+      const d = `M ${x1} ${y1} C ${c1x} ${c1y} ${c2x} ${c2y} ${x2} ${y2}`;
 
       return { from: edge.from, to: edge.to, d };
     })
@@ -440,6 +504,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
   const [isDesktop, setIsDesktop] = useState(false);
   const [isDraggingSheet, setIsDraggingSheet] = useState(false);
   const [isPanningViewport, setIsPanningViewport] = useState(false);
+  const [finalProjectTrack, setFinalProjectTrack] = useState<FinalProjectTrack>("tesis");
 
   const clearSelection = useCallback(() => {
     setSelectedId(null);
@@ -502,6 +567,27 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
     }
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = window.localStorage.getItem(MAP_FINAL_TRACK_STORAGE_KEY);
+      if (stored === "tesis" || stored === "trabajo_profesional") {
+        setFinalProjectTrack(stored);
+      }
+    } catch {
+      // Ignore storage read issues.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(MAP_FINAL_TRACK_STORAGE_KEY, finalProjectTrack);
+    } catch {
+      // Ignore storage write issues.
+    }
+  }, [finalProjectTrack]);
+
   const sheetSizes = useMemo(() => {
     const collapsed = 126;
     const half = Math.max(256, Math.min(430, viewportHeight * 0.54));
@@ -559,7 +645,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
   );
 
   const layout = useMemo(
-    () => computeVerticalLayout(visibleNodes, visibleEdges),
+    () => computeHorizontalLayout(visibleNodes, visibleEdges),
     [visibleEdges, visibleNodes]
   );
   const nodeLayouts = layout.nodeLayouts;
@@ -645,11 +731,11 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
         .map((id) => nodesById.get(id))
         .filter((node): node is MapNode => Boolean(node))
         .filter((node) => showElectives || node.type !== "electiva")
-        .map((node) => node.name);
+        .map((node) => getDisplayNodeName(node, finalProjectTrack));
       names.sort((a, b) => a.localeCompare(b));
       return names;
     },
-    [nodesById, showElectives]
+    [finalProjectTrack, nodesById, showElectives]
   );
 
   const selectedPrereqs = useMemo(
@@ -661,6 +747,9 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
     [resolveNodeNames, selectedUnlockIds]
   );
   const selectedStatusLabel = selectedNode?.status ? STATUS_LABELS[selectedNode.status] : null;
+  const selectedDisplayName = selectedNode
+    ? getDisplayNodeName(selectedNode, finalProjectTrack)
+    : null;
 
   const scheduleTransform = useCallback((next: Transform) => {
     transformRef.current = next;
@@ -1084,10 +1173,16 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
             {selectedNode.credits} créditos
           </Badge>
         ) : null}
+        {isFinalProjectNode(selectedNode) ? (
+          <Badge className="border-accent/35 bg-accent/10 text-accent">
+            {finalProjectTrack === "tesis" ? "Modalidad tesis" : "Modalidad trabajo profesional"}
+          </Badge>
+        ) : null}
       </div>
       <div className="grid gap-2 text-sm">
         <p>
-          Código: <span className="text-text">{selectedNode.code ?? "Sin código"}</span>
+          {isFinalProjectNode(selectedNode) ? "Tramo" : "Código"}:{" "}
+          <span className="text-text">{getDisplayNodeMeta(selectedNode)}</span>
         </p>
         <p>
           Horas semanales: <span className="text-text">{selectedNode.weekly_hours ?? "-"}</span>
@@ -1099,6 +1194,40 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
           Estado: <span className="text-text">{selectedStatusLabel ?? "Sin estado"}</span>
         </p>
       </div>
+      {isFinalProjectNode(selectedNode) ? (
+        <div className="rounded-2xl border border-accent/25 bg-accent/5 p-3">
+          <p className="text-xs font-semibold text-text">Definición del TIF</p>
+          <p className="mt-1 text-xs text-muted">
+            El plan oficial lo ubica al final del recorrido, entre 9° y 10° cuatrimestre, y puede cursarse como tesis o trabajo profesional.
+          </p>
+          <div className="mt-3 inline-flex rounded-full border border-border/60 bg-surface/80 p-1">
+            <button
+              type="button"
+              onClick={() => setFinalProjectTrack("tesis")}
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-semibold transition",
+                finalProjectTrack === "tesis"
+                  ? "bg-accent text-accent-contrast"
+                  : "text-muted hover:text-text"
+              )}
+            >
+              Tesis
+            </button>
+            <button
+              type="button"
+              onClick={() => setFinalProjectTrack("trabajo_profesional")}
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-semibold transition",
+                finalProjectTrack === "trabajo_profesional"
+                  ? "bg-accent text-accent-contrast"
+                  : "text-muted hover:text-text"
+              )}
+            >
+              Trabajo profesional
+            </button>
+          </div>
+        </div>
+      ) : null}
       <div className="rounded-2xl border border-border/60 bg-surface/80 p-3">
         <p className="text-xs font-semibold text-text">Prerrequisitos</p>
         <p className="text-xs text-muted">
@@ -1137,7 +1266,6 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
             className={cn(
               "absolute inset-x-0 overflow-hidden touch-none",
               "top-[calc(var(--app-header-height,96px)+0.5rem)] bottom-[calc(var(--synapse-launcher-height,72px)+1rem)]",
-              "md:inset-0",
               isPanningViewport ? "cursor-grabbing" : "cursor-grab"
             )}
             onPointerDownCapture={handlePointerDown}
@@ -1205,6 +1333,8 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
                 const isDimmed = activeId ? !isActive && !isPrereq && !isUnlock : false;
                 const showMeta = isActive || (isDesktop && !selectedId && hoveredId === node.id);
                 const statusLabel = node.status ? STATUS_LABELS[node.status] : null;
+                const displayName = getDisplayNodeName(node, finalProjectTrack);
+                const displayMeta = getDisplayNodeMeta(node);
                 const prereqNames = resolveNodeNames(edgeIndex.prereqMap.get(node.id) ?? []);
                 const unlockNames = resolveNodeNames(edgeIndex.unlockMap.get(node.id) ?? []);
                 const prereqSummary = formatPreviewList(prereqNames);
@@ -1265,9 +1395,9 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
                     <div className="flex items-start justify-between gap-2">
                       <div className="space-y-1">
                         <p className="text-sm font-semibold leading-tight text-text">
-                          {node.name}
+                          {displayName}
                         </p>
-                        <p className="text-[11px] text-muted">{node.code ?? "Sin código"}</p>
+                        <p className="text-[11px] text-muted">{displayMeta}</p>
                       </div>
                       <div className="flex flex-col items-end gap-1">
                         {statusLabel ? (
@@ -1292,6 +1422,11 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
                       {node.credits ? (
                         <span className="rounded-full border border-border/60 bg-surface/80 px-2 py-0.5 text-muted">
                           {node.credits} créditos
+                        </span>
+                      ) : null}
+                      {isFinalProjectNode(node) ? (
+                        <span className="rounded-full border border-accent/35 bg-accent/10 px-2 py-0.5 text-accent">
+                          {finalProjectTrack === "tesis" ? "Tesis" : "Trabajo profesional"}
                         </span>
                       ) : null}
                       {node.cycle ? (
@@ -1350,19 +1485,19 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
             </div>
 
             {selectedNode ? (
-              <aside className="pointer-events-auto absolute right-4 top-4 hidden w-[340px] flex-col rounded-3xl border border-border/60 bg-surface/92 shadow-glow backdrop-blur lg:flex">
+              <aside className="pointer-events-auto absolute bottom-[calc(var(--synapse-launcher-height,72px)+1rem)] right-4 top-[calc(var(--app-header-height,96px)+1rem)] hidden w-[340px] flex-col overflow-hidden rounded-3xl border border-border/60 bg-surface/92 shadow-glow backdrop-blur lg:flex">
                 <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
                   <div>
                     <p className="text-xs uppercase tracking-[0.3em] text-muted">Detalle</p>
                     <h3 className="text-lg font-semibold text-text font-display">
-                      {selectedNode.name}
+                      {selectedDisplayName}
                     </h3>
                   </div>
                   <Button variant="ghost" size="sm" onClick={clearSelection}>
                     Cerrar
                   </Button>
                 </div>
-                <div className="max-h-[calc(100vh-220px)] space-y-4 overflow-y-auto px-5 py-4 text-sm text-muted">
+                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 text-sm text-muted">
                   {detailBody}
                 </div>
               </aside>
@@ -1393,11 +1528,9 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
                     <div>
                       <p className="text-[10px] uppercase tracking-[0.25em] text-muted">Detalle</p>
                       <h3 className="text-base font-semibold text-text font-display">
-                        {selectedNode.name}
+                        {selectedDisplayName}
                       </h3>
-                      {selectedNode.code ? (
-                        <p className="text-[11px] text-muted">{selectedNode.code}</p>
-                      ) : null}
+                      <p className="text-[11px] text-muted">{getDisplayNodeMeta(selectedNode)}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button variant="ghost" size="sm" onClick={clearSelection}>

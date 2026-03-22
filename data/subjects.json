@@ -522,7 +522,7 @@
   },
   {
     "code": null,
-    "name": "Tesis/Trabajo Profesional I",
+    "name": "Trabajo Integrador Final I",
     "credits": 6,
     "weekly_hours": 6,
     "total_hours": 96,
@@ -534,23 +534,6 @@
       "tps": 1,
       "defensas": 1,
       "notas": "Trabajo integrador con entregables y defensa final."
-    },
-    "prerequisites": []
-  },
-  {
-    "code": null,
-    "name": "Electivas/Optativas I",
-    "credits": 12,
-    "weekly_hours": 12,
-    "total_hours": 192,
-    "term_suggested": 9,
-    "cycle": "segundo",
-    "type": "electiva",
-    "requirements": null,
-    "template": {
-      "parciales": 1,
-      "tps": 1,
-      "notas": "Plantilla genérica para electivas."
     },
     "prerequisites": []
   },
@@ -573,7 +556,7 @@
   },
   {
     "code": null,
-    "name": "Tesis/Trabajo Profesional II",
+    "name": "Trabajo Integrador Final II",
     "credits": 6,
     "weekly_hours": 6,
     "total_hours": 96,
@@ -586,24 +569,7 @@
       "defensas": 1,
       "notas": "Continuación del trabajo integrador."
     },
-    "prerequisites": ["Tesis/Trabajo Profesional I"]
-  },
-  {
-    "code": null,
-    "name": "Electivas/Optativas II",
-    "credits": 12,
-    "weekly_hours": 12,
-    "total_hours": 192,
-    "term_suggested": 10,
-    "cycle": "segundo",
-    "type": "electiva",
-    "requirements": null,
-    "template": {
-      "parciales": 1,
-      "tps": 1,
-      "notas": "Plantilla genérica para electivas."
-    },
-    "prerequisites": []
+    "prerequisites": ["Trabajo Integrador Final I"]
   },
   {
     "code": null,

@@ -535,11 +535,11 @@ body :is(div, section, article, aside, header, footer, nav, button, a, input, se
 
     0%,
     100% {
-      transform: translateY(0) rotate(0deg);
+      transform: translateY(0) rotate(0deg) scale(1);
     }
 
     50% {
-      transform: translateY(-2px) rotate(2deg);
+      transform: translateY(-4px) rotate(4deg) scale(1.06);
     }
   }
 
@@ -548,18 +548,18 @@ body :is(div, section, article, aside, header, footer, nav, button, a, input, se
   }
 
   .brand-logo:hover {
-    transform: scale(1.08) rotate(-3deg);
-    box-shadow: 0 4px 20px rgb(var(--color-accent) / 0.3);
+    transform: scale(1.12) rotate(-4deg);
+    box-shadow: 0 8px 24px rgb(var(--color-accent) / 0.3);
   }
 
   .brand-logo-icon {
-    animation: brand-logo-float 4s ease-in-out infinite;
+    animation: brand-logo-float 3.1s ease-in-out infinite;
   }
 
   .brand-logo:hover .brand-logo-icon {
     animation: none;
     transition: transform 300ms ease;
-    transform: scale(1.1);
+    transform: scale(1.18) rotate(6deg);
   }
 }
 

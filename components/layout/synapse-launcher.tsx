@@ -34,15 +34,15 @@ export default function SynapseLauncher({ role }: { role?: "admin" | "viewer" })
         trigger={
           <button
             type="button"
-            className="pointer-events-auto flex w-full max-w-lg items-center justify-between gap-2.5 rounded-2xl border border-border/65 bg-surface/96 px-3.5 py-2.5 text-left shadow-soft backdrop-blur transition hover:-translate-y-0.5 hover:border-accent/45 sm:gap-3 sm:px-4"
+            className="pointer-events-auto flex w-full max-w-[14.5rem] items-center justify-between gap-1.5 rounded-2xl border border-border/65 bg-surface/96 px-2.5 py-2.5 text-left shadow-soft backdrop-blur transition hover:-translate-y-0.5 hover:border-accent/45"
           >
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/20 text-accent text-sm">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/20 text-accent text-xs">
               ✦
             </span>
-            <span className="flex-1 truncate text-[13px] text-muted sm:text-sm">
-              Consultá a Synapse sobre horarios, parciales o correlativas...
+            <span className="flex-1 truncate text-[12px] font-medium text-muted">
+              Consultá a Synapse
             </span>
-            <span className="shrink-0 rounded-full border border-accent/40 px-2.5 py-0.5 text-[11px] font-semibold text-accent">
+            <span className="shrink-0 rounded-full border border-accent/40 px-1.5 py-0.5 text-[10px] font-semibold text-accent">
               →
             </span>
           </button>

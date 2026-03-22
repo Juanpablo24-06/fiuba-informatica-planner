@@ -1,6 +1,8 @@
 import MapView from "@/components/map/map-view";
 import { getLatestEnrollmentStatus, getPrerequisites, getSubjects } from "@/lib/queries";
 
+const GENERIC_ELECTIVE_NAMES = new Set(["Electivas/Optativas I", "Electivas/Optativas II"]);
+
 export default async function MapaPage() {
   const [subjects, prerequisites, statusMap] = await Promise.all([
     getSubjects(),
@@ -8,7 +10,10 @@ export default async function MapaPage() {
     getLatestEnrollmentStatus()
   ]);
 
-  const nodes = subjects.map((subject) => {
+  const filteredSubjects = subjects.filter((subject) => !GENERIC_ELECTIVE_NAMES.has(subject.name));
+  const visibleSubjectIds = new Set(filteredSubjects.map((subject) => subject.id));
+
+  const nodes = filteredSubjects.map((subject) => {
     const status = statusMap.get(subject.id);
     return {
       id: subject.id,
@@ -27,10 +32,14 @@ export default async function MapaPage() {
     };
   });
 
-  const edges = prerequisites.map((edge) => ({
-    from: edge.prerequisite_id,
-    to: edge.subject_id
-  }));
+  const edges = prerequisites
+    .filter(
+      (edge) => visibleSubjectIds.has(edge.prerequisite_id) && visibleSubjectIds.has(edge.subject_id)
+    )
+    .map((edge) => ({
+      from: edge.prerequisite_id,
+      to: edge.subject_id
+    }));
 
   return <MapView nodes={nodes} edges={edges} />;
 }

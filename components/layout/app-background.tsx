@@ -10,9 +10,9 @@ export default function AppBackground() {
           {
             "--orb-alpha-light": "0.18",
             "--orb-alpha-dark": "0.12",
-            "--orb-float-x": "14px",
-            "--orb-float-y": "-10px",
-            "--orb-duration": "22s",
+            "--orb-float-x": "19px",
+            "--orb-float-y": "-13px",
+            "--orb-duration": "17s",
             "--orb-delay": "-4s"
           } as CSSProperties
         }
@@ -25,9 +25,9 @@ export default function AppBackground() {
           {
             "--orb-alpha-light": "0.16",
             "--orb-alpha-dark": "0.12",
-            "--orb-float-x": "-12px",
-            "--orb-float-y": "8px",
-            "--orb-duration": "20s",
+            "--orb-float-x": "-16px",
+            "--orb-float-y": "11px",
+            "--orb-duration": "15.5s",
             "--orb-delay": "-9s"
           } as CSSProperties
         }
@@ -40,9 +40,9 @@ export default function AppBackground() {
           {
             "--orb-alpha-light": "0.14",
             "--orb-alpha-dark": "0.1",
-            "--orb-float-x": "10px",
-            "--orb-float-y": "12px",
-            "--orb-duration": "24s",
+            "--orb-float-x": "13px",
+            "--orb-float-y": "16px",
+            "--orb-duration": "18.5s",
             "--orb-delay": "-14s"
           } as CSSProperties
         }
@@ -55,9 +55,9 @@ export default function AppBackground() {
           {
             "--orb-alpha-light": "0.18",
             "--orb-alpha-dark": "0.14",
-            "--orb-float-x": "12px",
-            "--orb-float-y": "-8px",
-            "--orb-duration": "19s",
+            "--orb-float-x": "16px",
+            "--orb-float-y": "-11px",
+            "--orb-duration": "14.5s",
             "--orb-delay": "-6s"
           } as CSSProperties
         }
@@ -70,9 +70,9 @@ export default function AppBackground() {
           {
             "--orb-alpha-light": "0.14",
             "--orb-alpha-dark": "0.1",
-            "--orb-float-x": "-10px",
-            "--orb-float-y": "-12px",
-            "--orb-duration": "26s",
+            "--orb-float-x": "-13px",
+            "--orb-float-y": "-16px",
+            "--orb-duration": "20s",
             "--orb-delay": "-11s"
           } as CSSProperties
         }
@@ -85,9 +85,9 @@ export default function AppBackground() {
           {
             "--orb-alpha-light": "0.12",
             "--orb-alpha-dark": "0.08",
-            "--orb-float-x": "-8px",
-            "--orb-float-y": "10px",
-            "--orb-duration": "21s",
+            "--orb-float-x": "-11px",
+            "--orb-float-y": "13px",
+            "--orb-duration": "16s",
             "--orb-delay": "-16s"
           } as CSSProperties
         }
