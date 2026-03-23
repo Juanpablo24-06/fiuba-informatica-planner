@@ -16,7 +16,7 @@ export default async function AppLayout({
   const session = await getSession();
 
   return (
-    <div className="relative min-h-screen">
+    <div className="relative min-h-screen overflow-x-hidden">
       <AppBackground />
       <TopNav role={session?.role} />
       <ShortcutHandler />

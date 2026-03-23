@@ -3,7 +3,12 @@ import type { NextRequest } from "next/server";
 import { SESSION_COOKIE_NAME } from "@/lib/session-constants";
 import { unsealSessionEdge } from "@/lib/session-edge";
 
-const PUBLIC_PATHS = new Set(["/login", "/api/auth/login", "/api/auth/logout"]);
+const PUBLIC_PATHS = new Set([
+  "/login",
+  "/api/auth/login",
+  "/api/auth/logout",
+  "/api/auth/demo"
+]);
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

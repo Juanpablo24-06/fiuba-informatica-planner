@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { ArrowRight, CalendarDays, Clock3 } from "lucide-react";
 import CourseWorkspaceDrawer from "@/components/dashboard/course-workspace-drawer";
-import { Badge } from "@/components/ui/badge";
+import SummaryProgressBar from "@/components/dashboard/summary-progress-bar";
 import { getSession } from "@/lib/auth";
 import { formatDateTime } from "@/lib/date";
 import { getCalendarEvents } from "@/lib/google-calendar";
 import { getCurrentTerm, getEnrollmentsForTerm, getEventsForTerm, getLatestEnrollmentStatus, getSubjects } from "@/lib/queries";
+import { buildProgressSnapshot, OFFICIAL_TOTAL_CREDITS } from "@/lib/progress";
 import { formatSchedulePreview } from "@/lib/schedule";
 import { cn } from "@/lib/utils";
 import type { CalendarEvent, Event } from "@/lib/types";
@@ -26,11 +27,6 @@ const STATUS_PILL_TONE: Record<string, string> = {
   recursar: "bg-danger/10 text-danger"
 };
 
-const OFFICIAL_CBC_CREDITS = 38;
-const OFFICIAL_SECOND_CYCLE_CREDITS = 188;
-const OFFICIAL_REQUIRED_CREDITS = 202;
-const OFFICIAL_ELECTIVE_CREDITS = 24;
-const OFFICIAL_TOTAL_CREDITS = 226;
 const GENERIC_ELECTIVE_NAMES = new Set(["Electivas/Optativas I", "Electivas/Optativas II"]);
 
 const PHRASES_EDITORIALES = [
@@ -164,48 +160,8 @@ export default async function DashboardPage() {
   const nextEvents = mergedEvents.slice(0, 4);
   const load = calcLoad(mergedEvents);
 
-  const cbcSubjects = requiredSubjects.filter((subject) => isCbcSubject(subject));
-  const approvedCbcCredits = cbcSubjects
-    .filter((subject) => latestStatusMap.get(subject.id)?.status === "aprobado")
-    .reduce((sum, subject) => sum + getSubjectCredits(subject), 0);
-  const cbcPct = Math.round((approvedCbcCredits / OFFICIAL_CBC_CREDITS) * 100);
-
-  const secondCycleRequiredSubjects = requiredSubjects.filter(
-    (subject) => !isCbcSubject(subject)
-  );
-  const approvedRequiredCredits = requiredSubjects
-    .filter((subject) => latestStatusMap.get(subject.id)?.status === "aprobado")
-    .reduce((sum, subject) => sum + getSubjectCredits(subject), 0);
-  const approvedSecondCycleRequiredCredits = secondCycleRequiredSubjects
-    .filter((subject) => latestStatusMap.get(subject.id)?.status === "aprobado")
-    .reduce((sum, subject) => sum + getSubjectCredits(subject), 0);
-  const electives = subjects.filter(
-    (subject) =>
-      (subject.type ?? "").toLowerCase() === "electiva" && !isGenericElectiveSubject(subject)
-  );
-  const approvedElectiveCredits = Math.min(
-    OFFICIAL_ELECTIVE_CREDITS,
-    electives
-      .filter((subject) => latestStatusMap.get(subject.id)?.status === "aprobado")
-      .reduce((sum, subject) => sum + getSubjectCredits(subject), 0)
-  );
-  const approvedSecondCycleCredits = Math.min(
-    OFFICIAL_SECOND_CYCLE_CREDITS,
-    approvedSecondCycleRequiredCredits + approvedElectiveCredits
-  );
-  const progressPct = Math.round(
-    ((approvedRequiredCredits + approvedElectiveCredits) / OFFICIAL_TOTAL_CREDITS) * 100
-  );
-  const cbcWeightPct = Math.round((OFFICIAL_CBC_CREDITS / OFFICIAL_TOTAL_CREDITS) * 100);
-  const cbcFillPct = Math.round((cbcWeightPct * cbcPct) / 100);
-  const professionalWeightPct = Math.max(0, 100 - cbcWeightPct);
-  const secondCyclePct = Math.round(
-    (approvedSecondCycleCredits / OFFICIAL_SECOND_CYCLE_CREDITS) * 100
-  );
-  const professionalFillPct = Math.round((professionalWeightPct * secondCyclePct) / 100);
-  const careerProgressPct = progressPct;
-  const phraseSeed =
-    Math.floor(now.getTime() / DAY_MS) + approvedRequiredCredits + approvedElectiveCredits;
+  const progress = buildProgressSnapshot(subjects, latestStatusMap);
+  const phraseSeed = Math.floor(now.getTime() / DAY_MS) + progress.approvedTotalCredits;
   const editorialPhrase = PHRASES_EDITORIALES[Math.abs(phraseSeed) % PHRASES_EDITORIALES.length];
 
   const eventsByEnrollment = new Map<string, Event[]>();
@@ -228,83 +184,42 @@ export default async function DashboardPage() {
   return (
     <div className="mx-auto w-full max-w-[1380px] space-y-6 pb-8">
       <div className="grid gap-6 xl:grid-cols-[1.7fr_0.9fr]">
-        <section className="space-y-12">
-          <section className="px-2">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-muted">Ruta académica</p>
-                <h1 className="mt-1 text-4xl font-semibold text-text">Resumen Académico</h1>
-              </div>
-              <Badge className="border-accent/40 bg-accent/10 text-accent">
-                {currentTerm?.label ?? "Sin cuatrimestre"}
-              </Badge>
+        <section className="space-y-12 px-2 xl:col-span-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.24em] text-muted">Ruta académica</p>
+              <h1 className="mt-1 text-4xl font-semibold text-text">Resumen Académico</h1>
             </div>
+          </div>
 
-            <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-muted">
-              <span className="rounded-full border border-border/60 bg-surface-2/60 px-3 py-1">
-                Obligatorias {approvedRequiredCount}/{totalRequiredCourses} cursos
-              </span>
-              {electives.length ? (
-                <span className="rounded-full border border-border/60 bg-surface-2/60 px-3 py-1">
-                  Electivas {approvedElectiveCredits}/{OFFICIAL_ELECTIVE_CREDITS}
-                </span>
-              ) : null}
-            </div>
+          <div className="mt-6">
+            <SummaryProgressBar
+              approvedTotalCredits={progress.approvedTotalCredits}
+              totalCredits={OFFICIAL_TOTAL_CREDITS}
+              progressPct={progress.progressPct}
+              approvedCbcCredits={progress.approvedCbcCredits}
+              totalCbcCredits={progress.totalCbcCredits}
+              approvedCbcCourses={progress.approvedCbcCourses}
+              totalCbcCourses={progress.totalCbcCourses}
+              approvedObligatoryCredits={progress.approvedObligatoryCredits}
+              totalObligatoryCredits={progress.totalObligatoryCredits}
+              approvedObligatoryCourses={progress.approvedObligatoryCourses}
+              totalObligatoryCourses={progress.totalObligatoryCourses}
+              approvedElectiveCredits={progress.approvedElectiveCredits}
+              totalElectiveCredits={progress.totalElectiveCredits}
+              approvedTifCredits={progress.approvedTifCredits}
+              totalTifCredits={progress.totalTifCredits}
+              mode="summary"
+            />
+          </div>
+        </section>
 
-            <div className="mt-6">
-              <div className="mb-2 flex items-center justify-between gap-3 text-xs uppercase tracking-[0.22em] text-muted">
-                <span>Avance de la carrera</span>
-                <span className="font-semibold text-accent">{careerProgressPct}% completo</span>
-              </div>
-              <div className="relative h-2.5 overflow-hidden rounded-full bg-border/35">
-                {cbcWeightPct > 0 ? (
-                  <div
-                    className="absolute inset-y-0 left-0 bg-warning/20"
-                    style={{ width: `${cbcWeightPct}%` }}
-                  />
-                ) : null}
-                {cbcFillPct > 0 ? (
-                  <div
-                    className="absolute inset-y-0 left-0 bg-warning"
-                    style={{ width: `${cbcFillPct}%` }}
-                  />
-                ) : null}
-                {professionalFillPct > 0 ? (
-                  <div
-                    className="absolute inset-y-0 bg-accent"
-                    style={{
-                      left: `${cbcWeightPct}%`,
-                      width: `${Math.min(professionalFillPct, professionalWeightPct)}%`
-                    }}
-                  />
-                ) : null}
-                {cbcWeightPct > 0 ? (
-                  <div
-                    className="absolute inset-y-0 w-px bg-warning/70"
-                    style={{ left: `${cbcWeightPct}%` }}
-                  />
-                ) : null}
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted">
-                <span className="rounded-full border border-warning/45 bg-warning/10 px-2.5 py-1 text-warning">
-                  Tramo CBC {cbcPct}%
-                </span>
-                <span className="rounded-full border border-accent/45 bg-accent/10 px-2.5 py-1 text-accent">
-                  Segundo ciclo {secondCyclePct}%
-                </span>
-              </div>
-            </div>
-          </section>
-
-          <section className="px-2">
+        <section className="px-2">
             <div className="mb-4 flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.24em] text-muted">Materias activas</p>
                 <h2 className="mt-1 text-3xl font-semibold text-text">Cursada actual</h2>
               </div>
-              <Link href="/mapa" className="inline-flex items-center gap-2 text-sm font-semibold text-accent">
-                Ver mapa <ArrowRight className="h-4 w-4" />
-              </Link>
             </div>
 
             {enrollments.length === 0 ? (
@@ -396,7 +311,6 @@ export default async function DashboardPage() {
                 })}
               </div>
             )}
-          </section>
         </section>
 
         <aside className="panel flex h-fit flex-col gap-8 bg-surface/80 p-8 backdrop-blur-[8px]">

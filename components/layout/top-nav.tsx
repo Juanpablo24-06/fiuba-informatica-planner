@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { CalendarDays, LayoutGrid, MapPinned, Settings } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import type { CSSProperties } from "react";
+import { useMapTransitionState } from "@/components/layout/map-transition-coordinator";
 import { cn } from "@/lib/utils";
 import BrandLogo from "@/components/layout/brand-logo";
 import ProfileMenu from "@/components/layout/profile-menu";
@@ -33,6 +34,7 @@ const iconStyleByHref: Record<string, CSSProperties | undefined> = {
 export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
   const pathname = usePathname();
   const headerRef = useRef<HTMLElement | null>(null);
+  const mapTransitionState = useMapTransitionState();
   const navItems = role === "admin"
     ? [...baseItems, { href: "/admin", label: "Admin", icon: Settings }]
     : baseItems;
@@ -92,11 +94,20 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  data-map-transition-source={
+                    item.href === "/mapa"
+                      ? "top-nav-map"
+                      : item.href === "/"
+                      ? "top-nav-summary"
+                      : undefined
+                  }
                   data-active={active ? "true" : "false"}
                   className={cn(
                     "group relative inline-flex items-center gap-2 py-1.5 text-sm font-medium transition-all duration-200",
                     active
                       ? "text-accent"
+                      : mapTransitionState.transitioning
+                      ? "text-muted"
                       : "text-muted hover:text-text"
                   )}
                 >
@@ -105,8 +116,10 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
                       "h-4 w-4 transition-colors duration-200 motion-reduce:animate-none",
                       active
                         ? "text-accent"
+                        : mapTransitionState.transitioning
+                        ? ""
                         : "group-hover:text-accent",
-                      iconMotionClassByHref[item.href] ?? ""
+                      mapTransitionState.transitioning ? "" : iconMotionClassByHref[item.href] ?? ""
                     )}
                     style={iconStyleByHref[item.href]}
                     strokeWidth={active ? 2 : 1.8}
@@ -115,7 +128,11 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
                   <span
                     className={cn(
                       "absolute -bottom-1 left-0 right-0 h-[2px] origin-center rounded-full bg-accent transition-transform duration-200",
-                      active ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
+                      active
+                        ? "scale-x-100"
+                        : mapTransitionState.transitioning
+                        ? "scale-x-0"
+                        : "scale-x-0 group-hover:scale-x-100"
                     )}
                   />
                 </Link>
@@ -142,12 +159,21 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  data-map-transition-source={
+                    item.href === "/mapa"
+                      ? "top-nav-map"
+                      : item.href === "/"
+                      ? "top-nav-summary"
+                      : undefined
+                  }
                   data-active={active ? "true" : "false"}
                   className={cn(
                     "group rounded-full border px-3 py-2 text-center text-xs font-semibold transition-all duration-200",
                     active
                       ? "border-accent/40 bg-accent/12 text-accent shadow-[inset_0_0_0_1px_rgb(var(--color-accent)/0.14)]"
-                      : "border-border/70 bg-surface text-muted"
+                      : mapTransitionState.transitioning
+                      ? "border-border/70 bg-surface text-muted"
+                      : "border-border/70 bg-surface text-muted hover:border-accent/25 hover:text-text"
                   )}
                 >
                   <span className="inline-flex items-center gap-1">
@@ -155,7 +181,7 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
                       className={cn(
                         "h-3.5 w-3.5 transition-colors duration-200 motion-reduce:animate-none",
                         active ? "text-accent" : "",
-                        iconMotionClassByHref[item.href] ?? ""
+                        mapTransitionState.transitioning ? "" : iconMotionClassByHref[item.href] ?? ""
                       )}
                       style={iconStyleByHref[item.href]}
                     />

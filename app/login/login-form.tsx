@@ -15,11 +15,29 @@ export default function LoginForm() {
   const [role, setRole] = useState<(typeof roles)[number]["id"]>("viewer");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  const [pendingMode, setPendingMode] = useState<"login" | "demo" | null>(null);
+
+  const handleDemoAccess = async () => {
+    setPendingMode("demo");
+    setError(null);
+
+    const response = await fetch("/api/auth/demo", {
+      method: "POST"
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      setError(payload?.error ?? "No se pudo iniciar el modo de prueba.");
+      setPendingMode(null);
+      return;
+    }
+
+    router.replace("/");
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    setPending(true);
+    setPendingMode("login");
     setError(null);
 
     const response = await fetch("/api/auth/login", {
@@ -31,7 +49,7 @@ export default function LoginForm() {
     if (!response.ok) {
       const payload = await response.json().catch(() => null);
       setError(payload?.error ?? "No se pudo iniciar sesión.");
-      setPending(false);
+      setPendingMode(null);
       return;
     }
 
@@ -40,6 +58,24 @@ export default function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 rounded-[2rem] border border-border/70 bg-surface-2/70 p-6">
+      <div className="rounded-[1.65rem] border border-accent/30 bg-accent/10 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <p className="text-xs uppercase tracking-[0.28em] text-accent">Día de prueba</p>
+            <p className="text-sm text-text">
+              Entrá directo en modo admin para recorrer la app sin contraseña.
+            </p>
+          </div>
+          <Button
+            type="button"
+            onClick={handleDemoAccess}
+            className="min-w-[11rem] shrink-0"
+            disabled={pendingMode !== null}
+          >
+            {pendingMode === "demo" ? "Abriendo demo..." : "Entrar al día de prueba"}
+          </Button>
+        </div>
+      </div>
       <div className="space-y-2">
         <label className="text-xs uppercase tracking-[0.28em] text-muted">Rol</label>
         <div className="grid gap-2 sm:grid-cols-2">
@@ -78,8 +114,8 @@ export default function LoginForm() {
           {error}
         </div>
       ) : null}
-      <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? "Validando..." : "Entrar"}
+      <Button type="submit" className="w-full" disabled={pendingMode !== null}>
+        {pendingMode === "login" ? "Validando..." : "Entrar"}
       </Button>
       <p className="text-xs text-muted">
         La validación se realiza en servidor y la sesión se guarda en cookie segura.

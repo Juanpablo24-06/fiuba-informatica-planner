@@ -21,6 +21,8 @@ export type MapNode = {
   weekly_hours?: number | null;
   total_hours?: number | null;
   template?: EvaluationTemplate | null;
+  display_kind?: "final_project" | "cbc_cluster" | null;
+  progress_credits?: number | null;
 };
 
 export type MapEdge = {
@@ -79,10 +81,9 @@ const STATUS_LABELS: Record<string, string> = {
 
 const CYCLE_LABELS: Record<string, string> = {
   cbc: "CBC",
-  segundo: "Ciclo profesional"
+  segundo: "Segundo ciclo"
 };
 
-const TERMS = Array.from({ length: 10 }, (_, index) => index + 1);
 const MIN_ZOOM = 0.12;
 const MAX_ZOOM = 1.7;
 const ZOOM_FACTOR = 1.12;
@@ -101,7 +102,17 @@ const GENERIC_ELECTIVE_NAMES = new Set(["Electivas/Optativas I", "Electivas/Opta
 const DRAG_THRESHOLD = 8;
 const MAP_VIEW_STORAGE_KEY = "fiuba-map-view-v2";
 const MAP_FINAL_TRACK_STORAGE_KEY = "fiuba-map-final-track-v1";
+const MAP_CBC_COLLAPSED_STORAGE_KEY = "fiuba-map-cbc-collapsed-v1";
 const PAN_DRAG_MULTIPLIER = 1.18;
+const CBC_CLUSTER_NODE_ID = "__cbc__";
+const CBC_SUBJECT_NAMES = new Set([
+  "Introducción al Conocimiento de la Sociedad y el Estado",
+  "Introducción al Pensamiento Científico",
+  "Análisis Matemático A",
+  "Álgebra A",
+  "Física",
+  "Pensamiento Computacional"
+]);
 const OFFICIAL_ELECTIVE_ORDER = [
   "Lenguajes y Compiladores I",
   "Fundamentos Matemáticos de la Criptografía",
@@ -129,6 +140,98 @@ const OFFICIAL_ELECTIVE_ORDER = [
 const ELECTIVE_ORDER_INDEX = new Map<string, number>(
   OFFICIAL_ELECTIVE_ORDER.map((name, index) => [name, index])
 );
+const OFFICIAL_REQUIRED_ORDER = [
+  "Introducción al Conocimiento de la Sociedad y el Estado",
+  "Introducción al Pensamiento Científico",
+  "Análisis Matemático A",
+  "Álgebra A",
+  "Física",
+  "Pensamiento Computacional",
+  "Análisis Matemático II",
+  "Fundamentos de Programación",
+  "Introducción al Desarrollo de Software",
+  "Álgebra Lineal",
+  "Organización del Computador",
+  "Algoritmos y Estructuras de Datos",
+  "Paradigmas de Programación",
+  "Probabilidad y Estadística",
+  "Sistemas Operativos",
+  "Teoría de Algoritmos",
+  "Modelación Numérica",
+  "Base de Datos",
+  "Taller de Programación",
+  "Ingeniería de Software I",
+  "Ciencia de Datos",
+  "Programación Concurrente",
+  "Redes",
+  "Gestión del Desarrollo de Sistemas Informáticos",
+  "Física para Informática",
+  "Empresas de Base Tecnológica I",
+  "Ingeniería de Software II",
+  "Sistemas Distribuidos I",
+  "Taller de Seguridad Informática",
+  "Empresas de Base Tecnológica II",
+  "Trabajo Integrador Final"
+] as const;
+const REQUIRED_ORDER_INDEX = new Map<string, number>(
+  OFFICIAL_REQUIRED_ORDER.map((name, index) => [name, index])
+);
+const FIXED_NODE_POSITIONS = new Map<string, { column: number; lane: number }>([
+  ["Introducción al Conocimiento de la Sociedad y el Estado", { column: 0, lane: 5.2 }],
+  ["Introducción al Pensamiento Científico", { column: 1, lane: 5.2 }],
+  ["Análisis Matemático A", { column: 0, lane: 1.1 }],
+  ["Álgebra A", { column: 0, lane: 3.2 }],
+  ["Física", { column: 1, lane: 1.1 }],
+  ["Pensamiento Computacional", { column: 1, lane: 3.2 }],
+  ["Ciclo Básico Común", { column: 2, lane: 3.1 }],
+  ["Análisis Matemático II", { column: 0, lane: 0.3 }],
+  ["Fundamentos de Programación", { column: 0, lane: 2.1 }],
+  ["Introducción al Desarrollo de Software", { column: 0, lane: 4.1 }],
+  ["Álgebra Lineal", { column: 0, lane: 0.3 }],
+  ["Organización del Computador", { column: 0, lane: 2.1 }],
+  ["Algoritmos y Estructuras de Datos", { column: 0, lane: 4.1 }],
+  ["Paradigmas de Programación", { column: 0, lane: 0.2 }],
+  ["Probabilidad y Estadística", { column: 0, lane: 2.1 }],
+  ["Sistemas Operativos", { column: 0, lane: 4.1 }],
+  ["Teoría de Algoritmos", { column: 0, lane: 6 }],
+  ["Modelación Numérica", { column: 0, lane: 0.2 }],
+  ["Base de Datos", { column: 0, lane: 2.1 }],
+  ["Taller de Programación", { column: 0, lane: 4.1 }],
+  ["Ingeniería de Software I", { column: 0, lane: 6 }],
+  ["Ciencia de Datos", { column: 0, lane: 0.2 }],
+  ["Programación Concurrente", { column: 0, lane: 2.1 }],
+  ["Redes", { column: 0, lane: 4.1 }],
+  ["Gestión del Desarrollo de Sistemas Informáticos", { column: 0, lane: 6 }],
+  ["Física para Informática", { column: 0, lane: 0.2 }],
+  ["Empresas de Base Tecnológica I", { column: 0, lane: 2.1 }],
+  ["Ingeniería de Software II", { column: 0, lane: 4.1 }],
+  ["Sistemas Distribuidos I", { column: 0, lane: 6 }],
+  ["Taller de Seguridad Informática", { column: 0, lane: 4.1 }],
+  ["Empresas de Base Tecnológica II", { column: 0, lane: 2.1 }],
+  ["Trabajo Integrador Final", { column: 0, lane: 4.1 }],
+  ["Lenguajes y Compiladores I", { column: 0, lane: 0.1 }],
+  ["Fundamentos Matemáticos de la Criptografía", { column: 0, lane: 1.15 }],
+  ["Criptografía I", { column: 0, lane: 2.2 }],
+  ["Sistemas Distribuidos II", { column: 0, lane: 3.25 }],
+  ["Ingeniería de Datos", { column: 0, lane: 4.3 }],
+  ["Optimización Convexa", { column: 0, lane: 5.35 }],
+  ["Aprendizaje Automático", { column: 0, lane: 6 }],
+  ["Criptografía II", { column: 1, lane: 1.3 }],
+  ["Sistemas Complejos", { column: 1, lane: 3.15 }],
+  ["Teoría Algorítmica de Juegos", { column: 1, lane: 4.95 }],
+  ["Análisis Matemático III", { column: 1, lane: 6 }],
+  ["Arquitectura de Software", { column: 1, lane: 5.95 }],
+  ["Simulación", { column: 1, lane: 2.05 }],
+  ["Técnicas de Ingeniería Inversa", { column: 2, lane: 3.35 }],
+  ["Criptoanálisis", { column: 2, lane: 5.2 }],
+  ["Aprendizaje Profundo", { column: 0, lane: 0.15 }],
+  ["Aprendizaje por Refuerzo", { column: 0, lane: 1.25 }],
+  ["Redes Complejas", { column: 0, lane: 2.45 }],
+  ["Teoría de Computabilidad", { column: 0, lane: 3.6 }],
+  ["Teoría de la Información", { column: 0, lane: 4.75 }],
+  ["Computación Cuántica", { column: 0, lane: 5.9 }],
+  ["Lenguajes y Compiladores II", { column: 0, lane: 6 }]
+]);
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
@@ -153,18 +256,37 @@ const formatPreviewList = (items: string[]) => {
   return extra > 0 ? `${slice.join(" · ")} +${extra}` : slice.join(" · ");
 };
 
+const formatFinalProjectProgress = (credits?: number | null) =>
+  `${Math.min(12, credits ?? 0)}/12 créditos`;
+const formatCbcProgress = (credits?: number | null) => `${Math.min(38, credits ?? 0)}/38 créditos`;
+
 const getNodeTerm = (node?: MapNode) => node?.term ?? 0;
+const getOrderedTerms = (nodes: MapNode[]) =>
+  Array.from(new Set(nodes.map((node) => getNodeTerm(node)).filter((term) => term > 0))).sort(
+    (a, b) => a - b
+  );
 
 const isGenericElectiveNode = (node: MapNode) => GENERIC_ELECTIVE_NAMES.has(node.name);
+const isCbcClusterNode = (node?: MapNode | null) => node?.display_kind === "cbc_cluster";
+const isCbcLeafNode = (node?: MapNode | null) =>
+  Boolean(node && !isCbcClusterNode(node) && CBC_SUBJECT_NAMES.has(node.name));
 
 const isFinalProjectNode = (node?: MapNode | null) =>
-  Boolean(node?.name && /Trabajo Integrador Final|Tesis\/Trabajo Profesional/i.test(node.name));
+  Boolean(
+    node &&
+      (node.display_kind === "final_project" ||
+        /Trabajo Integrador Final|Tesis\/Trabajo Profesional/i.test(node.name))
+  );
 
 const getFinalProjectStage = (node?: MapNode | null) =>
   node?.term === 10 || /II$/i.test(node?.name ?? "") ? "II" : "I";
 
 const getDisplayNodeName = (node: MapNode, track: FinalProjectTrack) => {
+  if (isCbcClusterNode(node)) return "Ciclo Básico Común";
   if (!isFinalProjectNode(node)) return node.name;
+  if (node.display_kind === "final_project") {
+    return "Trabajo Integrador Final";
+  }
   const base =
     track === "tesis"
       ? "Tesis de Ingeniería Informática"
@@ -173,9 +295,13 @@ const getDisplayNodeName = (node: MapNode, track: FinalProjectTrack) => {
 };
 
 const getDisplayNodeMeta = (node: MapNode) => {
+  if (isCbcClusterNode(node)) return "CBC · tramo inicial";
   if (!isFinalProjectNode(node)) return node.code ?? "Sin código";
+  if (node.display_kind === "final_project") return "TIF · tramo final";
   return `TIF · ${getNodeTerm(node)}° cuatrimestre`;
 };
+
+const getFixedNodePosition = (node: MapNode) => FIXED_NODE_POSITIONS.get(node.name) ?? null;
 
 const buildEdgeMaps = (edges: MapEdge[]) => {
   const incomingByNode = new Map<string, string[]>();
@@ -199,6 +325,12 @@ const sortByAnchor = (
   nodesById: Map<string, MapNode>
 ) => {
   const centerLane = (LANE_COUNT - 1) / 2;
+  const getExplicitOrder = (node: MapNode) => {
+    if (node.type === "electiva") {
+      return ELECTIVE_ORDER_INDEX.get(node.name);
+    }
+    return REQUIRED_ORDER_INDEX.get(node.name);
+  };
 
   const getAnchorLane = (node: MapNode) => {
     const parentIds = incomingByNode.get(node.id) ?? [];
@@ -220,12 +352,14 @@ const sortByAnchor = (
   };
 
   return [...items].sort((first, second) => {
-    if (first.type === "electiva" && second.type === "electiva") {
-      const firstIndex = ELECTIVE_ORDER_INDEX.get(first.name);
-      const secondIndex = ELECTIVE_ORDER_INDEX.get(second.name);
-      if (typeof firstIndex === "number" && typeof secondIndex === "number" && firstIndex !== secondIndex) {
-        return firstIndex - secondIndex;
-      }
+    const firstIndex = getExplicitOrder(first);
+    const secondIndex = getExplicitOrder(second);
+    if (
+      typeof firstIndex === "number" &&
+      typeof secondIndex === "number" &&
+      firstIndex !== secondIndex
+    ) {
+      return firstIndex - secondIndex;
     }
     const firstAnchor = getAnchorLane(first);
     const secondAnchor = getAnchorLane(second);
@@ -289,32 +423,43 @@ const computeHorizontalLayout = (nodes: MapNode[], edges: MapEdge[]): LayoutResu
   const { incomingByNode } = buildEdgeMaps(edges);
   const placements: Record<string, NodeLayout> = {};
   const sections: SectionLayout[] = [];
+  const terms = getOrderedTerms(nodes);
   const slotHeight = NODE_MIN_HEIGHT + ROW_GAP;
   const laneToY = (lane: number) => WORLD_PADDING_Y + lane * slotHeight;
 
   let currentLeft = WORLD_PADDING_X;
 
-  for (const term of TERMS) {
+  for (const term of terms) {
     const termNodes = nodes.filter((node) => getNodeTerm(node) === term);
     if (!termNodes.length) continue;
 
     const sectionLeft = currentLeft;
     let cursorX = sectionLeft + SECTION_SIDE_PADDING;
+    let fixedContentWidth = 0;
 
-    const genericElectives = termNodes
-      .filter((node) => isGenericElectiveNode(node))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    const fixedNodes = termNodes.filter((node) => getFixedNodePosition(node));
+    const floatingNodes = termNodes.filter((node) => !getFixedNodePosition(node));
 
-    const mainNodes = sortByAnchor(
-      termNodes.filter((node) => node.type !== "electiva"),
-      incomingByNode,
-      placements,
-      nodesById
-    );
-
-    const electiveNodes = termNodes.filter(
-      (node) => node.type === "electiva" && !isGenericElectiveNode(node)
-    );
+    if (fixedNodes.length) {
+      fixedNodes.forEach((node) => {
+        const position = getFixedNodePosition(node);
+        if (!position) return;
+        const x = sectionLeft + SECTION_SIDE_PADDING + position.column * (NODE_WIDTH + SLOT_GAP);
+        const y = laneToY(position.lane);
+        placements[node.id] = {
+          x,
+          y,
+          width: NODE_WIDTH,
+          height: NODE_MIN_HEIGHT,
+          lane: position.lane
+        };
+        fixedContentWidth = Math.max(
+          fixedContentWidth,
+          (position.column + 1) * NODE_WIDTH + position.column * SLOT_GAP
+        );
+      });
+      cursorX = sectionLeft + SECTION_SIDE_PADDING + fixedContentWidth + (fixedContentWidth ? SLOT_GAP : 0);
+    }
 
     const placeColumn = (columnNodes: MapNode[]) => {
       const sorted = sortByAnchor(columnNodes, incomingByNode, placements, nodesById);
@@ -335,50 +480,71 @@ const computeHorizontalLayout = (nodes: MapNode[], edges: MapEdge[]): LayoutResu
       });
     };
 
-    if (mainNodes.length) {
-      placeColumn(mainNodes);
-    }
+    if (floatingNodes.length) {
+      const genericElectives = floatingNodes
+        .filter((node) => isGenericElectiveNode(node))
+        .sort((a, b) => a.name.localeCompare(b.name));
 
-    if (electiveNodes.length) {
-      const sameTermElectiveIds = new Set(electiveNodes.map((node) => node.id));
-      const levelMemo = new Map<string, number>();
+      const mainNodes = sortByAnchor(
+        floatingNodes.filter((node) => node.type !== "electiva"),
+        incomingByNode,
+        placements,
+        nodesById
+      );
 
-      const getElectiveLevel = (nodeId: string): number => {
-        const cached = levelMemo.get(nodeId);
-        if (typeof cached === "number") return cached;
+      const electiveNodes = floatingNodes.filter(
+        (node) => node.type === "electiva" && !isGenericElectiveNode(node)
+      );
 
-        const parents = (incomingByNode.get(nodeId) ?? []).filter((parentId) =>
-          sameTermElectiveIds.has(parentId)
-        );
+      if (mainNodes.length) {
+        placeColumn(mainNodes);
+      }
 
-        const nextLevel = parents.length
-          ? Math.max(...parents.map((parentId) => getElectiveLevel(parentId))) + 1
-          : 0;
+      if (electiveNodes.length) {
+        const sameTermElectiveIds = new Set(electiveNodes.map((node) => node.id));
+        const levelMemo = new Map<string, number>();
 
-        levelMemo.set(nodeId, nextLevel);
-        return nextLevel;
-      };
+        const getElectiveLevel = (nodeId: string): number => {
+          const cached = levelMemo.get(nodeId);
+          if (typeof cached === "number") return cached;
 
-      const levels = new Map<number, MapNode[]>();
+          const parents = (incomingByNode.get(nodeId) ?? []).filter((parentId) =>
+            sameTermElectiveIds.has(parentId)
+          );
 
-      electiveNodes.forEach((node) => {
-        const level = getElectiveLevel(node.id);
-        if (!levels.has(level)) levels.set(level, []);
-        levels.get(level)?.push(node);
-      });
+          const nextLevel = parents.length
+            ? Math.max(...parents.map((parentId) => getElectiveLevel(parentId))) + 1
+            : 0;
 
-      Array.from(levels.keys())
-        .sort((a, b) => a - b)
-        .forEach((level) => {
-          placeColumn(levels.get(level) ?? []);
+          levelMemo.set(nodeId, nextLevel);
+          return nextLevel;
+        };
+
+        const levels = new Map<number, MapNode[]>();
+
+        electiveNodes.forEach((node) => {
+          const level = getElectiveLevel(node.id);
+          if (!levels.has(level)) levels.set(level, []);
+          levels.get(level)?.push(node);
         });
+
+        Array.from(levels.keys())
+          .sort((a, b) => a - b)
+          .forEach((level) => {
+            placeColumn(levels.get(level) ?? []);
+          });
+      }
+
+      if (genericElectives.length) {
+        placeColumn(genericElectives);
+      }
     }
 
-    if (genericElectives.length) {
-      placeColumn(genericElectives);
-    }
-
-    const contentWidth = Math.max(NODE_WIDTH, cursorX - sectionLeft - SLOT_GAP);
+    const computedFlowWidth = Math.max(
+      0,
+      cursorX - sectionLeft - SECTION_SIDE_PADDING - (cursorX > sectionLeft + SECTION_SIDE_PADDING ? SLOT_GAP : 0)
+    );
+    const contentWidth = Math.max(NODE_WIDTH, fixedContentWidth, computedFlowWidth);
     const sectionWidth = contentWidth + SECTION_SIDE_PADDING * 2;
     sections.push({
       term,
@@ -498,6 +664,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [showElectives, setShowElectives] = useState(true);
+  const [collapseCbc, setCollapseCbc] = useState(false);
   const [panelState, setPanelState] = useState<"collapsed" | "half" | "full">("collapsed");
   const [sheetHeight, setSheetHeight] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
@@ -505,6 +672,11 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
   const [isDraggingSheet, setIsDraggingSheet] = useState(false);
   const [isPanningViewport, setIsPanningViewport] = useState(false);
   const [finalProjectTrack, setFinalProjectTrack] = useState<FinalProjectTrack>("tesis");
+  const desktopDockBottom = "calc(env(safe-area-inset-bottom,0px) + 0.95rem)";
+  const desktopPanelBottomInset =
+    "calc(var(--map-bottom-bar-height, var(--synapse-launcher-height, 72px)) + env(safe-area-inset-bottom,0px) + 1.2rem)";
+  const desktopViewportBottomInset = "0px";
+  const mobileBottomInset = "calc(var(--synapse-launcher-height, 72px) + 1rem)";
 
   const clearSelection = useCallback(() => {
     setSelectedId(null);
@@ -582,11 +754,30 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
+      const stored = window.localStorage.getItem(MAP_CBC_COLLAPSED_STORAGE_KEY);
+      if (stored === "true") setCollapseCbc(true);
+    } catch {
+      // Ignore storage read issues.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
       window.localStorage.setItem(MAP_FINAL_TRACK_STORAGE_KEY, finalProjectTrack);
     } catch {
       // Ignore storage write issues.
     }
   }, [finalProjectTrack]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(MAP_CBC_COLLAPSED_STORAGE_KEY, String(collapseCbc));
+    } catch {
+      // Ignore storage write issues.
+    }
+  }, [collapseCbc]);
 
   const sheetSizes = useMemo(() => {
     const collapsed = 126;
@@ -611,6 +802,16 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
   }, [hoveredId, nodes, selectedId, showElectives]);
 
   useEffect(() => {
+    if (!collapseCbc) return;
+    if (selectedId && isCbcLeafNode(nodes.find((node) => node.id === selectedId))) {
+      setSelectedId(null);
+    }
+    if (hoveredId && isCbcLeafNode(nodes.find((node) => node.id === hoveredId))) {
+      setHoveredId(null);
+    }
+  }, [collapseCbc, hoveredId, nodes, selectedId]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (selectedId || hoveredId) {
@@ -628,11 +829,13 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
     const ids = new Set<string>();
     nodes.forEach((node) => {
       if (showElectives || node.type !== "electiva") {
-        ids.add(node.id);
+        if (!collapseCbc || !isCbcLeafNode(node)) {
+          ids.add(node.id);
+        }
       }
     });
     return ids;
-  }, [nodes, showElectives]);
+  }, [collapseCbc, nodes, showElectives]);
 
   const visibleNodes = useMemo(
     () => nodes.filter((node) => visibleNodeIds.has(node.id)),
@@ -1090,8 +1293,15 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
     if (pointersRef.current.size < 2) pinchRef.current = null;
     if (pointersRef.current.size === 0) {
       if (dragDistanceRef.current <= DRAG_THRESHOLD && pressedNodeIdRef.current) {
-        setSelectedId(pressedNodeIdRef.current);
-        setHoveredId(null);
+        const pressedNode = nodesById.get(pressedNodeIdRef.current);
+        if (isCbcClusterNode(pressedNode)) {
+          setCollapseCbc((value) => !value);
+          setSelectedId(null);
+          setHoveredId(null);
+        } else {
+          setSelectedId(pressedNodeIdRef.current);
+          setHoveredId(null);
+        }
       }
       panRef.current = null;
       pressedNodeIdRef.current = null;
@@ -1173,17 +1383,57 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
             {selectedNode.credits} créditos
           </Badge>
         ) : null}
+        {isCbcClusterNode(selectedNode) ? (
+          <Badge className="border-warning/35 bg-warning/10 text-warning">
+            {collapseCbc ? "CBC compacto" : "CBC expandido"}
+          </Badge>
+        ) : null}
         {isFinalProjectNode(selectedNode) ? (
           <Badge className="border-accent/35 bg-accent/10 text-accent">
-            {finalProjectTrack === "tesis" ? "Modalidad tesis" : "Modalidad trabajo profesional"}
+            {selectedNode.display_kind === "final_project"
+              ? "Nodo final"
+              : finalProjectTrack === "tesis"
+              ? "Modalidad tesis"
+              : "Modalidad trabajo profesional"}
           </Badge>
         ) : null}
       </div>
       <div className="grid gap-2 text-sm">
-        <p>
-          {isFinalProjectNode(selectedNode) ? "Tramo" : "Código"}:{" "}
-          <span className="text-text">{getDisplayNodeMeta(selectedNode)}</span>
-        </p>
+        {isCbcClusterNode(selectedNode) ? (
+          <>
+            <p>
+              Ubicación: <span className="text-text">Tramo inicial del recorrido</span>
+            </p>
+            <p>
+              Progreso CBC:{" "}
+              <span className="text-text">{formatCbcProgress(selectedNode.progress_credits)}</span>
+            </p>
+          </>
+        ) : isFinalProjectNode(selectedNode) ? (
+          <>
+            <p>
+              Modalidad elegida:{" "}
+              <span className="text-text">
+                {finalProjectTrack === "tesis"
+                  ? "Tesis de Ingeniería Informática"
+                  : "Trabajo Profesional de Ingeniería Informática"}
+              </span>
+            </p>
+            <p>
+              Ubicación: <span className="text-text">Tramo final del recorrido</span>
+            </p>
+            <p>
+              Progreso TIF:{" "}
+              <span className="text-text">
+                {formatFinalProjectProgress(selectedNode.progress_credits)}
+              </span>
+            </p>
+          </>
+        ) : (
+          <p>
+            Código: <span className="text-text">{getDisplayNodeMeta(selectedNode)}</span>
+          </p>
+        )}
         <p>
           Horas semanales: <span className="text-text">{selectedNode.weekly_hours ?? "-"}</span>
         </p>
@@ -1194,11 +1444,19 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
           Estado: <span className="text-text">{selectedStatusLabel ?? "Sin estado"}</span>
         </p>
       </div>
+      {isCbcClusterNode(selectedNode) ? (
+        <div className="rounded-2xl border border-warning/25 bg-warning/5 p-3">
+          <p className="text-xs font-semibold text-text">Bloque CBC</p>
+          <p className="mt-1 text-xs text-muted">
+            Podés compactarlo para ver el tronco principal o expandirlo para revisar cada materia del CBC y sus conexiones hacia el segundo ciclo.
+          </p>
+        </div>
+      ) : null}
       {isFinalProjectNode(selectedNode) ? (
         <div className="rounded-2xl border border-accent/25 bg-accent/5 p-3">
           <p className="text-xs font-semibold text-text">Definición del TIF</p>
           <p className="mt-1 text-xs text-muted">
-            El plan oficial lo ubica al final del recorrido, entre 9° y 10° cuatrimestre, y puede cursarse como tesis o trabajo profesional.
+            El plan oficial lo ubica al final del recorrido y puede cursarse como tesis o trabajo profesional, por un total de 12 créditos.
           </p>
           <div className="mt-3 inline-flex rounded-full border border-border/60 bg-surface/80 p-1">
             <button
@@ -1265,9 +1523,12 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
             ref={viewportRef}
             className={cn(
               "absolute inset-x-0 overflow-hidden touch-none",
-              "top-[calc(var(--app-header-height,96px)+0.5rem)] bottom-[calc(var(--synapse-launcher-height,72px)+1rem)]",
+              "top-[calc(var(--app-header-height,96px)+0.5rem)]",
               isPanningViewport ? "cursor-grabbing" : "cursor-grab"
             )}
+            style={{
+              bottom: isDesktop ? desktopViewportBottomInset : mobileBottomInset
+            }}
             onPointerDownCapture={handlePointerDown}
             onPointerMoveCapture={handlePointerMove}
             onPointerUpCapture={handlePointerUp}
@@ -1330,6 +1591,8 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
                 const isPrereq = prereqIds.has(node.id);
                 const isUnlock = unlockIds.has(node.id);
                 const isElective = node.type === "electiva";
+                const isFinalProject = isFinalProjectNode(node);
+                const isCbcCluster = isCbcClusterNode(node);
                 const isDimmed = activeId ? !isActive && !isPrereq && !isUnlock : false;
                 const showMeta = isActive || (isDesktop && !selectedId && hoveredId === node.id);
                 const statusLabel = node.status ? STATUS_LABELS[node.status] : null;
@@ -1368,22 +1631,26 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
                     className={cn(
                       "group absolute rounded-2xl border px-3 py-3 text-left text-xs font-semibold text-text shadow-tile transition-all duration-200 ease-out",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50",
+                      isCbcCluster && "cursor-pointer",
                       (isActive || showMeta) && "z-30 scale-[1.02] shadow-glow",
                       !isActive && !showMeta && "z-20",
                       isActive && "border-accent/70 bg-surface shadow-glow",
                       !isActive && isPrereq && "border-prereq/70 bg-surface",
                       !isActive && isUnlock && "border-unlock/70 bg-surface",
+                      !isActive && !isPrereq && !isUnlock && isCbcCluster &&
+                        "border-warning/55 bg-surface",
                       !isActive && !isPrereq && !isUnlock && isElective &&
                         "border-elective/55 bg-surface",
                       !isActive && !isPrereq && !isUnlock && !isElective &&
                         "border-border/60 bg-surface",
+                      isFinalProject && !isActive && "border-accent/45 bg-surface/96",
                       isDimmed && "opacity-55"
                     )}
                     style={{
                       left: layoutNode.x,
                       top: layoutNode.y,
                       width: NODE_WIDTH,
-                      minHeight: NODE_MIN_HEIGHT
+                      minHeight: isCbcCluster ? 96 : NODE_MIN_HEIGHT
                     }}
                   >
                     <span
@@ -1392,77 +1659,97 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
                         markerClass
                       )}
                     />
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold leading-tight text-text">
+                    {isCbcCluster ? (
+                      <div className="flex min-h-[72px] items-center justify-center px-3 text-center">
+                        <p className="text-base font-semibold leading-tight text-text">
                           {displayName}
                         </p>
-                        <p className="text-[11px] text-muted">{displayMeta}</p>
                       </div>
-                      <div className="flex flex-col items-end gap-1">
-                        {statusLabel ? (
-                          <span
-                            className={cn(
-                              "rounded-full border px-2 py-0.5 text-[10px] font-semibold",
-                              STATUS_STYLES[node.status ?? ""]
-                            )}
-                          >
-                            {statusLabel}
-                          </span>
-                        ) : null}
-                        {node.color ? (
-                          <span
-                            className="h-2.5 w-2.5 rounded-full border border-border/40"
-                            style={{ backgroundColor: node.color }}
-                          />
-                        ) : null}
-                      </div>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-semibold">
-                      {node.credits ? (
-                        <span className="rounded-full border border-border/60 bg-surface/80 px-2 py-0.5 text-muted">
-                          {node.credits} créditos
-                        </span>
-                      ) : null}
-                      {isFinalProjectNode(node) ? (
-                        <span className="rounded-full border border-accent/35 bg-accent/10 px-2 py-0.5 text-accent">
-                          {finalProjectTrack === "tesis" ? "Tesis" : "Trabajo profesional"}
-                        </span>
-                      ) : null}
-                      {node.cycle ? (
-                        <span className="rounded-full border border-border/60 bg-surface/80 px-2 py-0.5 text-muted">
-                          {CYCLE_LABELS[node.cycle] ?? node.cycle}
-                        </span>
-                      ) : null}
-                      {isElective ? (
-                        <span className="rounded-full border border-elective/40 bg-elective/10 px-2 py-0.5 text-elective">
-                          Electiva
-                        </span>
-                      ) : null}
-                    </div>
-                    <div
-                      className={cn(
-                        "mt-2 overflow-hidden text-[10px] text-muted transition-all duration-200",
-                        showMeta ? "max-h-28 opacity-100" : "max-h-0 opacity-0"
-                      )}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span>Correlativas</span>
-                        <span className="text-right text-text">{prereqSummary}</span>
-                      </div>
-                      <div className="mt-1 flex items-center justify-between gap-2">
-                        <span>Habilita</span>
-                        <span className="text-right text-text">{unlockSummary}</span>
-                      </div>
-                    </div>
+                    ) : (
+                      <>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-1">
+                            <p className="text-sm font-semibold leading-tight text-text">
+                              {displayName}
+                            </p>
+                            <p className="text-[11px] text-muted">{displayMeta}</p>
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            {statusLabel ? (
+                              <span
+                                className={cn(
+                                  "rounded-full border px-2 py-0.5 text-[10px] font-semibold",
+                                  STATUS_STYLES[node.status ?? ""]
+                                )}
+                              >
+                                {statusLabel}
+                              </span>
+                            ) : null}
+                            {node.color ? (
+                              <span
+                                className="h-2.5 w-2.5 rounded-full border border-border/40"
+                                style={{ backgroundColor: node.color }}
+                              />
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-semibold">
+                          {node.credits ? (
+                            <span className="rounded-full border border-border/60 bg-surface/80 px-2 py-0.5 text-muted">
+                              {node.credits} créditos
+                            </span>
+                          ) : null}
+                          {isFinalProject ? (
+                            <span className="rounded-full border border-accent/35 bg-accent/10 px-2 py-0.5 text-accent">
+                              {finalProjectTrack === "tesis" ? "Modalidad tesis" : "Trabajo profesional"}
+                            </span>
+                          ) : null}
+                          {node.cycle ? (
+                            <span className="rounded-full border border-border/60 bg-surface/80 px-2 py-0.5 text-muted">
+                              {CYCLE_LABELS[node.cycle] ?? node.cycle}
+                            </span>
+                          ) : null}
+                          {isElective ? (
+                            <span className="rounded-full border border-elective/40 bg-elective/10 px-2 py-0.5 text-elective">
+                              Electiva
+                            </span>
+                          ) : null}
+                          {isFinalProject ? (
+                            <span className="rounded-full border border-accent/30 bg-accent/5 px-2 py-0.5 text-accent">
+                              {formatFinalProjectProgress(node.progress_credits)}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div
+                          className={cn(
+                            "mt-2 overflow-hidden text-[10px] text-muted transition-all duration-200",
+                            showMeta ? "max-h-28 opacity-100" : "max-h-0 opacity-0"
+                          )}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span>Correlativas</span>
+                            <span className="text-right text-text">{prereqSummary}</span>
+                          </div>
+                          <div className="mt-1 flex items-center justify-between gap-2">
+                            <span>Habilita</span>
+                            <span className="text-right text-text">{unlockSummary}</span>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          <div className="pointer-events-none absolute inset-0 z-30">
-            <div className="pointer-events-auto absolute bottom-[calc(var(--synapse-launcher-height,72px)+1rem)] left-4 md:bottom-4">
+          <div className="pointer-events-none absolute inset-0 z-40">
+            <div
+              className="pointer-events-auto absolute left-4"
+              style={{
+                bottom: isDesktop ? desktopDockBottom : "1rem"
+              }}
+            >
               <button
                 type="button"
                 aria-pressed={showElectives}
@@ -1484,8 +1771,11 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
               </button>
             </div>
 
-            {selectedNode ? (
-              <aside className="pointer-events-auto absolute bottom-[calc(var(--synapse-launcher-height,72px)+1rem)] right-4 top-[calc(var(--app-header-height,96px)+1rem)] hidden w-[340px] flex-col overflow-hidden rounded-3xl border border-border/60 bg-surface/92 shadow-glow backdrop-blur lg:flex">
+            {selectedNode && !isCbcClusterNode(selectedNode) ? (
+              <aside
+                className="pointer-events-auto absolute right-4 top-[calc(var(--app-header-height,96px)+1rem)] hidden w-[340px] flex-col overflow-hidden rounded-3xl border border-border/60 bg-surface/92 shadow-glow backdrop-blur lg:flex"
+                style={{ bottom: desktopPanelBottomInset }}
+              >
                 <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
                   <div>
                     <p className="text-xs uppercase tracking-[0.3em] text-muted">Detalle</p>
@@ -1503,7 +1793,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
               </aside>
             ) : null}
 
-            {selectedNode ? (
+            {selectedNode && !isCbcClusterNode(selectedNode) ? (
               <div
                 className="pointer-events-auto absolute bottom-0 left-0 right-0 lg:hidden"
                 onPointerMove={handleSheetPointerMove}
