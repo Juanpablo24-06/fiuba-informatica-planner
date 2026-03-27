@@ -23,9 +23,12 @@ export default function ShortcutHandler() {
       if (destination) {
         const pendingState = buildPendingNavigationState(pathname, destination);
         const progressSourceRect = pendingState.animateMapBar ? getProgressRect("summary") : null;
+        const shouldAnimateMapBar = pendingState.animateMapBar && Boolean(progressSourceRect);
         setMapTransitionState({
           ...pendingState,
-          animateMapBar: pendingState.animateMapBar && Boolean(progressSourceRect),
+          animateMapBar: shouldAnimateMapBar,
+          mapEntryPhase: shouldAnimateMapBar ? pendingState.mapEntryPhase : "loader",
+          loaderStartedAt: shouldAnimateMapBar ? pendingState.loaderStartedAt : pendingState.transitionStartedAt,
           transitioning: true,
           launcherMode: destination === "/mapa" ? "compact" : "default",
           progressSourceSlot: progressSourceRect ? "summary" : null,

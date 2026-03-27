@@ -10,6 +10,7 @@ import {
 } from "@/components/layout/map-transition-store";
 import {
   getRemainingTransitionDuration,
+  getRemainingLoaderDuration,
   isRenderableProgressRect,
   rectDistance,
   shouldAnimateToTargetRect
@@ -94,40 +95,62 @@ describe("map transition helpers", () => {
   });
 
   it("builds the special map entry state only for summary to map", () => {
-    expect(buildPendingNavigationState("/", "/mapa")).toMatchObject({
+    expect(buildPendingNavigationState("/", "/mapa", 1_000)).toMatchObject({
       pendingPath: "/mapa",
       pendingSection: "/mapa",
       loaderKind: "map",
       startedFromSection: "/",
       showMapBar: true,
-      animateMapBar: true
+      animateMapBar: true,
+      mapEntryPhase: "bar-drop",
+      transitionStartedAt: 1_000,
+      loaderStartedAt: null,
+      minimumLoaderMs: 320
     });
 
-    expect(buildPendingNavigationState("/horario", "/mapa")).toMatchObject({
+    expect(buildPendingNavigationState("/horario", "/mapa", 1_000)).toMatchObject({
       pendingPath: "/mapa",
       pendingSection: "/mapa",
       loaderKind: "map",
       startedFromSection: "/horario",
       showMapBar: true,
-      animateMapBar: false
+      animateMapBar: false,
+      mapEntryPhase: "loader",
+      transitionStartedAt: 1_000,
+      loaderStartedAt: 1_000,
+      minimumLoaderMs: 320
     });
   });
 
   it("uses the generic loader when the destination is not map", () => {
-    expect(buildPendingNavigationState("/mapa", "/")).toMatchObject({
+    expect(buildPendingNavigationState("/mapa", "/", 2_000)).toMatchObject({
       pendingPath: "/",
       pendingSection: "/",
       loaderKind: "app",
       showMapBar: false,
-      animateMapBar: false
+      animateMapBar: false,
+      mapEntryPhase: "loader",
+      transitionStartedAt: 2_000,
+      loaderStartedAt: 2_000,
+      minimumLoaderMs: 320
     });
-    expect(buildPendingNavigationState("/", "/horario")).toMatchObject({
+    expect(buildPendingNavigationState("/", "/horario", 2_000)).toMatchObject({
       pendingPath: "/horario",
       pendingSection: "/horario",
       loaderKind: "app",
       showMapBar: false,
-      animateMapBar: false
+      animateMapBar: false,
+      mapEntryPhase: "loader",
+      transitionStartedAt: 2_000,
+      loaderStartedAt: 2_000,
+      minimumLoaderMs: 320
     });
+  });
+
+  it("keeps the loader visible until the minimum duration is met", () => {
+    expect(getRemainingLoaderDuration(1_000, 1_120, 320)).toBe(200);
+    expect(getRemainingLoaderDuration(1_000, 1_400, 320)).toBe(0);
+    expect(getRemainingLoaderDuration(null, 1_400, 320)).toBe(320);
   });
 
   it("prefers the pending section while navigation is still unresolved", () => {

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import MapDetailContent from "@/components/map/map-detail-content";
 import { MapNodeCard } from "@/components/map/map-node-card";
+import MapSceneBackground from "@/components/map/map-scene-background";
 import { Button } from "@/components/ui/button";
 import {
   clamp,
@@ -90,6 +91,7 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
   const [panelState, setPanelState] = useState<"collapsed" | "half" | "full">("collapsed");
   const [sheetHeight, setSheetHeight] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
+  const [headerHeight, setHeaderHeight] = useState(96);
   const [isDesktop, setIsDesktop] = useState(false);
   const [isDraggingSheet, setIsDraggingSheet] = useState(false);
   const [isPanningViewport, setIsPanningViewport] = useState(false);
@@ -99,6 +101,7 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
     "calc(var(--map-bottom-bar-height, var(--synapse-launcher-height, 72px)) + env(safe-area-inset-bottom,0px) + 1.2rem)";
   const desktopViewportBottomInset = "0px";
   const mobileBottomInset = "calc(var(--synapse-launcher-height, 72px) + 1rem)";
+  const safeTopInset = headerHeight + (isDesktop ? 18 : 12);
 
   const clearSelection = useCallback(() => {
     setSelectedId(null);
@@ -126,6 +129,23 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
       observer.disconnect();
       window.removeEventListener("resize", update);
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const readHeaderHeight = () => {
+      const raw = window
+        .getComputedStyle(document.documentElement)
+        .getPropertyValue("--app-header-height");
+      const next = Number.parseFloat(raw);
+      if (!Number.isNaN(next) && next > 0) {
+        setHeaderHeight(next);
+      }
+    };
+
+    readHeaderHeight();
+    window.addEventListener("resize", readHeaderHeight);
+    return () => window.removeEventListener("resize", readHeaderHeight);
   }, []);
 
   useEffect(() => {
@@ -372,10 +392,11 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
         viewportWidth: viewport.clientWidth,
         viewportHeight: viewport.clientHeight,
         worldWidth: worldSize.width,
-        worldHeight: worldSize.height
+        worldHeight: worldSize.height,
+        safeTopInset
       });
     },
-    [worldSize.height, worldSize.width]
+    [safeTopInset, worldSize.height, worldSize.width]
   );
 
   const setTransformSafe = useCallback(
@@ -406,7 +427,8 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
           currentTransform: transformRef.current,
           persistedTransform: persisted,
           defaultFocus,
-          isDesktop
+          isDesktop,
+          safeTopInset
         });
         hasUserMovedRef.current = next.userMoved;
         setTransformSafe(next.transform);
@@ -422,7 +444,8 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
         currentTransform: transformRef.current,
         persistedTransform: null,
         defaultFocus,
-        isDesktop
+        isDesktop,
+        safeTopInset
       });
       hasUserMovedRef.current = next.userMoved;
       setTransformSafe(next.transform);
@@ -430,7 +453,7 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
     }
 
     setTransformSafe({ ...transformRef.current });
-  }, [defaultFocus, isDesktop, layout.height, layout.width, setTransformSafe]);
+  }, [defaultFocus, isDesktop, layout.height, layout.width, safeTopInset, setTransformSafe]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -467,7 +490,8 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
         worldHeight: worldSize.height,
         currentTransform: transformRef.current,
         isDesktop,
-        zoom
+        zoom,
+        safeTopInset
       });
 
       stopCameraAnimation();
@@ -496,7 +520,7 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
       hasUserMovedRef.current = true;
       cameraAnimationRef.current = window.requestAnimationFrame(tick);
     },
-    [isDesktop, nodeLayouts, scheduleTransform, stopCameraAnimation, worldSize.height, worldSize.width]
+    [isDesktop, nodeLayouts, safeTopInset, scheduleTransform, stopCameraAnimation, worldSize.height, worldSize.width]
   );
 
   useEffect(() => {
@@ -666,17 +690,13 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
     <section className="relative h-[100svh]">
       <div className="relative h-full overflow-hidden">
         <div className="relative h-full bg-transparent">
-          <div className="map-canvas pointer-events-none absolute inset-0 opacity-0" />
-          <div
-            className="pointer-events-none absolute inset-0 subtle-grid opacity-[0.08]"
-            style={{ backgroundPosition: "0 0, 0 0" }}
-          />
+          <MapSceneBackground />
 
           <div
             ref={viewportRef}
             className={cn(
               "absolute inset-x-0 overflow-hidden touch-none",
-              "top-[calc(var(--app-header-height,96px)+0.5rem)]",
+              "top-0",
               isPanningViewport ? "cursor-grabbing" : "cursor-grab"
             )}
             style={{

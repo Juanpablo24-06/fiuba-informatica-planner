@@ -33,5 +33,7 @@ describe("map loading helpers", () => {
     expect(componentSource).not.toContain("map-canvas");
     expect(componentSource).not.toContain("bg-surface/84");
     expect(componentSource).not.toContain("shadow-[0_18px_38px_-28px");
+    expect(componentSource).not.toContain("pt-[calc(var(--app-header-height,96px)+1.75rem)]");
+    expect(componentSource).toContain("MapSceneBackground");
   });
 });

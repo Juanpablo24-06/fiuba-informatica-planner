@@ -94,13 +94,15 @@ export const getClampedTransform = ({
   viewportWidth,
   viewportHeight,
   worldWidth,
-  worldHeight
+  worldHeight,
+  safeTopInset = 0
 }: {
   next: Transform;
   viewportWidth: number;
   viewportHeight: number;
   worldWidth: number;
   worldHeight: number;
+  safeTopInset?: number;
 }) => {
   if (!viewportWidth || !viewportHeight || !worldWidth || !worldHeight) {
     return next;
@@ -108,13 +110,14 @@ export const getClampedTransform = ({
 
   const scaledWidth = worldWidth * next.scale;
   const scaledHeight = worldHeight * next.scale;
+  const availableHeight = Math.max(0, viewportHeight - safeTopInset);
   const extraX = Math.max(220, viewportWidth * 0.38);
   const extraY = Math.max(220, viewportHeight * 0.34);
 
   let minX = Math.min(0, viewportWidth - scaledWidth) - extraX;
   let maxX = Math.max(0, viewportWidth - scaledWidth) + extraX;
-  let minY = Math.min(0, viewportHeight - scaledHeight) - extraY;
-  let maxY = Math.max(0, viewportHeight - scaledHeight) + extraY;
+  let minY = Math.min(safeTopInset, viewportHeight - scaledHeight) - extraY;
+  let maxY = Math.max(safeTopInset, viewportHeight - scaledHeight) + extraY;
 
   if (scaledWidth <= viewportWidth) {
     const centered = (viewportWidth - scaledWidth) / 2;
@@ -122,9 +125,9 @@ export const getClampedTransform = ({
     maxX = centered + extraX;
   }
 
-  if (scaledHeight <= viewportHeight) {
-    const centered = (viewportHeight - scaledHeight) / 2;
-    minY = centered - extraY;
+  if (scaledHeight <= availableHeight) {
+    const centered = safeTopInset + (availableHeight - scaledHeight) / 2;
+    minY = safeTopInset;
     maxY = centered + extraY;
   }
 
@@ -143,7 +146,8 @@ export const resolveInitialMapTransform = ({
   currentTransform,
   persistedTransform,
   defaultFocus,
-  isDesktop
+  isDesktop,
+  safeTopInset = 0
 }: {
   layoutWidth: number;
   layoutHeight: number;
@@ -153,15 +157,24 @@ export const resolveInitialMapTransform = ({
   persistedTransform: Transform | null;
   defaultFocus: DefaultFocusBounds | null;
   isDesktop: boolean;
+  safeTopInset?: number;
 }) => {
   if (persistedTransform) {
     return {
-      transform: persistedTransform,
+      transform: getClampedTransform({
+        next: persistedTransform,
+        viewportWidth,
+        viewportHeight,
+        worldWidth: layoutWidth,
+        worldHeight: layoutHeight,
+        safeTopInset
+      }),
       userMoved: true
     };
   }
 
   if (defaultFocus) {
+    const availableHeight = Math.max(0, viewportHeight - safeTopInset);
     const isCurrent = defaultFocus.mode === "current";
     const paddingX = isDesktop
       ? isCurrent
@@ -182,26 +195,28 @@ export const resolveInitialMapTransform = ({
     const scale = clamp(
       Math.min(
         (viewportWidth - paddingX * 2) / Math.max(groupWidth, NODE_WIDTH),
-        (viewportHeight - paddingY * 2) / Math.max(groupHeight, NODE_MIN_HEIGHT)
+        (availableHeight - paddingY * 2) / Math.max(groupHeight, NODE_MIN_HEIGHT)
       ),
       MIN_ZOOM,
       isDesktop ? (isCurrent ? 1.04 : 0.98) : isCurrent ? 1.28 : 1.16
     );
     const centerX = (defaultFocus.minX + defaultFocus.maxX) / 2;
     const centerY = (defaultFocus.minY + defaultFocus.maxY) / 2;
+    const viewportCenterY = safeTopInset + availableHeight / 2;
 
     return {
       transform: {
         x: viewportWidth / 2 - centerX * scale,
         y:
-          viewportHeight *
+          viewportCenterY +
+          availableHeight *
             (isDesktop
               ? isCurrent
-                ? 0.5
-                : 0.43
+                ? 0
+                : -0.07
               : isCurrent
-                ? 0.44
-                : 0.4) -
+                ? -0.06
+                : -0.1) -
           centerY * scale,
         scale
       },
@@ -219,8 +234,8 @@ export const resolveInitialMapTransform = ({
           ? (viewportWidth - scaledWidth) / 2
           : currentTransform.x,
       y:
-        scaledHeight < viewportHeight
-          ? (viewportHeight - scaledHeight) / 2
+        scaledHeight < viewportHeight - safeTopInset
+          ? safeTopInset + (viewportHeight - safeTopInset - scaledHeight) / 2
           : Math.min(24, currentTransform.y),
       scale: currentTransform.scale
     },
@@ -236,7 +251,8 @@ export const computeFocusedNodeTransform = ({
   worldHeight,
   currentTransform,
   isDesktop,
-  zoom
+  zoom,
+  safeTopInset = 0
 }: {
   selectedLayout: NodeLayout;
   viewportWidth: number;
@@ -246,6 +262,7 @@ export const computeFocusedNodeTransform = ({
   currentTransform: Transform;
   isDesktop: boolean;
   zoom: boolean;
+  safeTopInset?: number;
 }) => {
   const desiredCardWidth = isDesktop
     ? viewportWidth * 0.22
@@ -261,9 +278,10 @@ export const computeFocusedNodeTransform = ({
   const centerY = selectedLayout.y + selectedLayout.height / 2;
   const targetX =
     (viewportWidth - (isDesktop ? DESKTOP_PANEL_WIDTH : 0)) / 2;
+  const availableHeight = Math.max(0, viewportHeight - safeTopInset);
   const targetY = isDesktop
-    ? viewportHeight / 2
-    : viewportHeight * 0.34;
+    ? safeTopInset + availableHeight / 2
+    : safeTopInset + availableHeight * 0.34;
 
   return getClampedTransform({
     next: {
@@ -274,7 +292,8 @@ export const computeFocusedNodeTransform = ({
     viewportWidth,
     viewportHeight,
     worldWidth,
-    worldHeight
+    worldHeight,
+    safeTopInset
   });
 };
 

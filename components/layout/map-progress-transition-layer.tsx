@@ -24,6 +24,7 @@ export default function MapProgressTransitionLayer({
     state.transitioning &&
     state.showMapBar &&
     state.animateMapBar &&
+    state.mapEntryPhase === "bar-drop" &&
     Boolean(state.progressSourceRect);
 
   useEffect(() => {

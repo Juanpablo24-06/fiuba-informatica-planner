@@ -1,12 +1,14 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { MINIMUM_SECTION_LOADER_MS } from "@/components/layout/map-progress-transition";
 
 export type MapTransitionSource = "summary-link" | "top-nav-map" | "top-nav-summary" | null;
 export type LauncherMode = "default" | "compact";
 export type ProgressSlot = "summary" | "map-bottom";
 export type AppSection = "/" | "/mapa" | "/horario" | "/admin";
 export type LoaderKind = "app" | "map" | null;
+export type MapEntryPhase = "idle" | "bar-drop" | "loader";
 export type ProgressSourceRect = {
   left: number;
   top: number;
@@ -20,6 +22,10 @@ export type MapTransitionState = {
   pendingSection: AppSection | null;
   loaderKind: LoaderKind;
   startedFromSection: AppSection | null;
+  mapEntryPhase: MapEntryPhase;
+  transitionStartedAt: number | null;
+  loaderStartedAt: number | null;
+  minimumLoaderMs: number;
   showMapBar: boolean;
   animateMapBar: boolean;
   transitionSource: MapTransitionSource;
@@ -36,6 +42,10 @@ export const DEFAULT_MAP_TRANSITION_STATE: MapTransitionState = {
   pendingSection: null,
   loaderKind: null,
   startedFromSection: null,
+  mapEntryPhase: "idle",
+  transitionStartedAt: null,
+  loaderStartedAt: null,
+  minimumLoaderMs: 0,
   showMapBar: false,
   animateMapBar: false,
   transitionSource: null,
@@ -65,19 +75,25 @@ export const isPendingNavigationResolved = (
 
 export const buildPendingNavigationState = (
   fromPathname: string,
-  toPathname: string
+  toPathname: string,
+  startedAt = Date.now()
 ) => {
   const startedFromSection = getSectionForPathname(fromPathname);
   const pendingSection = getSectionForPathname(toPathname);
   const isMapDestination = pendingSection === "/mapa";
+  const isSummaryToMap = startedFromSection === "/" && isMapDestination;
 
   return {
     pendingPath: pendingSection,
     pendingSection,
     loaderKind: isMapDestination ? ("map" as const) : ("app" as const),
     startedFromSection,
+    mapEntryPhase: isSummaryToMap ? ("bar-drop" as const) : ("loader" as const),
+    transitionStartedAt: startedAt,
+    loaderStartedAt: isSummaryToMap ? null : startedAt,
+    minimumLoaderMs: MINIMUM_SECTION_LOADER_MS,
     showMapBar: isMapDestination,
-    animateMapBar: startedFromSection === "/" && isMapDestination
+    animateMapBar: isSummaryToMap
   };
 };
 
@@ -93,6 +109,10 @@ export const isMapTransitionStateEqual = (
   first.pendingSection === second.pendingSection &&
   first.loaderKind === second.loaderKind &&
   first.startedFromSection === second.startedFromSection &&
+  first.mapEntryPhase === second.mapEntryPhase &&
+  first.transitionStartedAt === second.transitionStartedAt &&
+  first.loaderStartedAt === second.loaderStartedAt &&
+  first.minimumLoaderMs === second.minimumLoaderMs &&
   first.showMapBar === second.showMapBar &&
   first.animateMapBar === second.animateMapBar &&
   first.transitionSource === second.transitionSource &&

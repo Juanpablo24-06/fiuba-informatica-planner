@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import SummaryProgressBar from "@/components/dashboard/summary-progress-bar";
 import AppLoadingSurface from "@/components/layout/app-loading-surface";
 import MapLoadingStage from "@/components/map/map-loading-stage";
+import MapSceneBackground from "@/components/map/map-scene-background";
 import MapProgressTransitionLayer from "@/components/layout/map-progress-transition-layer";
 import { OFFICIAL_TOTAL_CREDITS, type ProgressSnapshot } from "@/lib/progress";
 import { cn } from "@/lib/utils";
@@ -26,19 +27,34 @@ export default function AppShell({ children, progress }: AppShellProps) {
   const mapTransitionState = useMapTransitionState();
   const displaySection = getDisplaySection(pathname, mapTransitionState.pendingSection);
   const isMapa = displaySection === "/mapa";
-  const pendingNavigationActive =
-    mapTransitionState.transitioning &&
-    !isPendingNavigationResolved(pathname, mapTransitionState.pendingPath);
+  const pendingNavigationResolved = isPendingNavigationResolved(
+    pathname,
+    mapTransitionState.pendingPath
+  );
+  const pendingNavigationActive = mapTransitionState.transitioning;
   const showMapBottomBar = displaySection === "/mapa";
   const hideActualMapBar =
     pendingNavigationActive &&
     mapTransitionState.showMapBar &&
-    mapTransitionState.animateMapBar;
-  const shellContent = pendingNavigationActive
-    ? mapTransitionState.loaderKind === "map"
-      ? <MapLoadingStage />
-      : <AppLoadingSurface />
-    : children;
+    mapTransitionState.animateMapBar &&
+    mapTransitionState.mapEntryPhase === "bar-drop";
+
+  let shellContent = children;
+
+  if (pendingNavigationActive) {
+    if (mapTransitionState.loaderKind === "map") {
+      shellContent =
+        mapTransitionState.mapEntryPhase === "bar-drop"
+          ? (
+            <div className="relative min-h-[100svh]">
+              <MapSceneBackground />
+            </div>
+          )
+          : <MapLoadingStage />;
+    } else {
+      shellContent = <AppLoadingSurface />;
+    }
+  }
 
   return (
     <>
@@ -50,6 +66,8 @@ export default function AppShell({ children, progress }: AppShellProps) {
             ? "max-w-none px-0 pb-0 pt-0"
             : "max-w-7xl pt-[calc(var(--app-header-height,96px)+0.75rem)]"
         )}
+        data-pending-navigation={pendingNavigationActive ? "true" : "false"}
+        data-pending-resolved={pendingNavigationResolved ? "true" : "false"}
       >
         {shellContent}
       </main>

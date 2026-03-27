@@ -42,10 +42,13 @@ export default function SectionLink({
       pendingState.animateMapBar && pendingState.startedFromSection === "/";
 
     const progressSourceRect = shouldCaptureSummaryBar ? getProgressRect("summary") : null;
+    const shouldAnimateMapBar = shouldCaptureSummaryBar && Boolean(progressSourceRect);
 
     setMapTransitionState({
       ...pendingState,
-      animateMapBar: shouldCaptureSummaryBar && Boolean(progressSourceRect),
+      animateMapBar: shouldAnimateMapBar,
+      mapEntryPhase: shouldAnimateMapBar ? pendingState.mapEntryPhase : "loader",
+      loaderStartedAt: shouldAnimateMapBar ? pendingState.loaderStartedAt : pendingState.transitionStartedAt,
       transitionSource,
       transitioning: true,
       launcherMode: nextSection === "/mapa" ? "compact" : "default",

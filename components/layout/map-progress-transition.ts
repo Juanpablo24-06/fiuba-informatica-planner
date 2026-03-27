@@ -2,9 +2,10 @@
 
 import type { ProgressSlot, ProgressSourceRect } from "@/components/layout/map-transition-store";
 
-export const MAP_TRANSITION_DURATION_MS = 480;
+export const MAP_TRANSITION_DURATION_MS = 280;
 export const MIN_DESTINATION_SETTLE_MS = 300;
 export const MAP_TRANSITION_SNAP_THRESHOLD_PX = 10;
+export const MINIMUM_SECTION_LOADER_MS = 320;
 
 export const isRenderableProgressRect = (
   rect: ProgressSourceRect | null | undefined
@@ -70,3 +71,12 @@ export const getRemainingTransitionDuration = (
   totalDuration = MAP_TRANSITION_DURATION_MS,
   minimumDuration = 160
 ) => Math.max(minimumDuration, totalDuration - Math.max(0, now - startedAt));
+
+export const getRemainingLoaderDuration = (
+  startedAt: number | null,
+  now = Date.now(),
+  minimumDuration = MINIMUM_SECTION_LOADER_MS
+) => {
+  if (startedAt === null) return minimumDuration;
+  return Math.max(0, minimumDuration - Math.max(0, now - startedAt));
+};
