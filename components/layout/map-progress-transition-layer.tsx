@@ -41,7 +41,6 @@ export default function MapProgressTransitionLayer({
       top: `${fromRect.top}px`,
       width: `${fromRect.width}px`,
       height: `${fromRect.height}px`,
-      transform: "translate3d(0, 0, 0) scale(1, 1)",
       opacity: "1"
     });
 
@@ -56,11 +55,17 @@ export default function MapProgressTransitionLayer({
         animation = clone.animate(
           [
             {
-              transform: "translate3d(0, 0, 0) scale(1, 1)",
+              left: `${fromRect.left}px`,
+              top: `${fromRect.top}px`,
+              width: `${fromRect.width}px`,
+              height: `${fromRect.height}px`,
               opacity: 1
             },
             {
-              transform: `translate3d(${targetRect.left - fromRect.left}px, ${targetRect.top - fromRect.top}px, 0) scale(${targetRect.width / fromRect.width}, ${targetRect.height / fromRect.height})`,
+              left: `${targetRect.left}px`,
+              top: `${targetRect.top}px`,
+              width: `${targetRect.width}px`,
+              height: `${targetRect.height}px`,
               opacity: 1
             }
           ],
@@ -87,13 +92,13 @@ export default function MapProgressTransitionLayer({
       ref={cloneRef}
       aria-hidden="true"
       data-progress-transition-clone="true"
-      className="pointer-events-none fixed z-[70] m-0 will-change-transform"
+      className="pointer-events-none fixed z-[70] m-0"
       style={{
         left: state.progressSourceRect.left,
         top: state.progressSourceRect.top,
         width: state.progressSourceRect.width,
         height: state.progressSourceRect.height,
-        transformOrigin: "top left"
+        willChange: "left, top, width, height"
       }}
     >
       <SummaryProgressBar

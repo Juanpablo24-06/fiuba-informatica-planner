@@ -13,8 +13,7 @@ import {
   useMapTransitionState
 } from "@/components/layout/map-transition-coordinator";
 import {
-  getDisplaySection,
-  isPendingNavigationResolved
+  getDisplaySection
 } from "@/components/layout/map-transition-store";
 
 type AppShellProps = {
@@ -27,32 +26,22 @@ export default function AppShell({ children, progress }: AppShellProps) {
   const mapTransitionState = useMapTransitionState();
   const displaySection = getDisplaySection(pathname, mapTransitionState.pendingSection);
   const isMapa = displaySection === "/mapa";
-  const pendingNavigationResolved = isPendingNavigationResolved(
-    pathname,
-    mapTransitionState.pendingPath
-  );
   const pendingNavigationActive = mapTransitionState.transitioning;
+  const mapSceneActive =
+    isMapa || (pendingNavigationActive && mapTransitionState.loaderKind === "map");
   const showMapBottomBar = displaySection === "/mapa";
   const hideActualMapBar =
     pendingNavigationActive &&
     mapTransitionState.showMapBar &&
     mapTransitionState.animateMapBar &&
     mapTransitionState.mapEntryPhase === "bar-drop";
-  const resolvedMapChildren =
-    pendingNavigationResolved && pathname.startsWith("/mapa") ? (
-      <div
-        aria-hidden="true"
-        className="invisible pointer-events-none absolute inset-0 z-10"
-      >
-        {children}
-      </div>
-    ) : null;
+  const hideRouteContent = pendingNavigationActive;
 
-  let shellContent = children;
+  let loadingContent: React.ReactNode = null;
 
   if (pendingNavigationActive) {
     if (mapTransitionState.loaderKind === "map") {
-      shellContent =
+      loadingContent =
         mapTransitionState.mapEntryPhase === "bar-drop"
           ? (
             <div className="relative min-h-[100svh]">
@@ -61,14 +50,13 @@ export default function AppShell({ children, progress }: AppShellProps) {
           )
           : (
             <div className="relative min-h-[100svh]">
-              {resolvedMapChildren}
               <div className="relative z-20">
                 <MapLoadingStage backgroundPosition="fixed" />
               </div>
             </div>
           );
     } else {
-      shellContent = <AppLoadingSurface />;
+      loadingContent = <AppLoadingSurface />;
     }
   }
 
@@ -78,14 +66,27 @@ export default function AppShell({ children, progress }: AppShellProps) {
         className={cn(
           "mx-auto w-full px-6 pb-28",
           pendingNavigationActive && "pointer-events-none",
-          isMapa
+          mapSceneActive
             ? "max-w-none px-0 pb-0 pt-0"
             : "max-w-7xl pt-[calc(var(--app-header-height,96px)+0.75rem)]"
         )}
         data-pending-navigation={pendingNavigationActive ? "true" : "false"}
-        data-pending-resolved={pendingNavigationResolved ? "true" : "false"}
+        data-pending-resolved={pendingNavigationActive ? "false" : "true"}
       >
-        {shellContent}
+        <div className={cn("relative", mapSceneActive && "min-h-[100svh]")}>
+          <div
+            aria-hidden={hideRouteContent}
+            className={cn(
+              hideRouteContent
+                ? "pointer-events-none invisible absolute inset-0 z-10"
+                : "relative z-10"
+            )}
+          >
+            {children}
+          </div>
+
+          {pendingNavigationActive ? <div className="relative z-20">{loadingContent}</div> : null}
+        </div>
       </main>
       <MapProgressTransitionLayer progress={progress} />
       <div

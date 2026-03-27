@@ -22,6 +22,7 @@ export type MapTransitionState = {
   pendingPath: AppSection | null;
   pendingSection: AppSection | null;
   loaderKind: LoaderKind;
+  mapContentReady: boolean;
   startedFromSection: AppSection | null;
   mapEntryPhase: MapEntryPhase;
   transitionStartedAt: number | null;
@@ -43,6 +44,7 @@ export const DEFAULT_MAP_TRANSITION_STATE: MapTransitionState = {
   pendingPath: null,
   pendingSection: null,
   loaderKind: null,
+  mapContentReady: false,
   startedFromSection: null,
   mapEntryPhase: "idle",
   transitionStartedAt: null,
@@ -114,6 +116,7 @@ export const buildPendingNavigationState = (
     pendingPath: pendingSection,
     pendingSection,
     loaderKind: isMapDestination ? ("map" as const) : ("app" as const),
+    mapContentReady: false,
     startedFromSection,
     mapEntryPhase: isSummaryToMap ? ("bar-drop" as const) : ("loader" as const),
     transitionStartedAt: startedAt,
@@ -134,6 +137,7 @@ export const buildTransitionResetPatch = (pathname: string): Partial<MapTransiti
   pendingPath: null,
   pendingSection: null,
   loaderKind: null,
+  mapContentReady: false,
   startedFromSection: null,
   mapEntryPhase: "idle",
   transitionStartedAt: null,
@@ -162,6 +166,7 @@ export const isMapTransitionStateEqual = (
   first.pendingPath === second.pendingPath &&
   first.pendingSection === second.pendingSection &&
   first.loaderKind === second.loaderKind &&
+  first.mapContentReady === second.mapContentReady &&
   first.startedFromSection === second.startedFromSection &&
   first.mapEntryPhase === second.mapEntryPhase &&
   first.transitionStartedAt === second.transitionStartedAt &&

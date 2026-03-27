@@ -8,10 +8,10 @@ describe("app shell map loading source", () => {
     "utf8"
   );
 
-  it("keeps the map page mounted invisibly once the route resolves so the shared loader does not restart", () => {
-    expect(componentSource).toContain("resolvedMapChildren");
-    expect(componentSource).toContain("pendingNavigationResolved && pathname.startsWith(\"/mapa\")");
-    expect(componentSource).toContain("aria-hidden=\"true\"");
-    expect(componentSource).toContain("invisible pointer-events-none");
+  it("keeps route content mounted under a stable hidden wrapper while a pending navigation loader is visible", () => {
+    expect(componentSource).toContain("aria-hidden={hideRouteContent}");
+    expect(componentSource).toContain("pointer-events-none invisible absolute inset-0 z-10");
+    expect(componentSource).toContain("{children}");
+    expect(componentSource).toContain("{pendingNavigationActive ? <div className=\"relative z-20\">{loadingContent}</div> : null}");
   });
 });

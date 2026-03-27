@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useMapTransitionState } from "@/components/layout/map-transition-coordinator";
+import { setMapTransitionState } from "@/components/layout/map-transition-store";
 import MapLoadingStage from "@/components/map/map-loading-stage";
 import MapView from "@/components/map/map-view";
 import type { MapEdge, MapNode } from "@/lib/map/types";
@@ -19,7 +20,10 @@ export default function MapViewStage({ nodes, edges }: MapViewStageProps) {
 
   const handleReady = useCallback(() => {
     setReady(true);
-  }, []);
+    if (transitionState.pendingPath === "/mapa") {
+      setMapTransitionState({ mapContentReady: true });
+    }
+  }, [transitionState.pendingPath]);
 
   return (
     <div className="relative">

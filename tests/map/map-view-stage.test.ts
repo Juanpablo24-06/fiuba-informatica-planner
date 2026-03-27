@@ -20,4 +20,9 @@ describe("map view stage source", () => {
     expect(componentSource).toContain("transitionState.transitioning && transitionState.pendingPath === \"/mapa\"");
     expect(componentSource).toContain("!ready && !suppressLoader");
   });
+
+  it("reports map readiness back to the shared transition state", () => {
+    expect(componentSource).toContain("setMapTransitionState");
+    expect(componentSource).toContain("mapContentReady: true");
+  });
 });

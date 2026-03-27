@@ -16,4 +16,10 @@ describe("map transition layer source", () => {
     expect(componentSource).toContain("requestAnimationFrame");
     expect(componentSource).toContain("data-progress-transition-clone");
   });
+
+  it("moves the cloned bar without scaling its text content", () => {
+    expect(componentSource).not.toContain("scale(");
+    expect(componentSource).toContain("left:");
+    expect(componentSource).toContain("width:");
+  });
 });

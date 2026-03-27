@@ -24,4 +24,8 @@ describe("map scene background source", () => {
     expect(componentSource).toContain("position?: \"absolute\" | \"fixed\"");
     expect(componentSource).toContain("position === \"fixed\" ? \"fixed\" : \"absolute\"");
   });
+
+  it("keeps the top glow fully opaque enough to avoid a washed-out horizontal seam", () => {
+    expect(componentSource).not.toContain("opacity-80");
+  });
 });

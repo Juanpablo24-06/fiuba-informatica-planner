@@ -65,6 +65,7 @@ export default function SectionLink({
       animateMapBar: shouldAnimateMapBar,
       mapEntryPhase: shouldAnimateMapBar ? pendingState.mapEntryPhase : "loader",
       loaderStartedAt: shouldAnimateMapBar ? pendingState.loaderStartedAt : startedAt,
+      mapContentReady: false,
       transitionSource,
       transitioning: true,
       launcherMode: getLauncherModeForSection(nextSection),
