@@ -13,6 +13,7 @@ describe("map view stage source", () => {
     expect(componentSource).toContain("aria-hidden={!revealMap}");
     expect(componentSource).toContain("invisible opacity-0");
     expect(componentSource).toContain("visible opacity-100");
+    expect(componentSource).not.toContain("transition-opacity duration-150");
   });
 
   it("suppresses the stage loader when the shared shell transition is already loading map", () => {

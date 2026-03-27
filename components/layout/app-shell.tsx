@@ -77,7 +77,7 @@ export default function AppShell({ children, progress }: AppShellProps) {
             aria-hidden={hideRouteContent}
             className={cn(
               hideRouteContent
-                ? "pointer-events-none invisible absolute inset-0 z-10"
+                ? "pointer-events-none hidden absolute inset-0 z-10"
                 : "relative z-10"
             )}
           >

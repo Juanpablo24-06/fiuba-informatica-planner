@@ -39,7 +39,7 @@ export default function MapViewStage({ nodes, edges }: MapViewStageProps) {
         aria-hidden={!revealMap}
         className={
           revealMap
-            ? "visible opacity-100 transition-opacity duration-150"
+            ? "visible opacity-100"
             : "invisible opacity-0"
         }
       >
