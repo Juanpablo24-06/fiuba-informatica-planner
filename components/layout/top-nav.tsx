@@ -6,6 +6,7 @@ import { CalendarDays, LayoutGrid, MapPinned, Settings } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import type { CSSProperties } from "react";
 import { useMapTransitionState } from "@/components/layout/map-transition-coordinator";
+import { armMapEntryLoader } from "@/lib/map/map-entry-transition";
 import { cn } from "@/lib/utils";
 import BrandLogo from "@/components/layout/brand-logo";
 import ProfileMenu from "@/components/layout/profile-menu";
@@ -94,6 +95,11 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  onClick={() => {
+                    if (item.href === "/mapa") {
+                      armMapEntryLoader();
+                    }
+                  }}
                   data-map-transition-source={
                     item.href === "/mapa"
                       ? "top-nav-map"
@@ -159,6 +165,11 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  onClick={() => {
+                    if (item.href === "/mapa") {
+                      armMapEntryLoader();
+                    }
+                  }}
                   data-map-transition-source={
                     item.href === "/mapa"
                       ? "top-nav-map"

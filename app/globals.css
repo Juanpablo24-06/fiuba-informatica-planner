@@ -561,6 +561,90 @@ body :is(div, section, article, aside, header, footer, nav, button, a, input, se
     transition: transform 300ms ease;
     transform: scale(1.18) rotate(6deg);
   }
+
+  @keyframes map-loader-node {
+
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) scale(1);
+      box-shadow: 0 22px 44px -34px rgb(var(--shadow-color) / 0.45);
+    }
+
+    50% {
+      transform: translate3d(0, -8px, 0) scale(1.015);
+      box-shadow: 0 26px 52px -32px rgb(var(--shadow-color) / 0.54);
+    }
+  }
+
+  @keyframes map-loader-line {
+    0% {
+      stroke-dashoffset: 60;
+      opacity: 0.18;
+    }
+
+    40% {
+      opacity: 0.92;
+    }
+
+    100% {
+      stroke-dashoffset: 0;
+      opacity: 0.24;
+    }
+  }
+
+  @keyframes map-loader-pulse {
+
+    0%,
+    100% {
+      transform: scale(1);
+      opacity: 0.55;
+    }
+
+    50% {
+      transform: scale(1.35);
+      opacity: 1;
+    }
+  }
+
+  @keyframes map-loader-footer {
+
+    0%,
+    100% {
+      transform: scaleX(0.86);
+      opacity: 0.36;
+    }
+
+    50% {
+      transform: scaleX(1);
+      opacity: 0.84;
+    }
+  }
+
+  .animate-map-loader-node {
+    animation: map-loader-node 2.8s cubic-bezier(.25, .8, .25, 1) infinite;
+  }
+
+  .animate-map-loader-line {
+    animation: map-loader-line 1.9s linear infinite;
+  }
+
+  .animate-map-loader-pulse {
+    animation: map-loader-pulse 1.8s ease-in-out infinite;
+  }
+
+  .animate-map-loader-footer {
+    transform-origin: left center;
+    animation: map-loader-footer 1.9s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-map-loader-node,
+    .animate-map-loader-line,
+    .animate-map-loader-pulse,
+    .animate-map-loader-footer {
+      animation: none;
+    }
+  }
 }
 
 /* ─── Dark mode — component-level harmony ─── */

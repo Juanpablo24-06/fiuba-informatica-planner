@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { armMapEntryLoader } from "@/lib/map/map-entry-transition";
 
 const isTypingTarget = (target: EventTarget | null) => {
   if (!target || !(target instanceof HTMLElement)) return false;
@@ -19,6 +20,7 @@ export default function ShortcutHandler() {
         router.push("/");
       }
       if (key === "m") {
+        armMapEntryLoader();
         router.push("/mapa");
       }
       if (key === "h") {
