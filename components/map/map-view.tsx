@@ -1,635 +1,51 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { EvaluationTemplate } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { formatEvaluationTemplate } from "@/lib/templates";
-import { Badge } from "@/components/ui/badge";
+import MapDetailContent from "@/components/map/map-detail-content";
+import { MapNodeCard } from "@/components/map/map-node-card";
 import { Button } from "@/components/ui/button";
-
-export type MapNode = {
-  id: string;
-  name: string;
-  code: string | null;
-  term: number | null;
-  type: string | null;
-  cycle?: string | null;
-  status?: string | null;
-  color?: string | null;
-  requirements?: string[] | null;
-  credits?: number | null;
-  weekly_hours?: number | null;
-  total_hours?: number | null;
-  template?: EvaluationTemplate | null;
-  display_kind?: "final_project" | "cbc_cluster" | null;
-  progress_credits?: number | null;
-};
-
-export type MapEdge = {
-  from: string;
-  to: string;
-};
-
-type LinePath = {
-  from: string;
-  to: string;
-  d: string;
-};
-
-type Transform = {
-  x: number;
-  y: number;
-  scale: number;
-};
-
-type NodeLayout = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  lane: number;
-};
-
-type SectionLayout = {
-  term: number;
-  left: number;
-  width: number;
-};
-
-type LayoutResult = {
-  nodeLayouts: Record<string, NodeLayout>;
-  sections: SectionLayout[];
-  width: number;
-  height: number;
-};
-
-type FinalProjectTrack = "tesis" | "trabajo_profesional";
-
-const STATUS_STYLES: Record<string, string> = {
-  cursando: "bg-accent/10 text-accent border-accent/40",
-  final_pendiente: "bg-warning/10 text-warning border-warning/40",
-  aprobado: "bg-success/10 text-success border-success/40",
-  recursar: "bg-danger/10 text-danger border-danger/40"
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  cursando: "Cursando",
-  final_pendiente: "Final pendiente",
-  aprobado: "Aprobado",
-  recursar: "Recursar"
-};
-
-const CYCLE_LABELS: Record<string, string> = {
-  cbc: "CBC",
-  segundo: "Segundo ciclo"
-};
-
-const MIN_ZOOM = 0.12;
-const MAX_ZOOM = 1.7;
-const ZOOM_FACTOR = 1.12;
-const DESKTOP_PANEL_WIDTH = 340;
-
-const WORLD_PADDING_X = 72;
-const WORLD_PADDING_Y = 52;
-const SECTION_GAP = 84;
-const SECTION_SIDE_PADDING = 16;
-const ROW_GAP = 18;
-const LANE_COUNT = 7;
-const NODE_WIDTH = 208;
-const NODE_MIN_HEIGHT = 108;
-const SLOT_GAP = 58;
-const GENERIC_ELECTIVE_NAMES = new Set(["Electivas/Optativas I", "Electivas/Optativas II"]);
-const DRAG_THRESHOLD = 8;
-const MAP_VIEW_STORAGE_KEY = "fiuba-map-view-v2";
-const MAP_FINAL_TRACK_STORAGE_KEY = "fiuba-map-final-track-v1";
-const MAP_CBC_COLLAPSED_STORAGE_KEY = "fiuba-map-cbc-collapsed-v1";
-const PAN_DRAG_MULTIPLIER = 1.18;
-const CBC_CLUSTER_NODE_ID = "__cbc__";
-const CBC_SUBJECT_NAMES = new Set([
-  "Introducción al Conocimiento de la Sociedad y el Estado",
-  "Introducción al Pensamiento Científico",
-  "Análisis Matemático A",
-  "Álgebra A",
-  "Física",
-  "Pensamiento Computacional"
-]);
-const OFFICIAL_ELECTIVE_ORDER = [
-  "Lenguajes y Compiladores I",
-  "Fundamentos Matemáticos de la Criptografía",
-  "Criptografía I",
-  "Criptografía II",
-  "Sistemas Distribuidos II",
-  "Técnicas de Ingeniería Inversa",
-  "Criptoanálisis",
-  "Ingeniería de Datos",
-  "Optimización Convexa",
-  "Aprendizaje Automático",
-  "Aprendizaje Profundo",
-  "Aprendizaje por Refuerzo",
-  "Simulación",
-  "Sistemas Complejos",
-  "Redes Complejas",
-  "Teoría Algorítmica de Juegos",
-  "Teoría de Computabilidad",
-  "Teoría de la Información",
-  "Computación Cuántica",
-  "Lenguajes y Compiladores II",
-  "Análisis Matemático III",
-  "Arquitectura de Software"
-] as const;
-const ELECTIVE_ORDER_INDEX = new Map<string, number>(
-  OFFICIAL_ELECTIVE_ORDER.map((name, index) => [name, index])
-);
-const OFFICIAL_REQUIRED_ORDER = [
-  "Introducción al Conocimiento de la Sociedad y el Estado",
-  "Introducción al Pensamiento Científico",
-  "Análisis Matemático A",
-  "Álgebra A",
-  "Física",
-  "Pensamiento Computacional",
-  "Análisis Matemático II",
-  "Fundamentos de Programación",
-  "Introducción al Desarrollo de Software",
-  "Álgebra Lineal",
-  "Organización del Computador",
-  "Algoritmos y Estructuras de Datos",
-  "Paradigmas de Programación",
-  "Probabilidad y Estadística",
-  "Sistemas Operativos",
-  "Teoría de Algoritmos",
-  "Modelación Numérica",
-  "Base de Datos",
-  "Taller de Programación",
-  "Ingeniería de Software I",
-  "Ciencia de Datos",
-  "Programación Concurrente",
-  "Redes",
-  "Gestión del Desarrollo de Sistemas Informáticos",
-  "Física para Informática",
-  "Empresas de Base Tecnológica I",
-  "Ingeniería de Software II",
-  "Sistemas Distribuidos I",
-  "Taller de Seguridad Informática",
-  "Empresas de Base Tecnológica II",
-  "Trabajo Integrador Final"
-] as const;
-const REQUIRED_ORDER_INDEX = new Map<string, number>(
-  OFFICIAL_REQUIRED_ORDER.map((name, index) => [name, index])
-);
-const FIXED_NODE_POSITIONS = new Map<string, { column: number; lane: number }>([
-  ["Introducción al Conocimiento de la Sociedad y el Estado", { column: 0, lane: 5.2 }],
-  ["Introducción al Pensamiento Científico", { column: 1, lane: 5.2 }],
-  ["Análisis Matemático A", { column: 0, lane: 1.1 }],
-  ["Álgebra A", { column: 0, lane: 3.2 }],
-  ["Física", { column: 1, lane: 1.1 }],
-  ["Pensamiento Computacional", { column: 1, lane: 3.2 }],
-  ["Ciclo Básico Común", { column: 2, lane: 3.1 }],
-  ["Análisis Matemático II", { column: 0, lane: 0.3 }],
-  ["Fundamentos de Programación", { column: 0, lane: 2.1 }],
-  ["Introducción al Desarrollo de Software", { column: 0, lane: 4.1 }],
-  ["Álgebra Lineal", { column: 0, lane: 0.3 }],
-  ["Organización del Computador", { column: 0, lane: 2.1 }],
-  ["Algoritmos y Estructuras de Datos", { column: 0, lane: 4.1 }],
-  ["Paradigmas de Programación", { column: 0, lane: 0.2 }],
-  ["Probabilidad y Estadística", { column: 0, lane: 2.1 }],
-  ["Sistemas Operativos", { column: 0, lane: 4.1 }],
-  ["Teoría de Algoritmos", { column: 0, lane: 6 }],
-  ["Modelación Numérica", { column: 0, lane: 0.2 }],
-  ["Base de Datos", { column: 0, lane: 2.1 }],
-  ["Taller de Programación", { column: 0, lane: 4.1 }],
-  ["Ingeniería de Software I", { column: 0, lane: 6 }],
-  ["Ciencia de Datos", { column: 0, lane: 0.2 }],
-  ["Programación Concurrente", { column: 0, lane: 2.1 }],
-  ["Redes", { column: 0, lane: 4.1 }],
-  ["Gestión del Desarrollo de Sistemas Informáticos", { column: 0, lane: 6 }],
-  ["Física para Informática", { column: 0, lane: 0.2 }],
-  ["Empresas de Base Tecnológica I", { column: 0, lane: 2.1 }],
-  ["Ingeniería de Software II", { column: 0, lane: 4.1 }],
-  ["Sistemas Distribuidos I", { column: 0, lane: 6 }],
-  ["Taller de Seguridad Informática", { column: 0, lane: 4.1 }],
-  ["Empresas de Base Tecnológica II", { column: 0, lane: 2.1 }],
-  ["Trabajo Integrador Final", { column: 0, lane: 4.1 }],
-  ["Lenguajes y Compiladores I", { column: 0, lane: 0.1 }],
-  ["Fundamentos Matemáticos de la Criptografía", { column: 0, lane: 1.15 }],
-  ["Criptografía I", { column: 0, lane: 2.2 }],
-  ["Sistemas Distribuidos II", { column: 0, lane: 3.25 }],
-  ["Ingeniería de Datos", { column: 0, lane: 4.3 }],
-  ["Optimización Convexa", { column: 0, lane: 5.35 }],
-  ["Aprendizaje Automático", { column: 0, lane: 6 }],
-  ["Criptografía II", { column: 1, lane: 1.3 }],
-  ["Sistemas Complejos", { column: 1, lane: 3.15 }],
-  ["Teoría Algorítmica de Juegos", { column: 1, lane: 4.95 }],
-  ["Análisis Matemático III", { column: 1, lane: 6 }],
-  ["Arquitectura de Software", { column: 1, lane: 5.95 }],
-  ["Simulación", { column: 1, lane: 2.05 }],
-  ["Técnicas de Ingeniería Inversa", { column: 2, lane: 3.35 }],
-  ["Criptoanálisis", { column: 2, lane: 5.2 }],
-  ["Aprendizaje Profundo", { column: 0, lane: 0.15 }],
-  ["Aprendizaje por Refuerzo", { column: 0, lane: 1.25 }],
-  ["Redes Complejas", { column: 0, lane: 2.45 }],
-  ["Teoría de Computabilidad", { column: 0, lane: 3.6 }],
-  ["Teoría de la Información", { column: 0, lane: 4.75 }],
-  ["Computación Cuántica", { column: 0, lane: 5.9 }],
-  ["Lenguajes y Compiladores II", { column: 0, lane: 6 }]
-]);
-
-const clamp = (value: number, min: number, max: number) =>
-  Math.min(Math.max(value, min), max);
-
-const chunk = <T,>(items: T[], size: number) => {
-  const rows: T[][] = [];
-  for (let index = 0; index < items.length; index += size) {
-    rows.push(items.slice(index, index + size));
-  }
-  return rows;
-};
-
-const formatList = (items?: string[] | null) => {
-  if (!items || items.length === 0) return "Sin datos";
-  return items.join(" · ");
-};
-
-const formatPreviewList = (items: string[]) => {
-  if (!items.length) return "Ninguna";
-  const slice = items.slice(0, 2);
-  const extra = items.length - slice.length;
-  return extra > 0 ? `${slice.join(" · ")} +${extra}` : slice.join(" · ");
-};
-
-const formatFinalProjectProgress = (credits?: number | null) =>
-  `${Math.min(12, credits ?? 0)}/12 créditos`;
-const formatCbcProgress = (credits?: number | null) => `${Math.min(38, credits ?? 0)}/38 créditos`;
-
-const getNodeTerm = (node?: MapNode) => node?.term ?? 0;
-const getOrderedTerms = (nodes: MapNode[]) =>
-  Array.from(new Set(nodes.map((node) => getNodeTerm(node)).filter((term) => term > 0))).sort(
-    (a, b) => a - b
-  );
-
-const isGenericElectiveNode = (node: MapNode) => GENERIC_ELECTIVE_NAMES.has(node.name);
-const isCbcClusterNode = (node?: MapNode | null) => node?.display_kind === "cbc_cluster";
-const isCbcLeafNode = (node?: MapNode | null) =>
-  Boolean(node && !isCbcClusterNode(node) && CBC_SUBJECT_NAMES.has(node.name));
-
-const isFinalProjectNode = (node?: MapNode | null) =>
-  Boolean(
-    node &&
-      (node.display_kind === "final_project" ||
-        /Trabajo Integrador Final|Tesis\/Trabajo Profesional/i.test(node.name))
-  );
-
-const getFinalProjectStage = (node?: MapNode | null) =>
-  node?.term === 10 || /II$/i.test(node?.name ?? "") ? "II" : "I";
-
-const getDisplayNodeName = (node: MapNode, track: FinalProjectTrack) => {
-  if (isCbcClusterNode(node)) return "Ciclo Básico Común";
-  if (!isFinalProjectNode(node)) return node.name;
-  if (node.display_kind === "final_project") {
-    return "Trabajo Integrador Final";
-  }
-  const base =
-    track === "tesis"
-      ? "Tesis de Ingeniería Informática"
-      : "Trabajo Profesional de Ingeniería Informática";
-  return `${base} ${getFinalProjectStage(node)}`;
-};
-
-const getDisplayNodeMeta = (node: MapNode) => {
-  if (isCbcClusterNode(node)) return "CBC · tramo inicial";
-  if (!isFinalProjectNode(node)) return node.code ?? "Sin código";
-  if (node.display_kind === "final_project") return "TIF · tramo final";
-  return `TIF · ${getNodeTerm(node)}° cuatrimestre`;
-};
-
-const getFixedNodePosition = (node: MapNode) => FIXED_NODE_POSITIONS.get(node.name) ?? null;
-
-const buildEdgeMaps = (edges: MapEdge[]) => {
-  const incomingByNode = new Map<string, string[]>();
-  const outgoingByNode = new Map<string, string[]>();
-
-  edges.forEach((edge) => {
-    if (!incomingByNode.has(edge.to)) incomingByNode.set(edge.to, []);
-    incomingByNode.get(edge.to)?.push(edge.from);
-
-    if (!outgoingByNode.has(edge.from)) outgoingByNode.set(edge.from, []);
-    outgoingByNode.get(edge.from)?.push(edge.to);
-  });
-
-  return { incomingByNode, outgoingByNode };
-};
-
-const sortByAnchor = (
-  items: MapNode[],
-  incomingByNode: Map<string, string[]>,
-  placements: Record<string, NodeLayout>,
-  nodesById: Map<string, MapNode>
-) => {
-  const centerLane = (LANE_COUNT - 1) / 2;
-  const getExplicitOrder = (node: MapNode) => {
-    if (node.type === "electiva") {
-      return ELECTIVE_ORDER_INDEX.get(node.name);
-    }
-    return REQUIRED_ORDER_INDEX.get(node.name);
-  };
-
-  const getAnchorLane = (node: MapNode) => {
-    const parentIds = incomingByNode.get(node.id) ?? [];
-    const weights = parentIds
-      .map((parentId) => {
-        const layout = placements[parentId];
-        const parent = nodesById.get(parentId);
-        if (!layout || !parent) return null;
-        const weight = parent.type === "electiva" ? 1.35 : 1;
-        return { lane: layout.lane, weight };
-      })
-      .filter(Boolean) as Array<{ lane: number; weight: number }>;
-
-    if (!weights.length) return centerLane;
-
-    const weightedTotal = weights.reduce((sum, item) => sum + item.lane * item.weight, 0);
-    const totalWeight = weights.reduce((sum, item) => sum + item.weight, 0);
-    return weightedTotal / totalWeight;
-  };
-
-  return [...items].sort((first, second) => {
-    const firstIndex = getExplicitOrder(first);
-    const secondIndex = getExplicitOrder(second);
-    if (
-      typeof firstIndex === "number" &&
-      typeof secondIndex === "number" &&
-      firstIndex !== secondIndex
-    ) {
-      return firstIndex - secondIndex;
-    }
-    const firstAnchor = getAnchorLane(first);
-    const secondAnchor = getAnchorLane(second);
-    if (firstAnchor !== secondAnchor) return firstAnchor - secondAnchor;
-    return first.name.localeCompare(second.name);
-  });
-};
-
-const assignLanes = (
-  items: MapNode[],
-  incomingByNode: Map<string, string[]>,
-  placements: Record<string, NodeLayout>,
-  nodesById: Map<string, MapNode>
-) => {
-  if (items.length >= LANE_COUNT) {
-    return items.map((_, index) => index);
-  }
-
-  const centerLane = (LANE_COUNT - 1) / 2;
-  const anchors = items.map((node) => {
-    const parentIds = incomingByNode.get(node.id) ?? [];
-    const parentLanes = parentIds
-      .map((parentId) => {
-        const layout = placements[parentId];
-        const parent = nodesById.get(parentId);
-        if (!layout || !parent) return null;
-        const weight = parent.type === "electiva" ? 1.35 : 1;
-        return { lane: layout.lane, weight };
-      })
-      .filter(Boolean) as Array<{ lane: number; weight: number }>;
-
-    if (!parentLanes.length) return centerLane;
-
-    const weightedTotal = parentLanes.reduce((sum, item) => sum + item.lane * item.weight, 0);
-    const totalWeight = parentLanes.reduce((sum, item) => sum + item.weight, 0);
-    return weightedTotal / totalWeight;
-  });
-
-  const averageAnchor =
-    anchors.reduce((sum, value) => sum + value, 0) / Math.max(anchors.length, 1);
-
-  if (items.length === 1) {
-    return [clamp(averageAnchor, 1.1, LANE_COUNT - 2.1)];
-  }
-
-  const edgeInset = 0.7;
-  const desiredSpan = clamp((items.length - 1) * 1.85, 2.9, LANE_COUNT - 1 - edgeInset * 2);
-  const halfSpan = desiredSpan / 2;
-  const center = clamp(
-    averageAnchor,
-    edgeInset + halfSpan,
-    LANE_COUNT - 1 - edgeInset - halfSpan
-  );
-  const step = desiredSpan / (items.length - 1);
-
-  return items.map((_, index) => center - halfSpan + step * index);
-};
-
-const computeHorizontalLayout = (nodes: MapNode[], edges: MapEdge[]): LayoutResult => {
-  const nodesById = new Map(nodes.map((node) => [node.id, node]));
-  const { incomingByNode } = buildEdgeMaps(edges);
-  const placements: Record<string, NodeLayout> = {};
-  const sections: SectionLayout[] = [];
-  const terms = getOrderedTerms(nodes);
-  const slotHeight = NODE_MIN_HEIGHT + ROW_GAP;
-  const laneToY = (lane: number) => WORLD_PADDING_Y + lane * slotHeight;
-
-  let currentLeft = WORLD_PADDING_X;
-
-  for (const term of terms) {
-    const termNodes = nodes.filter((node) => getNodeTerm(node) === term);
-    if (!termNodes.length) continue;
-
-    const sectionLeft = currentLeft;
-    let cursorX = sectionLeft + SECTION_SIDE_PADDING;
-    let fixedContentWidth = 0;
-
-    const fixedNodes = termNodes.filter((node) => getFixedNodePosition(node));
-    const floatingNodes = termNodes.filter((node) => !getFixedNodePosition(node));
-
-    if (fixedNodes.length) {
-      fixedNodes.forEach((node) => {
-        const position = getFixedNodePosition(node);
-        if (!position) return;
-        const x = sectionLeft + SECTION_SIDE_PADDING + position.column * (NODE_WIDTH + SLOT_GAP);
-        const y = laneToY(position.lane);
-        placements[node.id] = {
-          x,
-          y,
-          width: NODE_WIDTH,
-          height: NODE_MIN_HEIGHT,
-          lane: position.lane
-        };
-        fixedContentWidth = Math.max(
-          fixedContentWidth,
-          (position.column + 1) * NODE_WIDTH + position.column * SLOT_GAP
-        );
-      });
-      cursorX = sectionLeft + SECTION_SIDE_PADDING + fixedContentWidth + (fixedContentWidth ? SLOT_GAP : 0);
-    }
-
-    const placeColumn = (columnNodes: MapNode[]) => {
-      const sorted = sortByAnchor(columnNodes, incomingByNode, placements, nodesById);
-      const columns = chunk(sorted, LANE_COUNT);
-
-      columns.forEach((column) => {
-        const lanes = assignLanes(column, incomingByNode, placements, nodesById);
-        column.forEach((node, index) => {
-          placements[node.id] = {
-            x: cursorX,
-            y: laneToY(lanes[index]),
-            width: NODE_WIDTH,
-            height: NODE_MIN_HEIGHT,
-            lane: lanes[index]
-          };
-        });
-        cursorX += NODE_WIDTH + SLOT_GAP;
-      });
-    };
-
-    if (floatingNodes.length) {
-      const genericElectives = floatingNodes
-        .filter((node) => isGenericElectiveNode(node))
-        .sort((a, b) => a.name.localeCompare(b.name));
-
-      const mainNodes = sortByAnchor(
-        floatingNodes.filter((node) => node.type !== "electiva"),
-        incomingByNode,
-        placements,
-        nodesById
-      );
-
-      const electiveNodes = floatingNodes.filter(
-        (node) => node.type === "electiva" && !isGenericElectiveNode(node)
-      );
-
-      if (mainNodes.length) {
-        placeColumn(mainNodes);
-      }
-
-      if (electiveNodes.length) {
-        const sameTermElectiveIds = new Set(electiveNodes.map((node) => node.id));
-        const levelMemo = new Map<string, number>();
-
-        const getElectiveLevel = (nodeId: string): number => {
-          const cached = levelMemo.get(nodeId);
-          if (typeof cached === "number") return cached;
-
-          const parents = (incomingByNode.get(nodeId) ?? []).filter((parentId) =>
-            sameTermElectiveIds.has(parentId)
-          );
-
-          const nextLevel = parents.length
-            ? Math.max(...parents.map((parentId) => getElectiveLevel(parentId))) + 1
-            : 0;
-
-          levelMemo.set(nodeId, nextLevel);
-          return nextLevel;
-        };
-
-        const levels = new Map<number, MapNode[]>();
-
-        electiveNodes.forEach((node) => {
-          const level = getElectiveLevel(node.id);
-          if (!levels.has(level)) levels.set(level, []);
-          levels.get(level)?.push(node);
-        });
-
-        Array.from(levels.keys())
-          .sort((a, b) => a - b)
-          .forEach((level) => {
-            placeColumn(levels.get(level) ?? []);
-          });
-      }
-
-      if (genericElectives.length) {
-        placeColumn(genericElectives);
-      }
-    }
-
-    const computedFlowWidth = Math.max(
-      0,
-      cursorX - sectionLeft - SECTION_SIDE_PADDING - (cursorX > sectionLeft + SECTION_SIDE_PADDING ? SLOT_GAP : 0)
-    );
-    const contentWidth = Math.max(NODE_WIDTH, fixedContentWidth, computedFlowWidth);
-    const sectionWidth = contentWidth + SECTION_SIDE_PADDING * 2;
-    sections.push({
-      term,
-      left: sectionLeft,
-      width: sectionWidth
-    });
-
-    currentLeft += sectionWidth + SECTION_GAP;
-  }
-
-  const width = Math.max(
-    WORLD_PADDING_X * 2 + NODE_WIDTH,
-    currentLeft - SECTION_GAP + WORLD_PADDING_X
-  );
-  const height =
-    WORLD_PADDING_Y * 2 + NODE_MIN_HEIGHT + (LANE_COUNT - 1) * (NODE_MIN_HEIGHT + ROW_GAP);
-
-  return {
-    nodeLayouts: placements,
-    sections,
-    width,
-    height
-  };
-};
-
-const buildLinePaths = (positions: Record<string, NodeLayout>, edges: MapEdge[]): LinePath[] => {
-  const outgoingTotal = new Map<string, number>();
-  const incomingTotal = new Map<string, number>();
-
-  edges.forEach((edge) => {
-    outgoingTotal.set(edge.from, (outgoingTotal.get(edge.from) ?? 0) + 1);
-    incomingTotal.set(edge.to, (incomingTotal.get(edge.to) ?? 0) + 1);
-  });
-
-  const outgoingSeen = new Map<string, number>();
-  const incomingSeen = new Map<string, number>();
-
-  return edges
-    .map((edge) => {
-      const from = positions[edge.from];
-      const to = positions[edge.to];
-      if (!from || !to) return null;
-
-      const fromTotal = outgoingTotal.get(edge.from) ?? 1;
-      const toTotal = incomingTotal.get(edge.to) ?? 1;
-      const fromOrder = outgoingSeen.get(edge.from) ?? 0;
-      const toOrder = incomingSeen.get(edge.to) ?? 0;
-
-      outgoingSeen.set(edge.from, fromOrder + 1);
-      incomingSeen.set(edge.to, toOrder + 1);
-
-      const fromLaneOffset =
-        ((fromOrder + 1) / (fromTotal + 1) - 0.5) * Math.max(20, from.height * 0.54);
-      const toLaneOffset =
-        ((toOrder + 1) / (toTotal + 1) - 0.5) * Math.max(20, to.height * 0.54);
-
-      const inset = 18;
-      const x1 = from.x + from.width + 1;
-      const y1 = clamp(
-        from.y + from.height / 2 + fromLaneOffset,
-        from.y + inset,
-        from.y + from.height - inset
-      );
-      const x2 = to.x - 1;
-      const y2 = clamp(
-        to.y + to.height / 2 + toLaneOffset,
-        to.y + inset,
-        to.y + to.height - inset
-      );
-      const deltaX = x2 - x1;
-      const travelX = Math.max(56, Math.abs(deltaX));
-      const curveX = Math.max(52, Math.min(220, travelX * 0.42));
-      const verticalDrift = Math.min(28, Math.abs(y2 - y1) * 0.18);
-      const horizontalDirection = x2 >= x1 ? 1 : -1;
-      const verticalDirection = y2 >= y1 ? 1 : -1;
-      const c1x = x1 + curveX * horizontalDirection;
-      const c2x = x2 - curveX * horizontalDirection;
-      const c1y = y1 + verticalDrift * verticalDirection;
-      const c2y = y2 - verticalDrift * verticalDirection;
-      const d = `M ${x1} ${y1} C ${c1x} ${c1y} ${c2x} ${c2y} ${x2} ${y2}`;
-
-      return { from: edge.from, to: edge.to, d };
-    })
-    .filter(Boolean) as LinePath[];
-};
+import {
+  clamp,
+  buildLinePaths,
+  computeHorizontalLayout,
+  getDisplayNodeMeta,
+  getDisplayNodeName,
+  isCbcClusterNode,
+  isCbcLeafNode
+} from "@/lib/map/map-layout";
+import {
+  computeFocusedNodeTransform,
+  computePinchTransform,
+  computeZoomTransform,
+  findNearestSheetState,
+  getClampedTransform,
+  getDefaultFocusBounds,
+  getSheetSizePreset,
+  resolveInitialMapTransform
+} from "@/lib/map/map-camera";
+import {
+  buildMapEdgeIndex,
+  buildNodePreviewIndex,
+  buildVisibleNodeIds
+} from "@/lib/map/map-view-state";
+import type {
+  FinalProjectTrack,
+  MapEdge,
+  MapNode,
+  Transform
+} from "@/lib/map/types";
+import {
+  DRAG_THRESHOLD,
+  MAP_CBC_COLLAPSED_STORAGE_KEY,
+  MAP_FINAL_TRACK_STORAGE_KEY,
+  MAP_VIEW_STORAGE_KEY,
+  MAX_ZOOM,
+  MIN_ZOOM,
+  PAN_DRAG_MULTIPLIER,
+  STATUS_LABELS,
+  ZOOM_FACTOR
+} from "@/lib/map/map-constants";
 
 export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: MapEdge[] }) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -779,12 +195,10 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
     }
   }, [collapseCbc]);
 
-  const sheetSizes = useMemo(() => {
-    const collapsed = 126;
-    const half = Math.max(256, Math.min(430, viewportHeight * 0.54));
-    const full = Math.max(360, Math.min(700, viewportHeight * 0.84));
-    return { collapsed, half, full };
-  }, [viewportHeight]);
+  const sheetSizes = useMemo(
+    () => getSheetSizePreset(viewportHeight),
+    [viewportHeight]
+  );
 
   useEffect(() => {
     if (isDraggingSheet) return;
@@ -825,17 +239,15 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
 
   const nodesById = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
 
-  const visibleNodeIds = useMemo(() => {
-    const ids = new Set<string>();
-    nodes.forEach((node) => {
-      if (showElectives || node.type !== "electiva") {
-        if (!collapseCbc || !isCbcLeafNode(node)) {
-          ids.add(node.id);
-        }
-      }
-    });
-    return ids;
-  }, [collapseCbc, nodes, showElectives]);
+  const visibleNodeIds = useMemo(
+    () =>
+      buildVisibleNodeIds({
+        nodes,
+        showElectives,
+        collapseCbc
+      }),
+    [collapseCbc, nodes, showElectives]
+  );
 
   const visibleNodes = useMemo(
     () => nodes.filter((node) => visibleNodeIds.has(node.id)),
@@ -854,55 +266,12 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
   const nodeLayouts = layout.nodeLayouts;
   const lines = useMemo(() => buildLinePaths(nodeLayouts, visibleEdges), [nodeLayouts, visibleEdges]);
 
-  const defaultFocus = useMemo(() => {
-    const currentCandidates = visibleNodes.filter((node) => node.status === "cursando");
-    const pendingCandidates = visibleNodes.filter(
-      (node) => node.status === "final_pendiente" || node.status === "recursar"
-    );
-    const incompleteCandidates = visibleNodes.filter((node) => node.status !== "aprobado");
-    const source = currentCandidates.length
-      ? currentCandidates
-      : pendingCandidates.length
-      ? pendingCandidates
-      : incompleteCandidates.length
-      ? incompleteCandidates
-      : visibleNodes;
-    const layouts = source
-      .map((node) => layout.nodeLayouts[node.id])
-      .filter(Boolean) as NodeLayout[];
+  const defaultFocus = useMemo(
+    () => getDefaultFocusBounds(visibleNodes, layout.nodeLayouts),
+    [layout.nodeLayouts, visibleNodes]
+  );
 
-    if (!layouts.length) return null;
-
-    const mode = currentCandidates.length
-      ? "current"
-      : pendingCandidates.length
-      ? "pending"
-      : incompleteCandidates.length
-      ? "incomplete"
-      : "all";
-
-    return {
-      mode,
-      minX: Math.min(...layouts.map((item) => item.x)),
-      maxX: Math.max(...layouts.map((item) => item.x + item.width)),
-      minY: Math.min(...layouts.map((item) => item.y)),
-      maxY: Math.max(...layouts.map((item) => item.y + item.height))
-    };
-  }, [layout.nodeLayouts, visibleNodes]);
-
-  const edgeIndex = useMemo(() => {
-    const prereqMap = new Map<string, string[]>();
-    const unlockMap = new Map<string, string[]>();
-
-    edges.forEach((edge) => {
-      if (!prereqMap.has(edge.to)) prereqMap.set(edge.to, []);
-      prereqMap.get(edge.to)?.push(edge.from);
-      if (!unlockMap.has(edge.from)) unlockMap.set(edge.from, []);
-      unlockMap.get(edge.from)?.push(edge.to);
-    });
-
-    return { prereqMap, unlockMap };
-  }, [edges]);
+  const edgeIndex = useMemo(() => buildMapEdgeIndex(edges), [edges]);
 
   const activeId = selectedId ?? hoveredId;
   const selectedNode = selectedId ? nodesById.get(selectedId) : null;
@@ -925,30 +294,22 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
 
   const prereqIds = useMemo(() => getPrereqIds(activeId), [activeId, getPrereqIds]);
   const unlockIds = useMemo(() => getUnlockIds(activeId), [activeId, getUnlockIds]);
-  const selectedPrereqIds = useMemo(() => getPrereqIds(selectedId), [getPrereqIds, selectedId]);
-  const selectedUnlockIds = useMemo(() => getUnlockIds(selectedId), [getUnlockIds, selectedId]);
 
-  const resolveNodeNames = useCallback(
-    (ids: Iterable<string>) => {
-      const names = Array.from(ids)
-        .map((id) => nodesById.get(id))
-        .filter((node): node is MapNode => Boolean(node))
-        .filter((node) => showElectives || node.type !== "electiva")
-        .map((node) => getDisplayNodeName(node, finalProjectTrack));
-      names.sort((a, b) => a.localeCompare(b));
-      return names;
-    },
-    [finalProjectTrack, nodesById, showElectives]
+  const nodePreviews = useMemo(
+    () =>
+      buildNodePreviewIndex({
+        visibleNodes,
+        edgeIndex,
+        nodesById,
+        showElectives,
+        finalProjectTrack
+      }),
+    [edgeIndex, finalProjectTrack, nodesById, showElectives, visibleNodes]
   );
 
-  const selectedPrereqs = useMemo(
-    () => resolveNodeNames(selectedPrereqIds),
-    [resolveNodeNames, selectedPrereqIds]
-  );
-  const selectedUnlocks = useMemo(
-    () => resolveNodeNames(selectedUnlockIds),
-    [resolveNodeNames, selectedUnlockIds]
-  );
+  const selectedPreview = selectedId ? nodePreviews.get(selectedId) ?? null : null;
+  const selectedPrereqs = selectedPreview?.prereqNames ?? [];
+  const selectedUnlocks = selectedPreview?.unlockNames ?? [];
   const selectedStatusLabel = selectedNode?.status ? STATUS_LABELS[selectedNode.status] : null;
   const selectedDisplayName = selectedNode
     ? getDisplayNodeName(selectedNode, finalProjectTrack)
@@ -990,35 +351,13 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
     (next: Transform) => {
       const viewport = viewportRef.current;
       if (!viewport || !worldSize.width || !worldSize.height) return next;
-
-      const width = viewport.clientWidth;
-      const height = viewport.clientHeight;
-      const scaledWidth = worldSize.width * next.scale;
-      const scaledHeight = worldSize.height * next.scale;
-      const extraX = Math.max(220, width * 0.38);
-      const extraY = Math.max(220, height * 0.34);
-
-      let minX = Math.min(0, width - scaledWidth) - extraX;
-      let maxX = Math.max(0, width - scaledWidth) + extraX;
-      let minY = Math.min(0, height - scaledHeight) - extraY;
-      let maxY = Math.max(0, height - scaledHeight) + extraY;
-
-      if (scaledWidth <= width) {
-        const centered = (width - scaledWidth) / 2;
-        minX = centered - extraX;
-        maxX = centered + extraX;
-      }
-      if (scaledHeight <= height) {
-        const centered = (height - scaledHeight) / 2;
-        minY = centered - extraY;
-        maxY = centered + extraY;
-      }
-
-      return {
-        ...next,
-        x: clamp(next.x, minX, maxX),
-        y: clamp(next.y, minY, maxY)
-      };
+      return getClampedTransform({
+        next,
+        viewportWidth: viewport.clientWidth,
+        viewportHeight: viewport.clientHeight,
+        worldWidth: worldSize.width,
+        worldHeight: worldSize.height
+      });
     },
     [worldSize.height, worldSize.width]
   );
@@ -1042,73 +381,35 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
     if (!initialCameraAppliedRef.current) {
       const persisted = persistedTransformRef.current;
       if (persisted) {
-        hasUserMovedRef.current = true;
         initialCameraAppliedRef.current = true;
-        setTransformSafe(persisted);
-        return;
-      }
-
-      if (defaultFocus) {
-        const isCurrent = defaultFocus.mode === "current";
-        const paddingX = isDesktop
-          ? isCurrent
-            ? 164
-            : 92
-          : isCurrent
-          ? 34
-          : 24;
-        const paddingY = isDesktop
-          ? isCurrent
-            ? 148
-            : 92
-          : isCurrent
-          ? 44
-          : 28;
-        const groupWidth = defaultFocus.maxX - defaultFocus.minX;
-        const groupHeight = defaultFocus.maxY - defaultFocus.minY;
-        const scale = clamp(
-          Math.min(
-            (viewport.clientWidth - paddingX * 2) / Math.max(groupWidth, NODE_WIDTH),
-            (viewport.clientHeight - paddingY * 2) / Math.max(groupHeight, NODE_MIN_HEIGHT)
-          ),
-          MIN_ZOOM,
+        const next = resolveInitialMapTransform({
+          layoutWidth: layout.width,
+          layoutHeight: layout.height,
+          viewportWidth: viewport.clientWidth,
+          viewportHeight: viewport.clientHeight,
+          currentTransform: transformRef.current,
+          persistedTransform: persisted,
+          defaultFocus,
           isDesktop
-            ? isCurrent
-              ? 1.04
-              : 0.98
-            : isCurrent
-            ? 1.28
-            : 1.16
-        );
-        const centerX = (defaultFocus.minX + defaultFocus.maxX) / 2;
-        const centerY = (defaultFocus.minY + defaultFocus.maxY) / 2;
-
-        initialCameraAppliedRef.current = true;
-        setTransformSafe({
-          x: viewport.clientWidth / 2 - centerX * scale,
-          y: viewport.clientHeight * (isDesktop ? (isCurrent ? 0.5 : 0.43) : isCurrent ? 0.44 : 0.4) - centerY * scale,
-          scale
         });
+        hasUserMovedRef.current = next.userMoved;
+        setTransformSafe(next.transform);
         return;
       }
-
-      const scaledWidth = layout.width * transformRef.current.scale;
-      const scaledHeight = layout.height * transformRef.current.scale;
-      const x =
-        scaledWidth < viewport.clientWidth
-          ? (viewport.clientWidth - scaledWidth) / 2
-          : transformRef.current.x;
-      const y =
-        scaledHeight < viewport.clientHeight
-          ? (viewport.clientHeight - scaledHeight) / 2
-          : Math.min(24, transformRef.current.y);
 
       initialCameraAppliedRef.current = true;
-      setTransformSafe({
-        x,
-        y,
-        scale: transformRef.current.scale
+      const next = resolveInitialMapTransform({
+        layoutWidth: layout.width,
+        layoutHeight: layout.height,
+        viewportWidth: viewport.clientWidth,
+        viewportHeight: viewport.clientHeight,
+        currentTransform: transformRef.current,
+        persistedTransform: null,
+        defaultFocus,
+        isDesktop
       });
+      hasUserMovedRef.current = next.userMoved;
+      setTransformSafe(next.transform);
       return;
     }
 
@@ -1142,19 +443,15 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
 
       const selectedLayout = nodeLayouts[id];
       if (!selectedLayout) return;
-
-      const desiredCardWidth = isDesktop ? viewport.clientWidth * 0.22 : viewport.clientWidth * 0.68;
-      const fittedScale = desiredCardWidth / selectedLayout.width;
-      const scale = clamp(zoom ? fittedScale : transformRef.current.scale, 0.68, 1.24);
-
-      const centerX = selectedLayout.x + selectedLayout.width / 2;
-      const centerY = selectedLayout.y + selectedLayout.height / 2;
-      const targetX = (viewport.clientWidth - (isDesktop ? DESKTOP_PANEL_WIDTH : 0)) / 2;
-      const targetY = isDesktop ? viewport.clientHeight / 2 : viewport.clientHeight * 0.34;
-      const target = clampTransform({
-        x: targetX - centerX * scale,
-        y: targetY - centerY * scale,
-        scale
+      const target = computeFocusedNodeTransform({
+        selectedLayout,
+        viewportWidth: viewport.clientWidth,
+        viewportHeight: viewport.clientHeight,
+        worldWidth: worldSize.width,
+        worldHeight: worldSize.height,
+        currentTransform: transformRef.current,
+        isDesktop,
+        zoom
       });
 
       stopCameraAnimation();
@@ -1168,9 +465,9 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
         const progress = Math.min(1, (now - startedAt) / duration);
         const eased = ease(progress);
         scheduleTransform({
-          x: start.x + (target.x - start.x) * eased,
-          y: start.y + (target.y - start.y) * eased,
-          scale: start.scale + (target.scale - start.scale) * eased
+        x: start.x + (target.x - start.x) * eased,
+        y: start.y + (target.y - start.y) * eased,
+        scale: start.scale + (target.scale - start.scale) * eased
         });
 
         if (progress < 1) {
@@ -1183,7 +480,7 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
       hasUserMovedRef.current = true;
       cameraAnimationRef.current = window.requestAnimationFrame(tick);
     },
-    [clampTransform, isDesktop, nodeLayouts, scheduleTransform, stopCameraAnimation]
+    [isDesktop, nodeLayouts, scheduleTransform, stopCameraAnimation, worldSize.height, worldSize.width]
   );
 
   useEffect(() => {
@@ -1197,14 +494,15 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
   const zoomAt = useCallback(
     (scale: number, centerX: number, centerY: number) => {
       stopCameraAnimation();
-      const clamped = clamp(scale, MIN_ZOOM, MAX_ZOOM);
-      const { x, y, scale: currentScale } = transformRef.current;
-      const worldX = (centerX - x) / currentScale;
-      const worldY = (centerY - y) / currentScale;
-      const nextX = centerX - worldX * clamped;
-      const nextY = centerY - worldY * clamped;
       hasUserMovedRef.current = true;
-      setTransformSafe({ x: nextX, y: nextY, scale: clamped });
+      setTransformSafe(
+        computeZoomTransform({
+          currentTransform: transformRef.current,
+          nextScale: scale,
+          centerX,
+          centerY
+        })
+      );
     },
     [setTransformSafe, stopCameraAnimation]
   );
@@ -1258,19 +556,18 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
       const dx = points[0].x - points[1].x;
       const dy = points[0].y - points[1].y;
       const distance = Math.hypot(dx, dy);
-      const scale = clamp(
-        pinchRef.current.scale * (distance / pinchRef.current.distance),
-        MIN_ZOOM,
-        MAX_ZOOM
-      );
-      const worldX = (pinchRef.current.centerX - pinchRef.current.panX) / pinchRef.current.scale;
-      const worldY = (pinchRef.current.centerY - pinchRef.current.panY) / pinchRef.current.scale;
       hasUserMovedRef.current = true;
-      setTransformSafe({
-        x: pinchRef.current.centerX - worldX * scale,
-        y: pinchRef.current.centerY - worldY * scale,
-        scale
-      });
+      setTransformSafe(
+        computePinchTransform({
+          initialDistance: pinchRef.current.distance,
+          currentDistance: distance,
+          initialScale: pinchRef.current.scale,
+          centerX: pinchRef.current.centerX,
+          centerY: pinchRef.current.centerY,
+          panX: pinchRef.current.panX,
+          panY: pinchRef.current.panY
+        })
+      );
       return;
     }
 
@@ -1346,168 +643,8 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
     setIsDraggingSheet(false);
     sheetDragRef.current = null;
 
-    const distances = {
-      collapsed: Math.abs(sheetHeight - sheetSizes.collapsed),
-      half: Math.abs(sheetHeight - sheetSizes.half),
-      full: Math.abs(sheetHeight - sheetSizes.full)
-    };
-
-    const next = (Object.keys(distances) as Array<keyof typeof distances>).sort(
-      (a, b) => distances[a] - distances[b]
-    )[0];
-
-    setPanelState(next);
+    setPanelState(findNearestSheetState(sheetHeight, sheetSizes));
   };
-
-  const detailBody = selectedNode ? (
-    <>
-      <div className="flex flex-wrap gap-2">
-        {selectedNode.type ? (
-          <Badge
-            className={cn(
-              "border-border/60 bg-surface/70 text-text",
-              selectedNode.type === "electiva" &&
-                "border-elective/40 bg-elective/10 text-elective"
-            )}
-          >
-            {selectedNode.type === "electiva" ? "Electiva" : "Obligatoria"}
-          </Badge>
-        ) : null}
-        {selectedNode.cycle ? (
-          <Badge className="border-border/60 bg-surface/70 text-muted">
-            {CYCLE_LABELS[selectedNode.cycle] ?? selectedNode.cycle}
-          </Badge>
-        ) : null}
-        {selectedNode.credits ? (
-          <Badge className="border-border/60 bg-surface/70 text-muted">
-            {selectedNode.credits} créditos
-          </Badge>
-        ) : null}
-        {isCbcClusterNode(selectedNode) ? (
-          <Badge className="border-warning/35 bg-warning/10 text-warning">
-            {collapseCbc ? "CBC compacto" : "CBC expandido"}
-          </Badge>
-        ) : null}
-        {isFinalProjectNode(selectedNode) ? (
-          <Badge className="border-accent/35 bg-accent/10 text-accent">
-            {selectedNode.display_kind === "final_project"
-              ? "Nodo final"
-              : finalProjectTrack === "tesis"
-              ? "Modalidad tesis"
-              : "Modalidad trabajo profesional"}
-          </Badge>
-        ) : null}
-      </div>
-      <div className="grid gap-2 text-sm">
-        {isCbcClusterNode(selectedNode) ? (
-          <>
-            <p>
-              Ubicación: <span className="text-text">Tramo inicial del recorrido</span>
-            </p>
-            <p>
-              Progreso CBC:{" "}
-              <span className="text-text">{formatCbcProgress(selectedNode.progress_credits)}</span>
-            </p>
-          </>
-        ) : isFinalProjectNode(selectedNode) ? (
-          <>
-            <p>
-              Modalidad elegida:{" "}
-              <span className="text-text">
-                {finalProjectTrack === "tesis"
-                  ? "Tesis de Ingeniería Informática"
-                  : "Trabajo Profesional de Ingeniería Informática"}
-              </span>
-            </p>
-            <p>
-              Ubicación: <span className="text-text">Tramo final del recorrido</span>
-            </p>
-            <p>
-              Progreso TIF:{" "}
-              <span className="text-text">
-                {formatFinalProjectProgress(selectedNode.progress_credits)}
-              </span>
-            </p>
-          </>
-        ) : (
-          <p>
-            Código: <span className="text-text">{getDisplayNodeMeta(selectedNode)}</span>
-          </p>
-        )}
-        <p>
-          Horas semanales: <span className="text-text">{selectedNode.weekly_hours ?? "-"}</span>
-        </p>
-        <p>
-          Horas totales: <span className="text-text">{selectedNode.total_hours ?? "-"}</span>
-        </p>
-        <p>
-          Estado: <span className="text-text">{selectedStatusLabel ?? "Sin estado"}</span>
-        </p>
-      </div>
-      {isCbcClusterNode(selectedNode) ? (
-        <div className="rounded-2xl border border-warning/25 bg-warning/5 p-3">
-          <p className="text-xs font-semibold text-text">Bloque CBC</p>
-          <p className="mt-1 text-xs text-muted">
-            Podés compactarlo para ver el tronco principal o expandirlo para revisar cada materia del CBC y sus conexiones hacia el segundo ciclo.
-          </p>
-        </div>
-      ) : null}
-      {isFinalProjectNode(selectedNode) ? (
-        <div className="rounded-2xl border border-accent/25 bg-accent/5 p-3">
-          <p className="text-xs font-semibold text-text">Definición del TIF</p>
-          <p className="mt-1 text-xs text-muted">
-            El plan oficial lo ubica al final del recorrido y puede cursarse como tesis o trabajo profesional, por un total de 12 créditos.
-          </p>
-          <div className="mt-3 inline-flex rounded-full border border-border/60 bg-surface/80 p-1">
-            <button
-              type="button"
-              onClick={() => setFinalProjectTrack("tesis")}
-              className={cn(
-                "rounded-full px-3 py-1 text-xs font-semibold transition",
-                finalProjectTrack === "tesis"
-                  ? "bg-accent text-accent-contrast"
-                  : "text-muted hover:text-text"
-              )}
-            >
-              Tesis
-            </button>
-            <button
-              type="button"
-              onClick={() => setFinalProjectTrack("trabajo_profesional")}
-              className={cn(
-                "rounded-full px-3 py-1 text-xs font-semibold transition",
-                finalProjectTrack === "trabajo_profesional"
-                  ? "bg-accent text-accent-contrast"
-                  : "text-muted hover:text-text"
-              )}
-            >
-              Trabajo profesional
-            </button>
-          </div>
-        </div>
-      ) : null}
-      <div className="rounded-2xl border border-border/60 bg-surface/80 p-3">
-        <p className="text-xs font-semibold text-text">Prerrequisitos</p>
-        <p className="text-xs text-muted">
-          {selectedPrereqs.length ? selectedPrereqs.join(" · ") : "Sin correlativas"}
-        </p>
-      </div>
-      <div className="rounded-2xl border border-border/60 bg-surface/80 p-3">
-        <p className="text-xs font-semibold text-text">Desbloquea</p>
-        <p className="text-xs text-muted">
-          {selectedUnlocks.length ? selectedUnlocks.join(" · ") : "Sin dependientes"}
-        </p>
-      </div>
-      <div className="rounded-2xl border border-border/60 bg-surface/80 p-3">
-        <p className="text-xs font-semibold text-text">Requisitos</p>
-        <p className="text-xs text-muted">{formatList(selectedNode.requirements)}</p>
-      </div>
-      <div className="rounded-2xl border border-border/60 bg-surface/80 p-3">
-        <p className="text-xs font-semibold text-text">Evaluación</p>
-        <p className="text-xs text-muted">{formatEvaluationTemplate(selectedNode.template)}</p>
-      </div>
-    </>
-  ) : null;
 
   return (
     <section className="relative h-[100svh]">
@@ -1590,154 +727,31 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
                 const isActive = activeId === node.id;
                 const isPrereq = prereqIds.has(node.id);
                 const isUnlock = unlockIds.has(node.id);
-                const isElective = node.type === "electiva";
-                const isFinalProject = isFinalProjectNode(node);
-                const isCbcCluster = isCbcClusterNode(node);
                 const isDimmed = activeId ? !isActive && !isPrereq && !isUnlock : false;
-                const showMeta = isActive || (isDesktop && !selectedId && hoveredId === node.id);
-                const statusLabel = node.status ? STATUS_LABELS[node.status] : null;
-                const displayName = getDisplayNodeName(node, finalProjectTrack);
-                const displayMeta = getDisplayNodeMeta(node);
-                const prereqNames = resolveNodeNames(edgeIndex.prereqMap.get(node.id) ?? []);
-                const unlockNames = resolveNodeNames(edgeIndex.unlockMap.get(node.id) ?? []);
-                const prereqSummary = formatPreviewList(prereqNames);
-                const unlockSummary = formatPreviewList(unlockNames);
-                const markerClass = isActive
-                  ? "bg-accent"
-                  : isPrereq
-                  ? "bg-prereq"
-                  : isUnlock
-                  ? "bg-unlock"
-                  : isElective
-                  ? "bg-elective"
-                  : "bg-border/60";
 
                 return (
-                  <button
+                  <MapNodeCard
                     key={node.id}
-                    type="button"
-                    data-node-id={node.id}
-                    aria-pressed={selectedId === node.id}
-                    onMouseEnter={() => {
+                    node={node}
+                    layout={layoutNode}
+                    isActive={isActive}
+                    isPrereq={isPrereq}
+                    isUnlock={isUnlock}
+                    isDimmed={isDimmed}
+                    isDesktop={isDesktop}
+                    hasSelection={Boolean(selectedId)}
+                    isHovered={hoveredId === node.id}
+                    finalProjectTrack={finalProjectTrack}
+                    preview={nodePreviews.get(node.id) ?? null}
+                    onHoverStart={(id) => {
                       if (!isDesktop || selectedId) return;
-                      setHoveredId(node.id);
+                      setHoveredId(id);
                     }}
-                    onMouseLeave={() => {
+                    onHoverEnd={() => {
                       if (!isDesktop || selectedId) return;
                       setHoveredId(null);
                     }}
-                    onFocus={() => !selectedId && setHoveredId(node.id)}
-                    onBlur={() => !selectedId && setHoveredId(null)}
-                    className={cn(
-                      "group absolute rounded-2xl border px-3 py-3 text-left text-xs font-semibold text-text shadow-tile transition-all duration-200 ease-out",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50",
-                      isCbcCluster && "cursor-pointer",
-                      (isActive || showMeta) && "z-30 scale-[1.02] shadow-glow",
-                      !isActive && !showMeta && "z-20",
-                      isActive && "border-accent/70 bg-surface shadow-glow",
-                      !isActive && isPrereq && "border-prereq/70 bg-surface",
-                      !isActive && isUnlock && "border-unlock/70 bg-surface",
-                      !isActive && !isPrereq && !isUnlock && isCbcCluster &&
-                        "border-warning/55 bg-surface",
-                      !isActive && !isPrereq && !isUnlock && isElective &&
-                        "border-elective/55 bg-surface",
-                      !isActive && !isPrereq && !isUnlock && !isElective &&
-                        "border-border/60 bg-surface",
-                      isFinalProject && !isActive && "border-accent/45 bg-surface/96",
-                      isDimmed && "opacity-55"
-                    )}
-                    style={{
-                      left: layoutNode.x,
-                      top: layoutNode.y,
-                      width: NODE_WIDTH,
-                      minHeight: isCbcCluster ? 96 : NODE_MIN_HEIGHT
-                    }}
-                  >
-                    <span
-                      className={cn(
-                        "absolute left-0 top-0 h-full w-1 rounded-l-2xl transition",
-                        markerClass
-                      )}
-                    />
-                    {isCbcCluster ? (
-                      <div className="flex min-h-[72px] items-center justify-center px-3 text-center">
-                        <p className="text-base font-semibold leading-tight text-text">
-                          {displayName}
-                        </p>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="space-y-1">
-                            <p className="text-sm font-semibold leading-tight text-text">
-                              {displayName}
-                            </p>
-                            <p className="text-[11px] text-muted">{displayMeta}</p>
-                          </div>
-                          <div className="flex flex-col items-end gap-1">
-                            {statusLabel ? (
-                              <span
-                                className={cn(
-                                  "rounded-full border px-2 py-0.5 text-[10px] font-semibold",
-                                  STATUS_STYLES[node.status ?? ""]
-                                )}
-                              >
-                                {statusLabel}
-                              </span>
-                            ) : null}
-                            {node.color ? (
-                              <span
-                                className="h-2.5 w-2.5 rounded-full border border-border/40"
-                                style={{ backgroundColor: node.color }}
-                              />
-                            ) : null}
-                          </div>
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-semibold">
-                          {node.credits ? (
-                            <span className="rounded-full border border-border/60 bg-surface/80 px-2 py-0.5 text-muted">
-                              {node.credits} créditos
-                            </span>
-                          ) : null}
-                          {isFinalProject ? (
-                            <span className="rounded-full border border-accent/35 bg-accent/10 px-2 py-0.5 text-accent">
-                              {finalProjectTrack === "tesis" ? "Modalidad tesis" : "Trabajo profesional"}
-                            </span>
-                          ) : null}
-                          {node.cycle ? (
-                            <span className="rounded-full border border-border/60 bg-surface/80 px-2 py-0.5 text-muted">
-                              {CYCLE_LABELS[node.cycle] ?? node.cycle}
-                            </span>
-                          ) : null}
-                          {isElective ? (
-                            <span className="rounded-full border border-elective/40 bg-elective/10 px-2 py-0.5 text-elective">
-                              Electiva
-                            </span>
-                          ) : null}
-                          {isFinalProject ? (
-                            <span className="rounded-full border border-accent/30 bg-accent/5 px-2 py-0.5 text-accent">
-                              {formatFinalProjectProgress(node.progress_credits)}
-                            </span>
-                          ) : null}
-                        </div>
-                        <div
-                          className={cn(
-                            "mt-2 overflow-hidden text-[10px] text-muted transition-all duration-200",
-                            showMeta ? "max-h-28 opacity-100" : "max-h-0 opacity-0"
-                          )}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span>Correlativas</span>
-                            <span className="text-right text-text">{prereqSummary}</span>
-                          </div>
-                          <div className="mt-1 flex items-center justify-between gap-2">
-                            <span>Habilita</span>
-                            <span className="text-right text-text">{unlockSummary}</span>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </button>
+                  />
                 );
               })}
             </div>
@@ -1788,7 +802,15 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
                   </Button>
                 </div>
                 <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 text-sm text-muted">
-                  {detailBody}
+                  <MapDetailContent
+                    collapseCbc={collapseCbc}
+                    finalProjectTrack={finalProjectTrack}
+                    onFinalProjectTrackChange={setFinalProjectTrack}
+                    selectedNode={selectedNode}
+                    selectedPrereqs={selectedPrereqs}
+                    selectedStatusLabel={selectedStatusLabel}
+                    selectedUnlocks={selectedUnlocks}
+                  />
                 </div>
               </aside>
             ) : null}
@@ -1840,7 +862,15 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
                     </div>
                   </div>
                   <div className="h-[calc(100%-74px)] overflow-y-auto px-4 pb-4 text-sm text-muted">
-                    {detailBody}
+                    <MapDetailContent
+                      collapseCbc={collapseCbc}
+                      finalProjectTrack={finalProjectTrack}
+                      onFinalProjectTrackChange={setFinalProjectTrack}
+                      selectedNode={selectedNode}
+                      selectedPrereqs={selectedPrereqs}
+                      selectedStatusLabel={selectedStatusLabel}
+                      selectedUnlocks={selectedUnlocks}
+                    />
                   </div>
                 </div>
               </div>

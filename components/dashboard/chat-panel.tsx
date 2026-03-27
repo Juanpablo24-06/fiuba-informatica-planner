@@ -1,64 +1,37 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Gauge, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import { Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-
-type ReasoningLevel = "bajo" | "medio" | "alto";
-type AIProvider = "auto" | "cerebras" | "nvidia" | "gemini";
-
-type AssistantActionResult = {
-  type: string;
-  ok: boolean;
-  summary: string;
-};
-
-type ChatRequestHistoryItem = {
-  role: "user" | "assistant";
-  content: string;
-};
-
-type ChatMessage = {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  displayed: string;
-  reasoning?: string | null;
-  displayedReasoning?: string;
-  streamStage?: "reasoning" | "answer" | "done";
-  reasoningOpen?: boolean;
-  actionResults?: AssistantActionResult[];
-  isStreaming?: boolean;
-};
-
-type ChatSession = {
-  id: string;
-  title: string;
-  threadId: string | null;
-  messages: ChatMessage[];
-  updatedAt: number;
-};
-
-type StreamProfile = {
-  intervalMs: number;
-  reasoningStep: number;
-  answerStep: number;
-};
+import {
+  CHAT_HISTORY_KEY,
+  buildChatId,
+  buildSessionLabel,
+  createFreshSession,
+  deleteSessionAndSelectFallback,
+  discardEmptyActiveSession,
+  restoreChatSessions,
+  syncActiveSession
+} from "@/lib/chat/session-history";
+import {
+  advanceStreamingMessage,
+  getPreflightDelayMs,
+  getStreamProfile
+} from "@/lib/chat/streaming";
+import type {
+  AIProvider,
+  AssistantActionResult,
+  ChatMessage,
+  ChatRequestHistoryItem,
+  ChatSession,
+  ReasoningLevel
+} from "@/lib/chat/types";
 
 const persistenceEnabled = process.env.NEXT_PUBLIC_CHAT_PERSISTENCE === "true";
-const CHAT_HISTORY_KEY = "synapse-chat-history-v2";
-const MAX_STORED_SESSIONS = 16;
 const CUSTOM_MODEL_VALUE = "__custom__";
-
-const providerLabels: Record<AIProvider, string> = {
-  auto: "Auto",
-  cerebras: "Cerebras",
-  nvidia: "NVIDIA",
-  gemini: "Gemini"
-};
 
 const modelOptions: Record<
   Exclude<AIProvider, "auto">,
@@ -80,12 +53,6 @@ const modelOptions: Record<
   ]
 };
 
-const reasoningIndexByLevel: Record<ReasoningLevel, number> = {
-  bajo: 0,
-  medio: 1,
-  alto: 2
-};
-
 const reasoningByIndex: ReasoningLevel[] = ["bajo", "medio", "alto"];
 
 const reasoningLabelByLevel: Record<ReasoningLevel, string> = {
@@ -93,89 +60,6 @@ const reasoningLabelByLevel: Record<ReasoningLevel, string> = {
   medio: "Medio",
   alto: "Alto"
 };
-
-const buildId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-const getStreamProfile = (level: ReasoningLevel): StreamProfile => {
-  if (level === "bajo") {
-    return { intervalMs: 10, reasoningStep: 8, answerStep: 7 };
-  }
-  if (level === "alto") {
-    return { intervalMs: 42, reasoningStep: 1, answerStep: 1 };
-  }
-  return { intervalMs: 22, reasoningStep: 4, answerStep: 3 };
-};
-
-const getPreflightDelayMs = (level: ReasoningLevel) => {
-  if (level === "alto") return 1400;
-  if (level === "medio") return 350;
-  return 0;
-};
-
-const deriveSessionTitle = (messages: ChatMessage[]) => {
-  const firstUser = messages.find((message) => message.role === "user");
-  if (!firstUser?.content?.trim()) return "Chat sin título";
-  const compact = firstUser.content.trim().replace(/\s+/g, " ");
-  return compact.length > 48 ? `${compact.slice(0, 48)}…` : compact;
-};
-
-const buildEmptySession = (): ChatSession => ({
-  id: buildId(),
-  title: "Chat sin título",
-  threadId: null,
-  messages: [],
-  updatedAt: Date.now()
-});
-
-const hasSessionContent = (session: ChatSession) => session.messages.length > 0;
-
-const buildSessionLabel = (session: ChatSession) => {
-  const date = new Date(session.updatedAt).toLocaleString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-  return `${date} · ${session.title}`;
-};
-
-const InlineToggle = ({
-  checked,
-  onChange,
-  label,
-  description,
-  disabled = false
-}: {
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  label: string;
-  description?: string;
-  disabled?: boolean;
-}) => (
-  <button
-    type="button"
-    onClick={() => !disabled && onChange(!checked)}
-    disabled={disabled}
-    className="flex w-full items-center justify-between gap-3 rounded-2xl border border-border/70 bg-surface px-3 py-2 text-left text-xs text-text transition hover:border-accent/40 disabled:cursor-not-allowed disabled:opacity-60"
-  >
-    <div>
-      <p className="font-medium">{label}</p>
-      {description ? <p className="mt-0.5 text-[11px] text-muted">{description}</p> : null}
-    </div>
-    <span
-      className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border transition ${checked
-        ? "border-accent/40 bg-accent/25"
-        : "border-border/80 bg-surface-2"
-        }`}
-      aria-hidden="true"
-    >
-      <span
-        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition ${checked ? "left-[1.35rem]" : "left-0.5"
-          }`}
-      />
-    </span>
-  </button>
-);
 
 export default function ChatPanel({
   trigger,
@@ -204,19 +88,10 @@ export default function ChatPanel({
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const canEditWithAI = role === "admin";
-  const modelSelectionEnabled = provider !== "auto";
-  const providerModelOptions = provider === "auto" ? [] : modelOptions[provider];
   const selectedModelOverride =
     selectedModel === CUSTOM_MODEL_VALUE
       ? customModel.trim()
       : selectedModel.trim();
-  const reasoningIndex = reasoningIndexByLevel[reasoningLevel];
-  const reasoningHint =
-    reasoningLevel === "alto"
-      ? "Análisis más profundo, respuesta más lenta."
-      : reasoningLevel === "medio"
-        ? "Balance entre velocidad y detalle."
-        : "Respuesta rápida con síntesis corta.";
   const hasLiveReasoning = messages.some(
     (message) =>
       message.role === "assistant" &&
@@ -241,99 +116,45 @@ export default function ChatPanel({
     });
   }, [messages, isThinking]);
 
-  const handleReasoningSlider = (value: number) => {
-    const safeValue = Math.min(2, Math.max(0, Math.round(value)));
-    const nextLevel = reasoningByIndex[safeValue] ?? "medio";
-    setReasoningLevel(nextLevel);
-  };
-
   useEffect(() => {
     setSelectedModel("");
     setCustomModel("");
   }, [provider]);
 
-  useEffect(() => {
+  const persistSessions = (nextSessions: ChatSession[]) => {
     try {
-      const raw = window.localStorage.getItem(CHAT_HISTORY_KEY);
-      const restored = raw
-        ? (JSON.parse(raw) as ChatSession[])
-          .filter((item) => item && typeof item.id === "string")
-          .map((item) => ({
-            id: item.id,
-            title: item.title || "Chat sin título",
-            threadId: item.threadId ?? null,
-            messages: Array.isArray(item.messages) ? item.messages : [],
-            updatedAt: Number(item.updatedAt) || Date.now()
-          }))
-        : [];
+      window.localStorage.setItem(
+        CHAT_HISTORY_KEY,
+        JSON.stringify(nextSessions)
+      );
+    } catch {}
+  };
 
-      const nonEmptyHistory = restored
-        .filter((session) => hasSessionContent(session))
-        .sort((a, b) => b.updatedAt - a.updatedAt)
-        .slice(0, MAX_STORED_SESSIONS - 1);
+  useEffect(() => {
+    const restored = restoreChatSessions({
+      raw: window.localStorage.getItem(CHAT_HISTORY_KEY),
+      buildId: buildChatId
+    });
 
-      // Siempre abre en chat nuevo al recargar.
-      const initial = buildEmptySession();
-      const nextSessions = [initial, ...nonEmptyHistory];
-
-      setSessions(nextSessions);
-      setActiveSessionId(initial.id);
-      setMessages([]);
-      setThreadId(null);
-      window.localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(nextSessions));
-      setHistoryReady(true);
-    } catch {
-      const initial = buildEmptySession();
-      setSessions([initial]);
-      setActiveSessionId(initial.id);
-      setMessages([]);
-      setThreadId(null);
-      setHistoryReady(true);
-    }
+    setSessions(restored.sessions);
+    setActiveSessionId(restored.activeSessionId);
+    setMessages(restored.activeSession.messages);
+    setThreadId(restored.activeSession.threadId);
+    persistSessions(restored.sessions);
+    setHistoryReady(true);
   }, []);
 
   useEffect(() => {
     if (!historyReady || !activeSessionId) return;
 
     setSessions((prev) => {
-      const now = Date.now();
-      let next = prev.map((session) =>
-        session.id === activeSessionId
-          ? {
-            ...session,
-            title: deriveSessionTitle(messages),
-            threadId,
-            messages,
-            updatedAt: now
-          }
-          : session
-      );
-
-      if (!next.some((session) => session.id === activeSessionId)) {
-        next = [
-          {
-            id: activeSessionId,
-            title: deriveSessionTitle(messages),
-            threadId,
-            messages,
-            updatedAt: now
-          },
-          ...next
-        ];
-      }
-
-      next = next.filter(
-        (session) =>
-          hasSessionContent(session) || session.id === activeSessionId
-      );
-
-      next = next
-        .sort((a, b) => b.updatedAt - a.updatedAt)
-        .slice(0, MAX_STORED_SESSIONS);
-
-      try {
-        window.localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(next));
-      } catch { }
+      const next = syncActiveSession({
+        sessions: prev,
+        activeSessionId,
+        messages,
+        threadId
+      });
+      persistSessions(next);
       return next;
     });
   }, [activeSessionId, historyReady, messages, threadId]);
@@ -350,10 +171,10 @@ export default function ChatPanel({
 
   const selectSession = (sessionId: string) => {
     setSessions((prev) => {
-      if (!activeSessionId) return prev;
-      const active = prev.find((session) => session.id === activeSessionId);
-      if (!active || hasSessionContent(active)) return prev;
-      return prev.filter((session) => session.id !== activeSessionId);
+      return discardEmptyActiveSession({
+        sessions: prev,
+        activeSessionId
+      });
     });
 
     const selected = sessions.find((session) => session.id === sessionId);
@@ -365,36 +186,34 @@ export default function ChatPanel({
   };
 
   const createNewSession = () => {
-    const nextSession = buildEmptySession();
-    setActiveSessionId(nextSession.id);
-    setMessages([]);
-    setThreadId(null);
-    setError(null);
     setSessions((prev) => {
-      const next = [nextSession, ...prev.filter((session) => hasSessionContent(session))]
-        .sort((a, b) => b.updatedAt - a.updatedAt)
-        .slice(0, MAX_STORED_SESSIONS);
-      try {
-        window.localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(next));
-      } catch { }
-      return next;
+      const next = createFreshSession({
+        sessions: prev,
+        buildId: buildChatId
+      });
+      setActiveSessionId(next.activeSession.id);
+      setMessages([]);
+      setThreadId(null);
+      setError(null);
+      persistSessions(next.sessions);
+      return next.sessions;
     });
   };
 
   const deleteActiveSession = () => {
     if (!activeSessionId) return;
     setSessions((prev) => {
-      const next = prev.filter((session) => session.id !== activeSessionId);
-      const fallback = next[0] ?? buildEmptySession();
-      const normalized = next.length > 0 ? next : [fallback];
-      setActiveSessionId(fallback.id);
-      setMessages(fallback.messages);
-      setThreadId(fallback.threadId);
+      const next = deleteSessionAndSelectFallback({
+        sessions: prev,
+        activeSessionId,
+        buildId: buildChatId
+      });
+      setActiveSessionId(next.activeSession.id);
+      setMessages(next.activeSession.messages);
+      setThreadId(next.activeSession.threadId);
       setError(null);
-      try {
-        window.localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(normalized));
-      } catch { }
-      return normalized;
+      persistSessions(next.sessions);
+      return next.sessions;
     });
   };
 
@@ -421,39 +240,9 @@ export default function ChatPanel({
         }
 
         const next = [...prev];
-
-        if (message.streamStage === "reasoning" && message.reasoning) {
-          const currentLength = message.displayedReasoning?.length ?? 0;
-          const nextLength = Math.min(
-            currentLength + profile.reasoningStep,
-            message.reasoning.length
-          );
-          const reasoningDone = nextLength >= message.reasoning.length;
-
-          next[index] = {
-            ...message,
-            displayedReasoning: message.reasoning.slice(0, nextLength),
-            streamStage: reasoningDone ? "answer" : "reasoning",
-            reasoningOpen: reasoningDone ? false : true,
-            isStreaming: true
-          };
-          return next;
-        }
-
-        const currentLength = message.displayed.length;
-        const nextLength = Math.min(
-          currentLength + profile.answerStep,
-          message.content.length
-        );
-        const answerDone = nextLength >= message.content.length;
-        completed = answerDone;
-
-        next[index] = {
-          ...message,
-          displayed: message.content.slice(0, nextLength),
-          streamStage: answerDone ? "done" : "answer",
-          isStreaming: !answerDone
-        };
+        const advanced = advanceStreamingMessage(message, profile);
+        completed = advanced.completed;
+        next[index] = advanced.message;
         return next;
       });
 
@@ -472,7 +261,7 @@ export default function ChatPanel({
 
     setMessages((prev) => [
       ...prev,
-      { id: buildId(), role: "user", content: trimmed, displayed: trimmed }
+      { id: buildChatId(), role: "user", content: trimmed, displayed: trimmed }
     ]);
 
     setIsSending(true);
@@ -527,7 +316,7 @@ export default function ChatPanel({
         setError(message);
         setMessages((prev) => [
           ...prev,
-          { id: buildId(), role: "assistant", content: message, displayed: message }
+          { id: buildChatId(), role: "assistant", content: message, displayed: message }
         ]);
         return;
       }
@@ -551,7 +340,7 @@ export default function ChatPanel({
         ? (data.actionResults as AssistantActionResult[])
         : [];
 
-      const assistantId = buildId();
+      const assistantId = buildChatId();
       setMessages((prev) => [
         ...prev,
         {
@@ -574,7 +363,7 @@ export default function ChatPanel({
       setError(message);
       setMessages((prev) => [
         ...prev,
-        { id: buildId(), role: "assistant", content: message, displayed: message }
+        { id: buildChatId(), role: "assistant", content: message, displayed: message }
       ]);
     } finally {
       setIsSending(false);

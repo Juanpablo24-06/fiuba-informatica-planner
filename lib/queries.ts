@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import type { Enrollment, Event, Subject, Term } from "@/lib/types";
+import { mapEnrollmentRow, mapEventRow } from "@/lib/query-mappers";
 import {
   ENROLLMENT_FIELDS_NO_SCHEDULE,
   ENROLLMENT_FIELDS_WITH_SCHEDULE,
@@ -112,21 +113,12 @@ export const getEnrollmentsForTerm = async (
         .order("name", { foreignTable: "subjects", ascending: true })
   });
 
-  return (data ?? []).map((row: any) => {
-    const subject = asSingle<Subject>(row.subject);
-    const term = asSingle<Term>(row.term);
-    return {
-      id: row.id,
-      term_id: row.term_id,
-      subject_id: row.subject_id,
-      status: row.status,
-      color: row.color ?? null,
-      notes: row.notes ?? null,
-      schedule: hasSchedule && Array.isArray(row.schedule) ? row.schedule : [],
-      subject: subject as Subject,
-      term
-    } satisfies Enrollment;
-  });
+  return (data ?? []).map((row: any) =>
+    mapEnrollmentRow({
+      row,
+      hasSchedule
+    })
+  );
 };
 
 type EnrollmentSummary = {
@@ -194,41 +186,12 @@ export const getEventsForTerm = async (termId: string): Promise<Event[]> => {
         .order("starts_at", { ascending: true })
   });
 
-  return (data ?? []).map((row: any) => {
-    const enrollmentRaw = asSingle<any>(row.enrollment);
-    const subject = asSingle<Subject>(enrollmentRaw?.subject);
-    const enrollment: Enrollment | undefined = enrollmentRaw
-      ? {
-          id: enrollmentRaw.id,
-          term_id: enrollmentRaw.term_id,
-          subject_id: enrollmentRaw.subject_id,
-          status: enrollmentRaw.status,
-          color: enrollmentRaw.color ?? null,
-          notes: enrollmentRaw.notes ?? null,
-          schedule:
-            hasSchedule && Array.isArray(enrollmentRaw.schedule)
-              ? enrollmentRaw.schedule
-              : [],
-          subject: subject as Subject,
-          term: null
-        }
-      : undefined;
-
-    return {
-      id: row.id,
-      enrollment_id: row.enrollment_id,
-      type: row.type,
-      title: row.title ?? null,
-      description: row.description ?? null,
-      starts_at: row.starts_at,
-      ends_at: row.ends_at ?? null,
-      status: row.status ?? null,
-      grade: row.grade ?? null,
-      attempt: row.attempt ?? null,
-      links: row.links ?? null,
-      enrollment
-    } satisfies Event;
-  });
+  return (data ?? []).map((row: any) =>
+    mapEventRow({
+      row,
+      hasSchedule
+    })
+  );
 };
 
 export const getAllEvents = async (): Promise<Event[]> => {
@@ -245,42 +208,13 @@ export const getAllEvents = async (): Promise<Event[]> => {
         .order("starts_at", { ascending: true })
   });
 
-  return (data ?? []).map((row: any) => {
-    const enrollmentRaw = asSingle<any>(row.enrollment);
-    const subject = asSingle<Subject>(enrollmentRaw?.subject);
-    const term = asSingle<Term>(enrollmentRaw?.term);
-    const enrollment: Enrollment | undefined = enrollmentRaw
-      ? {
-          id: enrollmentRaw.id,
-          term_id: enrollmentRaw.term_id,
-          subject_id: enrollmentRaw.subject_id,
-          status: enrollmentRaw.status,
-          color: enrollmentRaw.color ?? null,
-          notes: enrollmentRaw.notes ?? null,
-          schedule:
-            hasSchedule && Array.isArray(enrollmentRaw.schedule)
-              ? enrollmentRaw.schedule
-              : [],
-          subject: subject as Subject,
-          term
-        }
-      : undefined;
-
-    return {
-      id: row.id,
-      enrollment_id: row.enrollment_id,
-      type: row.type,
-      title: row.title ?? null,
-      description: row.description ?? null,
-      starts_at: row.starts_at,
-      ends_at: row.ends_at ?? null,
-      status: row.status ?? null,
-      grade: row.grade ?? null,
-      attempt: row.attempt ?? null,
-      links: row.links ?? null,
-      enrollment
-    } satisfies Event;
-  });
+  return (data ?? []).map((row: any) =>
+    mapEventRow({
+      row,
+      hasSchedule,
+      includeTerm: true
+    })
+  );
 };
 
 export const getUpcomingEvents = async (termId?: string) => {
@@ -318,41 +252,12 @@ export const getUpcomingEvents = async (termId?: string) => {
     withoutSchedule
   });
 
-  return (data ?? []).map((row: any) => {
-    const enrollmentRaw = asSingle<any>(row.enrollment);
-    const subject = asSingle<Subject>(enrollmentRaw?.subject);
-    const enrollment: Enrollment | undefined = enrollmentRaw
-      ? {
-          id: enrollmentRaw.id,
-          term_id: enrollmentRaw.term_id,
-          subject_id: enrollmentRaw.subject_id,
-          status: enrollmentRaw.status,
-          color: enrollmentRaw.color ?? null,
-          notes: enrollmentRaw.notes ?? null,
-          schedule:
-            hasSchedule && Array.isArray(enrollmentRaw.schedule)
-              ? enrollmentRaw.schedule
-              : [],
-          subject: subject as Subject,
-          term: null
-        }
-      : undefined;
-
-    return {
-      id: row.id,
-      enrollment_id: row.enrollment_id,
-      type: row.type,
-      title: row.title ?? null,
-      description: row.description ?? null,
-      starts_at: row.starts_at,
-      ends_at: row.ends_at ?? null,
-      status: row.status ?? null,
-      grade: row.grade ?? null,
-      attempt: row.attempt ?? null,
-      links: row.links ?? null,
-      enrollment
-    } satisfies Event;
-  });
+  return (data ?? []).map((row: any) =>
+    mapEventRow({
+      row,
+      hasSchedule
+    })
+  );
 };
 
 export const getPrerequisites = async () => {

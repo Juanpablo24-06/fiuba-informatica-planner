@@ -4,13 +4,15 @@ import { z } from "zod";
 import assistantRules from "@/config/assistant-rules.json";
 import { getSessionFromRequest } from "@/lib/auth";
 import { executeAdminActions } from "@/lib/ai/admin-actions";
-import { chatAdminActionSchema, reasoningLevelSchema, type ChatAdminAction } from "@/lib/ai/schemas";
+import { reasoningLevelSchema } from "@/lib/ai/schemas";
 import { getEnrollmentSummaryByTermIds, getEventsForTerm, getSubjects, getTerms } from "@/lib/queries";
 import { getWeekRange } from "@/lib/date";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { callAIJSON, hasAnyAIProviderConfigured, isAIProviderConfigured } from "@/lib/ai/provider";
 import { chatResponseSchema } from "@/lib/ai/schemas";
 import type { Term } from "@/lib/types";
+import { buildRequestedActions } from "@/lib/chat/action-planning";
+import { normalizeText } from "@/lib/chat/normalization";
 
 const payloadSchema = z.object({
   message: z.string().trim().min(1),
@@ -139,284 +141,6 @@ const buildFallbackDiagnostics = (error: string) => {
       "Se activó modo de recuperación por error del proveedor o formato no compatible.",
     warningLabel: "Error del proveedor"
   };
-};
-
-const monthMap: Record<string, number> = {
-  enero: 1,
-  febrero: 2,
-  marzo: 3,
-  abril: 4,
-  mayo: 5,
-  junio: 6,
-  julio: 7,
-  agosto: 8,
-  septiembre: 9,
-  setiembre: 9,
-  octubre: 10,
-  noviembre: 11,
-  diciembre: 12
-};
-
-const pad = (value: number) => String(value).padStart(2, "0");
-
-const normalizeText = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .trim();
-
-const normalizeTermLabel = (value: string) => {
-  const cleaned = value.trim().replace(/\s+/g, " ");
-  const match = cleaned.match(/^(\d{4})[\s_-]*(0|1|2)$/i);
-  if (!match) return cleaned;
-  return `${match[1]}-${match[2].toUpperCase()}`;
-};
-
-const inferDateFromPhrase = (
-  phrase: string,
-  fallbackYear: number | null,
-  mode: "start" | "end"
-) => {
-  const normalized = normalizeText(phrase).replace(/[.,]/g, " ");
-  const tokens = normalized.split(/\s+/).filter(Boolean);
-  let year = fallbackYear;
-  let month: number | null = null;
-  let day: number | null = null;
-
-  for (const token of tokens) {
-    if (!year && /^\d{4}$/.test(token)) {
-      year = Number(token);
-      continue;
-    }
-    if (!month && token in monthMap) {
-      month = monthMap[token];
-      continue;
-    }
-    if (!day && /^\d{1,2}$/.test(token)) {
-      const num = Number(token);
-      if (num >= 1 && num <= 31) day = num;
-    }
-  }
-
-  if (!year || !month) return null;
-
-  if (!day) {
-    if (mode === "start") {
-      day = normalized.includes("medio") ? 15 : 1;
-    } else {
-      day =
-        normalized.includes("inicio") || normalized.includes("principio")
-          ? 1
-          : new Date(year, month, 0).getDate();
-    }
-  }
-
-  const maxDay = new Date(year, month, 0).getDate();
-  if (day > maxDay) day = maxDay;
-  return `${year}-${pad(month)}-${pad(day)}`;
-};
-
-const parseActionsFromRaw = (rawActions: unknown): ChatAdminAction[] => {
-  const list = Array.isArray(rawActions) ? rawActions : [];
-  const valid: ChatAdminAction[] = [];
-
-  for (const item of list) {
-    if (!item || typeof item !== "object") continue;
-    const record = item as Record<string, unknown>;
-    const rawType = String(
-      record.type ?? record.action ?? record.kind ?? ""
-    ).trim();
-    if (!rawType) continue;
-
-    const type = rawType.toLowerCase();
-    const mappedType =
-      type === "create_term" || type === "crear_cuatrimestre" || type === "create_semester"
-        ? "create_term"
-      : type === "update_term" || type === "editar_cuatrimestre" || type === "update_semester"
-          ? "update_term"
-      : type === "set_current_term" || type === "set_term_current"
-            ? "set_current_term"
-            : type === "add_enrollment" || type === "add_course" || type === "create_enrollment"
-              ? "add_enrollment"
-              : type === "update_enrollment_status"
-                ? "update_enrollment_status"
-                : type === "remove_enrollment"
-                  ? "remove_enrollment"
-                  : rawType;
-
-    const randomHint =
-      Boolean(record.random) ||
-      Boolean(record.random_subject) ||
-      Boolean(record.aleatorio) ||
-      normalizeText(String(record.subject_query ?? record.subject ?? "")).includes("aleatorio");
-
-    const normalized: Record<string, unknown> = {
-      ...record,
-      type: mappedType,
-      term_label: normalizeTermLabel(
-        String(
-          record.term_label ??
-            record.label ??
-            record.term ??
-            record.cuatrimestre ??
-            ""
-        )
-      ),
-      subject_query: String(
-        record.subject_query ??
-          record.subject ??
-          record.materia ??
-          (randomHint ? "aleatorio" : "")
-      ),
-      start_date:
-        record.start_date ??
-        record.start ??
-        record.inicio ??
-        record.from ??
-        null,
-      end_date:
-        record.end_date ??
-        record.end ??
-        record.fin ??
-        record.to ??
-        null
-    };
-
-    const parsed = chatAdminActionSchema.safeParse(normalized);
-    if (parsed.success) {
-      valid.push(parsed.data);
-    }
-  }
-
-  return valid.slice(0, 5);
-};
-
-const inferTermActionFromMessages = (
-  messages: Array<{ role: "user" | "assistant"; content: string }>
-): ChatAdminAction[] => {
-  const userText = messages
-    .filter((message) => message.role === "user")
-    .map((message) => message.content)
-    .join("\n");
-  const normalized = normalizeText(userText);
-  if (!normalized) return [];
-
-  const labelMatch = normalized.match(/\b(20\d{2})\s*[- ]?\s*(0|1|2)\b/i);
-  if (!labelMatch) return [];
-  const label = `${labelMatch[1]}-${labelMatch[2].toUpperCase()}`;
-  const year = Number(labelMatch[1]);
-
-  const startPhraseMatch =
-    normalized.match(/(?:inicio|inicios|principio|principios)\s+de\s+([a-záéíóúñ]+(?:\s+de\s+\d{4})?)/i) ??
-    normalized.match(/desde\s+([a-záéíóúñ]+(?:\s+de\s+\d{4})?)/i);
-  const endPhraseMatch =
-    normalized.match(/(?:fin|fines|final|finales)\s+de\s+([a-záéíóúñ]+(?:\s+de\s+\d{4})?)/i) ??
-    normalized.match(/hasta\s+([a-záéíóúñ]+(?:\s+de\s+\d{4})?)/i);
-
-  const startDate = startPhraseMatch
-    ? inferDateFromPhrase(startPhraseMatch[1], year, "start")
-    : null;
-  const endDate = endPhraseMatch
-    ? inferDateFromPhrase(endPhraseMatch[1], year, "end")
-    : null;
-
-  const createIntent = /\b(crea|crear|agrega|agregar|anade|añade|nuevo)\b/i.test(normalized);
-  const updateIntent = /\b(actualiza|actualizar|edita|editar|modifica|modificar|cambia|cambiar)\b/i.test(normalized);
-  const actionType: ChatAdminAction["type"] =
-    createIntent || !updateIntent ? "create_term" : "update_term";
-
-  return [
-    {
-      type: actionType,
-      term_label: label,
-      start_date: startDate,
-      end_date: endDate,
-      is_current: /\bactual\b/i.test(normalized) ? true : undefined
-    } satisfies ChatAdminAction
-  ];
-};
-
-const romanToArabic = (value: string) =>
-  value
-    .replace(/\biii\b/gi, "3")
-    .replace(/\bii\b/gi, "2")
-    .replace(/\biv\b/gi, "4")
-    .replace(/\bvi\b/gi, "6")
-    .replace(/\bv\b/gi, "5")
-    .replace(/\bi\b/gi, "1");
-
-const normalizeSubjectAlias = (value: string) =>
-  normalizeText(romanToArabic(value))
-    .replace(/[^\p{Letter}\p{Number}\s]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-const inferEnrollmentActionsFromMessages = ({
-  messages,
-  subjects
-}: {
-  messages: Array<{ role: "user" | "assistant"; content: string }>;
-  subjects: Array<{ code: string | null; name: string }>;
-}): ChatAdminAction[] => {
-  const userText = messages
-    .filter((message) => message.role === "user")
-    .map((message) => message.content)
-    .join("\n");
-  const normalized = normalizeText(userText);
-  if (!normalized) return [];
-
-  const addIntent = /\b(agrega|agregar|agregame|anade|añade|añadir|inscribe|sum[aá])\b/i.test(
-    normalized
-  );
-  if (!addIntent) return [];
-
-  const labelMatch = normalized.match(/\b(20\d{2})\s*[- ]?\s*(0|1|2)\b/i);
-  const termLabel = labelMatch ? `${labelMatch[1]}-${labelMatch[2]}` : null;
-  if (!termLabel) return [];
-
-  const randomRequested =
-    /\b(aleatorio|random|cualquiera|el que quieras|la que quieras|que tu quieras|que tú quieras)\b/i.test(
-      normalized
-    );
-
-  const normalizedText = normalizeSubjectAlias(userText);
-  const detectedQueries = new Set<string>();
-
-  for (const subject of subjects) {
-    if (subject.code) {
-      const normalizedCode = normalizeText(subject.code);
-      if (normalized.includes(normalizedCode)) {
-        detectedQueries.add(subject.code);
-      }
-    }
-    const alias = normalizeSubjectAlias(subject.name);
-    if (alias.length >= 6 && normalizedText.includes(alias)) {
-      detectedQueries.add(subject.name);
-    }
-  }
-
-  const actions: ChatAdminAction[] = [];
-  for (const query of detectedQueries) {
-    actions.push({
-      type: "add_enrollment",
-      term_label: termLabel,
-      subject_query: query,
-      status: "cursando"
-    });
-    if (actions.length >= 4) break;
-  }
-
-  if (randomRequested) {
-    actions.push({
-      type: "add_enrollment",
-      term_label: termLabel,
-      subject_query: "aleatorio",
-      status: "cursando"
-    });
-  }
-
-  return actions.slice(0, 5);
 };
 
 const buildPrompt = ({
@@ -694,11 +418,11 @@ export async function POST(request: NextRequest) {
         warnings: string[];
         actions: unknown;
         confidence: number | null | undefined;
-        provider: string | null | undefined;
-        model: string | null | undefined;
-      }
+      provider: string | null | undefined;
+      model: string | null | undefined;
+    }
     | null = null;
-  let requestedActions: ChatAdminAction[] = [];
+  let requestedActions: ReturnType<typeof buildRequestedActions> = [];
   let actionResults: Awaited<ReturnType<typeof executeAdminActions>> = [];
   let usedFallback = false;
 
@@ -715,64 +439,32 @@ export async function POST(request: NextRequest) {
       provider: result.provider,
       model: result.model
     };
-    requestedActions = allowActions ? parseActionsFromRaw(responseBody.actions) : [];
-    if (allowActions && requestedActions.length === 0) {
-      const inferredTermActions = inferTermActionFromMessages(recentMessages);
-      const inferredEnrollmentActions = inferEnrollmentActionsFromMessages({
-        messages: recentMessages,
-        subjects: subjects.map((subject) => ({
-          code: subject.code,
-          name: subject.name
-        }))
-      });
-      requestedActions = [...inferredTermActions, ...inferredEnrollmentActions].slice(0, 5);
-    }
-    actionResults =
-      allowActions && requestedActions.length > 0
-        ? await executeAdminActions(requestedActions)
-        : [];
+    requestedActions = buildRequestedActions({
+      allowActions,
+      modelSucceeded: true,
+      responseActions: responseBody.actions,
+      recentMessages,
+      subjects: subjects.map((subject) => ({
+        code: subject.code,
+        name: subject.name
+      }))
+    });
+    actionResults = requestedActions.length > 0 ? await executeAdminActions(requestedActions) : [];
   } else {
     usedFallback = true;
     const diagnostics = buildFallbackDiagnostics(result.error);
-    const inferredActions = allowActions
-      ? [
-          ...inferTermActionFromMessages(recentMessages),
-          ...inferEnrollmentActionsFromMessages({
-            messages: recentMessages,
-            subjects: subjects.map((subject) => ({
-              code: subject.code,
-              name: subject.name
-            }))
-          })
-        ].slice(0, 5)
-      : [];
-    requestedActions = inferredActions;
-    actionResults =
-      allowActions && inferredActions.length > 0
-        ? await executeAdminActions(inferredActions)
-        : [];
-
-    const successCount = actionResults.filter((item) => item.ok).length;
-    const failCount = actionResults.length - successCount;
 
     responseBody = {
-      answer:
-        successCount > 0
-          ? `Listo, apliqué ${successCount} cambio(s) en la base.`
-          : diagnostics.answer,
+      answer: diagnostics.answer,
       reasoning: diagnostics.reasoning,
-      follow_up_questions:
-        successCount > 0
-          ? ["¿Querés que marque este cuatrimestre como actual también?"]
-          : [
-              "Si querés, te puedo reintentar automáticamente con el modelo predeterminado del proveedor.",
-              "También podés pasarme el cuatrimestre exacto (ej: 2026-2) con fechas YYYY-MM-DD para aplicarlo directo."
-            ],
-      warnings: [
-        `${diagnostics.warningLabel}: ${result.error}`,
-        ...(failCount > 0 ? [`Hubo ${failCount} acción(es) que no se pudieron aplicar.`] : [])
+      follow_up_questions: [
+        "Si querés, te puedo reintentar automáticamente con el modelo predeterminado del proveedor.",
+        "También podés pasarme el cuatrimestre exacto (ej: 2026-2) con fechas YYYY-MM-DD para aplicarlo directo."
       ],
-      actions: inferredActions,
+      warnings: [
+        `${diagnostics.warningLabel}: ${result.error}`
+      ],
+      actions: [],
       confidence: null,
       provider: null,
       model: "fallback-recovery"
@@ -782,6 +474,7 @@ export async function POST(request: NextRequest) {
   const persistenceEnabled = process.env.CHAT_PERSISTENCE_ENABLED === "true";
   const shouldStore = persistenceEnabled && parsed.data.storeHistory;
   let threadId = parsed.data.threadId;
+  let stored = false;
 
   if (shouldStore) {
     if (!threadId) {
@@ -796,7 +489,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (threadId) {
-      await supabaseAdmin.from("chat_messages").insert([
+      const { error: messageError } = await supabaseAdmin.from("chat_messages").insert([
         {
           thread_id: threadId,
           role: "user",
@@ -819,6 +512,7 @@ export async function POST(request: NextRequest) {
           }
         }
       ]);
+      stored = !messageError;
     }
   }
 
@@ -843,6 +537,6 @@ export async function POST(request: NextRequest) {
       rulesVersion: assistantRules.version
     },
     threadId,
-    stored: shouldStore
+    stored
   });
 }

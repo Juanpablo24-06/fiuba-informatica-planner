@@ -4,6 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Enrollment, Event } from "@/lib/types";
 import { formatDateTime } from "@/lib/date";
+import {
+  EMPTY_EVENT_FORM,
+  buildEventForm,
+  buildEventPayload,
+  type EventForm
+} from "@/lib/dashboard/course-workspace";
+import { getPrimaryEventLinkDraft } from "@/lib/dashboard/event-links";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -28,11 +35,14 @@ const EVENT_TYPES = [
   "otro"
 ] as const;
 
-const toLocalInput = (value: string) => {
-  const date = new Date(value);
-  const offset = date.getTimezoneOffset();
-  return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 16);
+type CreateEventForm = EventForm & {
+  enrollment_id: string;
 };
+
+const buildEmptyCreateForm = (enrollmentId: string): CreateEventForm => ({
+  ...EMPTY_EVENT_FORM,
+  enrollment_id: enrollmentId
+});
 
 export default function EventManager({
   enrollments,
@@ -45,36 +55,21 @@ export default function EventManager({
 }) {
   const router = useRouter();
   const [events, setEvents] = useState(initialEvents);
-  const [form, setForm] = useState({
-    enrollment_id: enrollments[0]?.id ?? "",
-    type: "parcial",
-    title: "",
-    description: "",
-    starts_at: "",
-    ends_at: "",
-    grade: "",
-    status: "",
-    attempt: "1",
-    linkLabel: "",
-    linkUrl: ""
-  });
+  const [form, setForm] = useState<CreateEventForm>(buildEmptyCreateForm(enrollments[0]?.id ?? ""));
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
-  const [editForm, setEditForm] = useState({
-    type: "parcial",
-    title: "",
-    description: "",
-    starts_at: "",
-    ends_at: "",
-    grade: "",
-    status: "",
-    attempt: "",
-    linkLabel: "",
-    linkUrl: ""
-  });
+  const [editForm, setEditForm] = useState<EventForm>(EMPTY_EVENT_FORM);
 
   useEffect(() => {
     setEvents(initialEvents);
   }, [initialEvents]);
+
+  useEffect(() => {
+    setForm((prev) =>
+      prev.enrollment_id || !enrollments[0]?.id
+        ? prev
+        : buildEmptyCreateForm(enrollments[0].id)
+    );
+  }, [enrollments]);
 
   const sorted = useMemo(
     () =>
@@ -86,21 +81,10 @@ export default function EventManager({
   const canCreate = isAdmin && enrollments.length > 0;
 
   const handleCreate = async () => {
-    const toIso = (value: string) => new Date(value).toISOString();
-    const payload = {
-      enrollment_id: form.enrollment_id,
-      type: form.type,
-      title: form.title || null,
-      description: form.description || null,
-      starts_at: toIso(form.starts_at),
-      ends_at: form.ends_at ? toIso(form.ends_at) : null,
-      grade: form.grade ? Number(form.grade) : null,
-      status: form.status || null,
-      attempt: form.attempt ? Number(form.attempt) : null,
-      links: form.linkUrl
-        ? [{ label: form.linkLabel || "Material", url: form.linkUrl }]
-        : null
-    };
+    const payload = buildEventPayload({
+      enrollmentId: form.enrollment_id,
+      form
+    });
 
     const response = await fetch("/api/events", {
       method: "POST",
@@ -112,52 +96,21 @@ export default function EventManager({
     const data = await response.json();
     setEvents((prev) => [...prev, data.event]);
     router.refresh();
-    setForm((prev) => ({
-      ...prev,
-      title: "",
-      description: "",
-      starts_at: "",
-      ends_at: "",
-      grade: "",
-      status: "",
-      attempt: "1",
-      linkLabel: "",
-      linkUrl: ""
-    }));
+    setForm((prev) => buildEmptyCreateForm(prev.enrollment_id));
   };
 
   const openEdit = (event: Event) => {
     setEditingEvent(event);
-    setEditForm({
-      type: event.type,
-      title: event.title ?? "",
-      description: event.description ?? "",
-      starts_at: toLocalInput(event.starts_at),
-      ends_at: event.ends_at ? toLocalInput(event.ends_at) : "",
-      grade: event.grade !== null ? event.grade.toString() : "",
-      status: event.status ?? "",
-      attempt: event.attempt !== null ? event.attempt.toString() : "",
-      linkLabel: event.links?.[0]?.label ?? "",
-      linkUrl: event.links?.[0]?.url ?? ""
-    });
+    setEditForm(buildEventForm(event, getPrimaryEventLinkDraft(event.links)));
   };
 
   const handleUpdate = async () => {
     if (!editingEvent) return;
-    const toIso = (value: string) => new Date(value).toISOString();
-    const payload = {
-      type: editForm.type,
-      title: editForm.title || null,
-      description: editForm.description || null,
-      starts_at: editForm.starts_at ? toIso(editForm.starts_at) : undefined,
-      ends_at: editForm.ends_at ? toIso(editForm.ends_at) : null,
-      grade: editForm.grade ? Number(editForm.grade) : null,
-      status: editForm.status || null,
-      attempt: editForm.attempt ? Number(editForm.attempt) : null,
-      links: editForm.linkUrl
-        ? [{ label: editForm.linkLabel || "Material", url: editForm.linkUrl }]
-        : null
-    };
+    const payload = buildEventPayload({
+      enrollmentId: editingEvent.enrollment_id,
+      form: editForm,
+      existingLinks: editingEvent.links
+    });
 
     const response = await fetch(`/api/events/${editingEvent.id}`, {
       method: "PATCH",
@@ -170,6 +123,7 @@ export default function EventManager({
       prev.map((item) => (item.id === editingEvent.id ? data.event : item))
     );
     setEditingEvent(null);
+    setEditForm(EMPTY_EVENT_FORM);
     router.refresh();
   };
 
@@ -390,7 +344,10 @@ export default function EventManager({
       <Dialog
         open={Boolean(editingEvent)}
         onOpenChange={(open) => {
-          if (!open) setEditingEvent(null);
+          if (!open) {
+            setEditingEvent(null);
+            setEditForm(EMPTY_EVENT_FORM);
+          }
         }}
       >
         <DialogContent>

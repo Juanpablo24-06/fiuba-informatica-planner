@@ -1,5 +1,17 @@
 import type { ChatAdminAction } from "@/lib/ai/schemas";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import {
+  getMonthEndDay,
+  monthMap,
+  normalizeTermLabel,
+  normalizeText,
+  pad
+} from "@/lib/chat/normalization";
+import {
+  buildSubjectSearchIndex,
+  resolveSubjectByQuery,
+  type SubjectLite
+} from "@/lib/chat/subject-resolution";
 
 type AdminActionResult = {
   type: ChatAdminAction["type"];
@@ -13,47 +25,6 @@ type TermLite = {
   start_date: string | null;
   end_date: string | null;
   is_current: boolean;
-};
-
-type SubjectLite = {
-  id: string;
-  code: string | null;
-  name: string;
-};
-
-const normalizeText = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .trim();
-
-const monthMap: Record<string, number> = {
-  enero: 1,
-  febrero: 2,
-  marzo: 3,
-  abril: 4,
-  mayo: 5,
-  junio: 6,
-  julio: 7,
-  agosto: 8,
-  septiembre: 9,
-  setiembre: 9,
-  octubre: 10,
-  noviembre: 11,
-  diciembre: 12
-};
-
-const pad = (value: number) => String(value).padStart(2, "0");
-
-const getMonthEndDay = (year: number, month: number) =>
-  new Date(year, month, 0).getDate();
-
-const normalizeTermLabel = (label: string) => {
-  const trimmed = label.trim().replace(/\s+/g, " ");
-  const match = trimmed.match(/^(\d{4})[\s_-]*(0|1|2)$/i);
-  if (!match) return trimmed;
-  return `${match[1]}-${match[2].toUpperCase()}`;
 };
 
 const normalizeColor = (value?: string | null) => {
@@ -162,51 +133,6 @@ const clearCurrentTerm = async (targetTermId: string) => {
   }
 };
 
-const findSubjectByQuery = (subjects: SubjectLite[], query: string) => {
-  const normalized = normalizeText(query);
-  if (!normalized) {
-    return { error: "La consulta de materia llegó vacía." } as const;
-  }
-
-  const byCode = subjects.filter((subject) =>
-    subject.code ? normalizeText(subject.code) === normalized : false
-  );
-  if (byCode.length === 1) {
-    return { subject: byCode[0] } as const;
-  }
-  if (byCode.length > 1) {
-    return { error: `La materia '${query}' coincide con varios códigos.` } as const;
-  }
-
-  const byExactName = subjects.filter(
-    (subject) => normalizeText(subject.name) === normalized
-  );
-  if (byExactName.length === 1) {
-    return { subject: byExactName[0] } as const;
-  }
-  if (byExactName.length > 1) {
-    return { error: `La materia '${query}' coincide con varios nombres exactos.` } as const;
-  }
-
-  const byPartial = subjects.filter((subject) => {
-    const name = normalizeText(subject.name);
-    const code = subject.code ? normalizeText(subject.code) : "";
-    return name.includes(normalized) || code.includes(normalized);
-  });
-  if (byPartial.length === 1) {
-    return { subject: byPartial[0] } as const;
-  }
-  if (byPartial.length > 1) {
-    const options = byPartial
-      .slice(0, 4)
-      .map((subject) => `${subject.code ?? "SIN-COD"} ${subject.name}`)
-      .join(" / ");
-    return { error: `Consulta ambigua para '${query}'. Opciones: ${options}.` } as const;
-  }
-
-  return { error: `No se encontró ninguna materia que coincida con '${query}'.` } as const;
-};
-
 const isRandomSubjectQuery = (query: string) => {
   const normalized = normalizeText(query);
   return (
@@ -249,6 +175,7 @@ export const executeAdminActions = async (
   if (actions.length === 0) return [];
 
   const [terms, subjects] = await Promise.all([loadTerms(), loadSubjects()]);
+  const subjectIndex = buildSubjectSearchIndex(subjects);
   const termEnrollmentCache = new Map<string, Set<string>>();
   const results: AdminActionResult[] = [];
 
@@ -496,7 +423,10 @@ export const executeAdminActions = async (
         const randomIndex = Math.floor(Math.random() * candidates.length);
         subject = candidates[randomIndex];
       } else {
-        const subjectResult = findSubjectByQuery(subjects, action.subject_query);
+        const subjectResult = resolveSubjectByQuery(
+          subjectIndex,
+          action.subject_query
+        );
         if ("error" in subjectResult) {
           results.push({
             type: action.type,

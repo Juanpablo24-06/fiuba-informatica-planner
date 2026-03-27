@@ -3,6 +3,12 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMapTransitionState } from "@/components/layout/map-transition-coordinator";
+import {
+  buildSummaryProgressSegments,
+  isTrailingSummarySegment,
+  type FinalProjectTrack,
+  type SummaryProgressSegment
+} from "@/lib/dashboard/summary-progress";
 import { cn } from "@/lib/utils";
 
 const MAP_FINAL_TRACK_STORAGE_KEY = "fiuba-map-final-track-v1";
@@ -27,25 +33,6 @@ type SummaryProgressBarProps = {
   englishApproved?: boolean;
   mode?: "summary" | "map-bottom";
 };
-
-type Segment = {
-  key: string;
-  label: string;
-  approved: number;
-  total: number;
-  labelClass: string;
-  markerClass: string;
-  trackClass: string;
-  tooltipTitle: string;
-  tooltipBody: string;
-  helperText?: string;
-  accentColor: string;
-  trackTint: string;
-  stripeColor: string;
-  percentBadgeClass: string;
-};
-
-type FinalProjectTrack = "tesis" | "trabajo_profesional";
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
@@ -111,88 +98,24 @@ export default function SummaryProgressBar({
     };
   }, [isMapBottom]);
 
-  const segments = useMemo<Segment[]>(
-    () => [
-      {
-        key: "cbc",
-        label: "CBC",
-        approved: approvedCbcCredits,
-        total: totalCbcCredits,
-        labelClass: "text-warning",
-        markerClass: "bg-warning",
-        trackClass: "border-warning/25",
-        tooltipTitle: "Ciclo Básico Común",
-        tooltipBody: `${approvedCbcCredits} de ${totalCbcCredits} créditos aprobados`,
-        helperText: `${approvedCbcCourses} de ${totalCbcCourses} materias completadas`,
-        accentColor: "rgb(var(--color-warning))",
-        trackTint: "rgb(var(--color-warning) / 0.18)",
-        stripeColor: "rgba(255,255,255,0.22)",
-        percentBadgeClass: "bg-warning text-white"
-      },
-      {
-        key: "obligatorias",
-        label: "Obligatorias",
-        approved: approvedObligatoryCredits,
-        total: totalObligatoryCredits,
-        labelClass: "text-accent",
-        markerClass: "bg-accent",
-        trackClass: "border-accent/20",
-        tooltipTitle: "Materias obligatorias",
-        tooltipBody: `${approvedObligatoryCredits} de ${totalObligatoryCredits} créditos aprobados`,
-        helperText: `${approvedObligatoryCourses} de ${totalObligatoryCourses} materias completadas`,
-        accentColor: "rgb(var(--color-accent))",
-        trackTint: "rgb(var(--color-accent) / 0.16)",
-        stripeColor: "rgba(255,255,255,0.2)",
-        percentBadgeClass: "bg-accent text-white"
-      },
-      {
-        key: "electivas",
-        label: "Electivas",
-        approved: approvedElectiveCredits,
-        total: totalElectiveCredits,
-        labelClass: "text-elective",
-        markerClass: "bg-elective",
-        trackClass: "border-elective/25",
-        tooltipTitle: "Materias electivas",
-        tooltipBody: `${approvedElectiveCredits} de ${totalElectiveCredits} créditos aprobados`,
-        accentColor: "rgb(var(--color-elective))",
-        trackTint: "rgb(var(--color-elective) / 0.18)",
-        stripeColor: "rgba(255,255,255,0.2)",
-        percentBadgeClass: "bg-elective text-white"
-      },
-      {
-        key: "ingles",
-        label: "Inglés",
-        approved: englishApproved ? 1 : 0,
-        total: 1,
-        labelClass: "text-[#ba9440]",
-        markerClass: "bg-[#d8b04b]",
-        trackClass: "border-[#d8b04b]/25",
-        tooltipTitle: "Prueba de nivel de idioma inglés",
-        tooltipBody: englishApproved ? "Requisito cumplido" : "Pendiente",
-        helperText: "No suma créditos al total del plan",
-        accentColor: "rgb(216 176 75)",
-        trackTint: "rgb(216 176 75 / 0.22)",
-        stripeColor: "rgba(255,255,255,0.22)",
-        percentBadgeClass: "bg-[#d8b04b] text-white"
-      },
-      {
-        key: "tif",
-        label: "TIF",
-        approved: approvedTifCredits,
-        total: totalTifCredits,
-        labelClass: "text-danger",
-        markerClass: "bg-danger",
-        trackClass: "border-danger/25",
-        tooltipTitle: "Trabajo Integrador Final",
-        tooltipBody: `${approvedTifCredits} de ${totalTifCredits} créditos aprobados`,
-        helperText: finalTrack === "tesis" ? "Modalidad tesis" : "Trabajo profesional",
-        accentColor: "rgb(var(--color-danger))",
-        trackTint: "rgb(var(--color-danger) / 0.18)",
-        stripeColor: "rgba(255,255,255,0.2)",
-        percentBadgeClass: "bg-danger text-white"
-      }
-    ],
+  const segments = useMemo<SummaryProgressSegment[]>(
+    () =>
+      buildSummaryProgressSegments({
+        approvedCbcCredits,
+        totalCbcCredits,
+        approvedCbcCourses,
+        totalCbcCourses,
+        approvedObligatoryCredits,
+        totalObligatoryCredits,
+        approvedObligatoryCourses,
+        totalObligatoryCourses,
+        approvedElectiveCredits,
+        totalElectiveCredits,
+        approvedTifCredits,
+        totalTifCredits,
+        englishApproved,
+        finalTrack
+      }),
     [
       approvedCbcCourses,
       approvedCbcCredits,
@@ -210,8 +133,6 @@ export default function SummaryProgressBar({
       totalTifCredits
     ]
   );
-
-  const isTrailingSegment = (key: string) => key === "electivas" || key === "ingles" || key === "tif";
 
   return (
     <div className={cn("w-full", showSummaryStats && "relative z-20")}>
@@ -317,7 +238,7 @@ export default function SummaryProgressBar({
                   data-progress-tooltip="true"
                   className={cn(
                     "pointer-events-none absolute bottom-full z-[70] mb-3 w-[220px] -translate-y-2 rounded-2xl border border-border/85 bg-surface px-4 py-3 text-left shadow-lg opacity-0 transition-all duration-200",
-                    isTrailingSegment(segment.key) ? "right-0" : "left-0",
+                    isTrailingSummarySegment(segment.key) ? "right-0" : "left-0",
                     !tooltipsDisabled && "group-hover/segment:translate-y-0 group-hover/segment:opacity-100"
                   )}
                 >

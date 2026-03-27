@@ -3,10 +3,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
-import type { Enrollment, EnrollmentScheduleDay, EnrollmentScheduleSlot, Event } from "@/lib/types";
+import type { Enrollment, EnrollmentScheduleDay, Event, EventLink } from "@/lib/types";
 import { formatDateTime } from "@/lib/date";
-import { SCHEDULE_DAY_ORDER, sortScheduleSlots } from "@/lib/schedule";
-import { formatEvaluationTemplate } from "@/lib/templates";
+import {
+  EMPTY_EVENT_FORM,
+  buildDescription,
+  buildEventForm,
+  buildEventPayload,
+  draftBlocksToSlots,
+  slotsToDraftBlocks,
+  sortScheduleDays,
+  validateScheduleBlocks,
+  type EventForm,
+  type ScheduleBlockDraft
+} from "@/lib/dashboard/course-workspace";
+import { getPrimaryEventLinkDraft } from "@/lib/dashboard/event-links";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ColorPalette, SUBJECT_COLORS } from "@/components/ui/color-palette";
@@ -42,123 +53,6 @@ const SCHEDULE_DAY_OPTIONS: { value: EnrollmentScheduleDay; label: string }[] = 
   { value: "sab", label: "Sábado" }
 ];
 
-type ScheduleBlockDraft = {
-  days: EnrollmentScheduleDay[];
-  start_time: string;
-  end_time: string;
-  location: string | null;
-};
-
-const sortDays = (days: EnrollmentScheduleDay[]) =>
-  [...new Set(days)].sort((a, b) => SCHEDULE_DAY_ORDER[a] - SCHEDULE_DAY_ORDER[b]);
-
-const slotsToDraftBlocks = (slots: EnrollmentScheduleSlot[]): ScheduleBlockDraft[] => {
-  if (!slots.length) return [];
-
-  const map = new Map<string, ScheduleBlockDraft>();
-  for (const slot of sortScheduleSlots(slots)) {
-    const key = `${slot.start_time}|${slot.end_time}|${slot.location ?? ""}`;
-    const current = map.get(key);
-    if (!current) {
-      map.set(key, {
-        days: [slot.day],
-        start_time: slot.start_time,
-        end_time: slot.end_time,
-        location: slot.location ?? null
-      });
-      continue;
-    }
-    current.days = sortDays([...current.days, slot.day]);
-  }
-
-  return Array.from(map.values()).sort((a, b) => a.start_time.localeCompare(b.start_time));
-};
-
-const draftBlocksToSlots = (blocks: ScheduleBlockDraft[]): EnrollmentScheduleSlot[] => {
-  const rows: EnrollmentScheduleSlot[] = [];
-  for (const block of blocks) {
-    for (const day of sortDays(block.days)) {
-      rows.push({
-        day,
-        start_time: block.start_time,
-        end_time: block.end_time,
-        location: block.location ?? null
-      });
-    }
-  }
-  return sortScheduleSlots(rows);
-};
-
-type EventForm = {
-  type: string;
-  title: string;
-  description: string;
-  starts_at: string;
-  ends_at: string;
-  grade: string;
-  status: string;
-  attempt: string;
-  linkLabel: string;
-  linkUrl: string;
-};
-
-const emptyEventForm: EventForm = {
-  type: "tp",
-  title: "",
-  description: "",
-  starts_at: "",
-  ends_at: "",
-  grade: "",
-  status: "",
-  attempt: "1",
-  linkLabel: "",
-  linkUrl: ""
-};
-
-const toDatetimeLocal = (value?: string | null) => {
-  if (!value) return "";
-  const date = new Date(value);
-  const offset = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
-};
-
-const toIso = (value?: string | null) => {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toISOString();
-};
-
-const buildDescription = (enrollment: Enrollment) => {
-  const subject = enrollment.subject;
-  const lines: string[] = [];
-
-  if (subject.template?.notas) {
-    lines.push(subject.template.notas.trim());
-  }
-
-  if (subject.requirements?.length) {
-    lines.push(`Requisitos generales: ${subject.requirements.join(" · ")}.`);
-  }
-
-  const meta: string[] = [];
-  if (subject.credits) meta.push(`${subject.credits} créditos`);
-  if (subject.weekly_hours) meta.push(`${subject.weekly_hours} h semanales`);
-  if (subject.total_hours) meta.push(`${subject.total_hours} h totales`);
-  if (subject.term_suggested) meta.push(`sugerida en cuatrimestre ${subject.term_suggested}`);
-  if (meta.length) {
-    lines.push(`Datos de cátedra: ${meta.join(" · ")}.`);
-  }
-
-  if (subject.template) {
-    lines.push(`Plantilla de evaluación: ${formatEvaluationTemplate(subject.template)}.`);
-  }
-
-  return lines.length
-    ? lines.join("\n\n")
-    : "No hay descripción de plantilla cargada para esta materia. Podés sumar contexto en tus notas personales.";
-};
-
 export type CourseWorkspaceModel = {
   enrollment: Enrollment;
   events: Event[];
@@ -188,9 +82,10 @@ export default function CourseWorkspaceDrawer({
   const [scheduleError, setScheduleError] = useState("");
   const [savingEnrollment, setSavingEnrollment] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [eventForm, setEventForm] = useState<EventForm>(emptyEventForm);
+  const [eventForm, setEventForm] = useState<EventForm>(EMPTY_EVENT_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingForm, setEditingForm] = useState<EventForm>(emptyEventForm);
+  const [editingForm, setEditingForm] = useState<EventForm>(EMPTY_EVENT_FORM);
+  const [editingLinks, setEditingLinks] = useState<EventLink[] | null>(null);
 
   useEffect(() => {
     setLocalEnrollment(enrollment);
@@ -266,7 +161,7 @@ export default function CourseWorkspaceDrawer({
           : [...slot.days, day];
         return {
           ...slot,
-          days: sortDays(nextDays)
+          days: sortScheduleDays(nextDays)
         };
       })
     );
@@ -292,26 +187,13 @@ export default function CourseWorkspaceDrawer({
 
   const handleSaveSchedule = async () => {
     if (!isAdmin) return;
-    const hasInvalid = scheduleDraft.some(
-      (slot) =>
-        slot.days.length === 0 ||
-        !slot.start_time ||
-        !slot.end_time ||
-        slot.start_time >= slot.end_time
-    );
-
-    if (hasInvalid) {
-      setScheduleError("Revisá el horario: cada bloque debe tener hora inicio menor a hora fin.");
+    const validationError = validateScheduleBlocks(scheduleDraft);
+    if (validationError) {
+      setScheduleError(validationError);
       return;
     }
 
-    const normalizedBlocks = scheduleDraft.map((slot) => ({
-      days: sortDays(slot.days),
-      start_time: slot.start_time,
-      end_time: slot.end_time,
-      location: slot.location?.trim() || null
-    }));
-    const normalized = draftBlocksToSlots(normalizedBlocks);
+    const normalized = draftBlocksToSlots(scheduleDraft);
 
     setScheduleError("");
     setScheduleDraft(slotsToDraftBlocks(normalized));
@@ -321,29 +203,12 @@ export default function CourseWorkspaceDrawer({
     }
   };
 
-  const buildEventPayload = (form: EventForm) => ({
-    enrollment_id: localEnrollment.id,
-    type: form.type,
-    title: form.title.trim() || null,
-    description: form.description.trim() || null,
-    starts_at: toIso(form.starts_at),
-    ends_at: toIso(form.ends_at),
-    grade: form.grade ? Number(form.grade) : null,
-    status: form.status.trim() || null,
-    attempt: form.attempt ? Number(form.attempt) : null,
-    links: form.linkUrl
-      ? [
-          {
-            label: form.linkLabel.trim() || "Material",
-            url: form.linkUrl.trim()
-          }
-        ]
-      : null
-  });
-
   const handleCreateEvent = async () => {
     if (!isAdmin || !eventForm.starts_at) return;
-    const payload = buildEventPayload(eventForm);
+    const payload = buildEventPayload({
+      enrollmentId: localEnrollment.id,
+      form: eventForm
+    });
     const response = await fetch("/api/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -356,30 +221,31 @@ export default function CourseWorkspaceDrawer({
       onEventsChange?.(updated);
       return updated;
     });
-    setEventForm(emptyEventForm);
+    setEventForm(EMPTY_EVENT_FORM);
     setCreating(false);
     router.refresh();
   };
 
   const openEdit = (event: Event) => {
     setEditingId(event.id);
-    setEditingForm({
-      type: event.type,
-      title: event.title ?? "",
-      description: event.description ?? "",
-      starts_at: toDatetimeLocal(event.starts_at),
-      ends_at: toDatetimeLocal(event.ends_at),
-      grade: event.grade !== null ? String(event.grade) : "",
-      status: event.status ?? "",
-      attempt: event.attempt !== null ? String(event.attempt) : "",
-      linkLabel: event.links?.[0]?.label ?? "",
-      linkUrl: event.links?.[0]?.url ?? ""
-    });
+    setEditingLinks(event.links);
+    const primaryLink = getPrimaryEventLinkDraft(event.links);
+    setEditingForm(buildEventForm(event, primaryLink));
+  };
+
+  const closeEdit = () => {
+    setEditingId(null);
+    setEditingLinks(null);
+    setEditingForm(EMPTY_EVENT_FORM);
   };
 
   const handleUpdateEvent = async () => {
     if (!isAdmin || !editingId || !editingForm.starts_at) return;
-    const payload = buildEventPayload(editingForm);
+    const payload = buildEventPayload({
+      enrollmentId: localEnrollment.id,
+      form: editingForm,
+      existingLinks: editingLinks
+    });
     const response = await fetch(`/api/events/${editingId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -394,8 +260,7 @@ export default function CourseWorkspaceDrawer({
       onEventsChange?.(updated);
       return updated;
     });
-    setEditingId(null);
-    setEditingForm(emptyEventForm);
+    closeEdit();
     router.refresh();
   };
 
@@ -827,7 +692,7 @@ export default function CourseWorkspaceDrawer({
                               />
                             </div>
                             <div className="mt-3 flex justify-end gap-2">
-                              <Button variant="outline" size="sm" onClick={() => setEditingId(null)}>
+                              <Button variant="outline" size="sm" onClick={closeEdit}>
                                 Cancelar
                               </Button>
                               <Button size="sm" onClick={handleUpdateEvent}>

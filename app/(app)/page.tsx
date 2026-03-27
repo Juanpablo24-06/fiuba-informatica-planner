@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, CalendarDays, Clock3 } from "lucide-react";
+import { CalendarDays, Clock3 } from "lucide-react";
 import CourseWorkspaceDrawer from "@/components/dashboard/course-workspace-drawer";
 import SummaryProgressBar from "@/components/dashboard/summary-progress-bar";
 import { getSession } from "@/lib/auth";
@@ -7,11 +7,17 @@ import { formatDateTime } from "@/lib/date";
 import { getCalendarEvents } from "@/lib/google-calendar";
 import { getCurrentTerm, getEnrollmentsForTerm, getEventsForTerm, getLatestEnrollmentStatus, getSubjects } from "@/lib/queries";
 import { buildProgressSnapshot, OFFICIAL_TOTAL_CREDITS } from "@/lib/progress";
+import {
+  DAY_MS,
+  calcLoad,
+  getEditorialPhrase,
+  getNextFutureEventByEnrollment,
+  getUpcomingMergedEvents,
+  groupEventsByEnrollment,
+  splitSchedulePreview
+} from "@/lib/dashboard/summary-data";
 import { formatSchedulePreview } from "@/lib/schedule";
 import { cn } from "@/lib/utils";
-import type { CalendarEvent, Event } from "@/lib/types";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 const STATUS_LABELS: Record<string, string> = {
   cursando: "Cursando",
@@ -25,98 +31,6 @@ const STATUS_PILL_TONE: Record<string, string> = {
   final_pendiente: "bg-warning/10 text-warning",
   aprobado: "bg-success/10 text-success",
   recursar: "bg-danger/10 text-danger"
-};
-
-const GENERIC_ELECTIVE_NAMES = new Set(["Electivas/Optativas I", "Electivas/Optativas II"]);
-
-const PHRASES_EDITORIALES = [
-  "Una materia a la vez, una carrera completa.",
-  "Lo importante no es correr: es sostener el ritmo.",
-  "Cada semana ordenada te acerca al título.",
-  "Menos ruido, más foco en lo que sí suma.",
-  "Tu progreso también se construye en días tranquilos."
-];
-
-const isCbcSubject = (subject: {
-  type?: string | null;
-  cycle?: string | null;
-}) => {
-  const type = subject.type?.toLowerCase();
-  const cycle = subject.cycle?.toLowerCase();
-  return type === "cbc" || cycle === "cbc";
-};
-
-const buildInternalEvents = (events: Event[]): CalendarEvent[] =>
-  events.map((event) => ({
-    id: event.id,
-    title: event.title ?? event.type,
-    startsAt: event.starts_at,
-    endsAt: event.ends_at,
-    source: "internal",
-    subject: event.enrollment?.subject?.name,
-    type: event.type,
-    color: event.enrollment?.color ?? undefined
-  }));
-
-const splitSchedulePreview = (preview: string) => {
-  const match = preview.match(/^(.*?)(\d{2}:\d{2}-\d{2}:\d{2}.*)$/);
-  if (!match) {
-    return { days: preview.trim(), time: null as string | null };
-  }
-
-  return {
-    days: match[1].trim(),
-    time: match[2].trim()
-  };
-};
-
-const getSubjectCredits = (subject: {
-  credits?: number | null;
-  weekly_hours?: number | null;
-}) => subject.credits ?? subject.weekly_hours ?? 0;
-
-const isGenericElectiveSubject = (subject: { name: string }) =>
-  GENERIC_ELECTIVE_NAMES.has(subject.name);
-
-const isFinalProjectStage = (subject: { name: string }) =>
-  /Trabajo Integrador Final|Tesis\/Trabajo Profesional/i.test(subject.name);
-
-const calcLoad = (events: CalendarEvent[]) => {
-  const now = Date.now();
-  const nextWeek = now + 7 * DAY_MS;
-  const weekEvents = events.filter((event) => {
-    const time = new Date(event.startsAt).getTime();
-    return time >= now && time <= nextWeek;
-  });
-  const exams = weekEvents.filter((event) =>
-    ["parcial", "final", "exam"].includes((event.type ?? "").toLowerCase())
-  ).length;
-
-  if (weekEvents.length >= 10 || exams >= 2) {
-    return {
-      label: "Alta",
-      mood: "Modo parciales activado",
-      level: "alta" as const,
-      weekEvents: weekEvents.length,
-      exams
-    };
-  }
-  if (weekEvents.length >= 6 || exams >= 1) {
-    return {
-      label: "Media",
-      mood: "Semana intensa, pero manejable",
-      level: "media" as const,
-      weekEvents: weekEvents.length,
-      exams
-    };
-  }
-  return {
-    label: "Baja",
-    mood: "Todo bajo control",
-    level: "baja" as const,
-    weekEvents: weekEvents.length,
-    exams
-  };
 };
 
 export default async function DashboardPage() {
@@ -140,46 +54,19 @@ export default async function DashboardPage() {
       ])
     : [[], []];
 
-  const mergedEvents = [...calendarEvents, ...buildInternalEvents(termEvents)].sort(
-    (a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime()
-  );
-
-  const requiredSubjects = subjects.filter(
-    (subject) => (subject.type ?? "").toLowerCase() !== "electiva"
-  );
-  const nonFinalRequiredSubjects = requiredSubjects.filter((subject) => !isFinalProjectStage(subject));
-  const finalProjectStages = requiredSubjects.filter((subject) => isFinalProjectStage(subject));
-  const totalRequiredCourses =
-    nonFinalRequiredSubjects.length + (finalProjectStages.length > 0 ? 1 : 0);
-  const approvedRequiredCount =
-    nonFinalRequiredSubjects.filter((subject) => latestStatusMap.get(subject.id)?.status === "aprobado").length +
-    (finalProjectStages.length > 0 &&
-    finalProjectStages.every((subject) => latestStatusMap.get(subject.id)?.status === "aprobado")
-      ? 1
-      : 0);
-  const nextEvents = mergedEvents.slice(0, 4);
-  const load = calcLoad(mergedEvents);
+  const upcomingEvents = getUpcomingMergedEvents({
+    calendarEvents,
+    internalEvents: termEvents,
+    now
+  });
+  const nextEvents = upcomingEvents.slice(0, 4);
+  const load = calcLoad(upcomingEvents, now);
 
   const progress = buildProgressSnapshot(subjects, latestStatusMap);
   const phraseSeed = Math.floor(now.getTime() / DAY_MS) + progress.approvedTotalCredits;
-  const editorialPhrase = PHRASES_EDITORIALES[Math.abs(phraseSeed) % PHRASES_EDITORIALES.length];
-
-  const eventsByEnrollment = new Map<string, Event[]>();
-  for (const event of termEvents) {
-    const list = eventsByEnrollment.get(event.enrollment_id) ?? [];
-    list.push(event);
-    eventsByEnrollment.set(event.enrollment_id, list);
-  }
-
-  const nextEventByEnrollment = new Map<string, Event | undefined>();
-  for (const [enrollmentId, events] of eventsByEnrollment.entries()) {
-    nextEventByEnrollment.set(
-      enrollmentId,
-      [...events].sort(
-        (a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()
-      )[0]
-    );
-  }
+  const editorialPhrase = getEditorialPhrase(phraseSeed);
+  const eventsByEnrollment = groupEventsByEnrollment(termEvents);
+  const nextEventByEnrollment = getNextFutureEventByEnrollment(termEvents, now);
 
   return (
     <div className="mx-auto w-full max-w-[1380px] space-y-6 pb-8">

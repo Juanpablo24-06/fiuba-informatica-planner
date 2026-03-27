@@ -1,77 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import {
+  getProgressGhostRect,
+  getProgressRect,
+  getRemainingTransitionDuration,
+  MAP_TRANSITION_DURATION_MS,
+  MIN_DESTINATION_SETTLE_MS,
+  setProgressSlotHidden,
+  shouldAnimateToTargetRect
+} from "@/components/layout/map-progress-transition";
+import {
+  getCurrentMapTransitionState,
+  setMapTransitionState,
+  useMapTransitionState,
+  type MapTransitionSource,
+  type ProgressSlot,
+  type ProgressSourceRect
+} from "@/components/layout/map-transition-store";
 
-export type MapTransitionSource = "summary-link" | "top-nav-map" | "top-nav-summary" | null;
-export type LauncherMode = "default" | "compact";
-export type ProgressSlot = "summary" | "map-bottom";
-export type ProgressSourceRect = {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-};
-
-export type MapTransitionState = {
-  pathname: string;
-  transitionSource: MapTransitionSource;
-  transitioning: boolean;
-  launcherMode: LauncherMode;
-  progressSourceSlot: ProgressSlot | null;
-  progressSourceRect: ProgressSourceRect | null;
-  progressTargetSlot: ProgressSlot | null;
-};
+export { useMapTransitionState } from "@/components/layout/map-transition-store";
 
 const knownSlotRects: Partial<Record<ProgressSlot, ProgressSourceRect>> = {};
-
-const DEFAULT_STATE: MapTransitionState = {
-  pathname: "",
-  transitionSource: null,
-  transitioning: false,
-  launcherMode: "default",
-  progressSourceSlot: null,
-  progressSourceRect: null,
-  progressTargetSlot: null
-};
-
-const MAP_TRANSITION_DURATION_MS = 480;
 const NAVIGATION_HANDOFF_DELAY_MS = 110;
-const MIN_DESTINATION_SETTLE_MS = 300;
-
-const subscribers = new Set<() => void>();
-let currentState: MapTransitionState = DEFAULT_STATE;
-
-const notify = (patch: Partial<MapTransitionState>) => {
-  const nextState = { ...currentState, ...patch };
-  const isSame =
-    nextState.pathname === currentState.pathname &&
-    nextState.transitionSource === currentState.transitionSource &&
-    nextState.transitioning === currentState.transitioning &&
-    nextState.launcherMode === currentState.launcherMode &&
-    nextState.progressSourceSlot === currentState.progressSourceSlot &&
-    nextState.progressSourceRect?.left === currentState.progressSourceRect?.left &&
-    nextState.progressSourceRect?.top === currentState.progressSourceRect?.top &&
-    nextState.progressSourceRect?.width === currentState.progressSourceRect?.width &&
-    nextState.progressSourceRect?.height === currentState.progressSourceRect?.height &&
-    nextState.progressTargetSlot === currentState.progressTargetSlot;
-
-  if (isSame) return;
-
-  currentState = nextState;
-  subscribers.forEach((listener) => listener());
-};
-
-const subscribe = (listener: () => void) => {
-  subscribers.add(listener);
-  return () => subscribers.delete(listener);
-};
-
-const getSnapshot = () => currentState;
-const getServerSnapshot = () => DEFAULT_STATE;
-
-export const useMapTransitionState = () =>
-  useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
 const isRouteHref = (href: string, routePath: string) => {
   if (typeof window === "undefined") return href === routePath;
@@ -95,50 +47,6 @@ const getAnchorElement = (target: EventTarget | null) => {
 
 const hasModifiedClick = (event: MouseEvent) =>
   event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0;
-
-const getProgressRect = (slot: ProgressSlot): ProgressSourceRect | null => {
-  const element = document.querySelector<HTMLElement>(`[data-progress-slot='${slot}']`);
-  if (!element) return null;
-  const rect = element.getBoundingClientRect();
-  return {
-    left: rect.left,
-    top: rect.top,
-    width: rect.width,
-    height: rect.height
-  };
-};
-
-const getProgressGhostRect = (slot: ProgressSlot): ProgressSourceRect | null => {
-  const element = document.querySelector<HTMLElement>(`[data-progress-ghost-slot='${slot}']`);
-  if (!element) return null;
-  const rect = element.getBoundingClientRect();
-  return {
-    left: rect.left,
-    top: rect.top,
-    width: rect.width,
-    height: rect.height
-  };
-};
-
-const setProgressSlotHidden = (slot: ProgressSlot | null, hidden: boolean) => {
-  if (!slot) return;
-  const element = document.querySelector<HTMLElement>(`[data-progress-slot='${slot}']`);
-  if (!element) return;
-
-  if (hidden) {
-    element.style.opacity = "0";
-  } else {
-    element.style.opacity = "";
-  }
-};
-
-const rectDistance = (fromRect: ProgressSourceRect, toRect: ProgressSourceRect) =>
-  Math.max(
-    Math.abs(fromRect.left - toRect.left),
-    Math.abs(fromRect.top - toRect.top),
-    Math.abs(fromRect.width - toRect.width),
-    Math.abs(fromRect.height - toRect.height)
-  );
 
 export function MapTransitionCoordinator() {
   const pathname = usePathname() ?? "";
@@ -201,6 +109,7 @@ export function MapTransitionCoordinator() {
       waitForTargetFrameRef.current = null;
     }
 
+    const currentState = getCurrentMapTransitionState();
     setProgressSlotHidden(currentState.progressSourceSlot, false);
     setProgressSlotHidden(currentState.progressTargetSlot, false);
     stopCloneAnimation();
@@ -261,10 +170,13 @@ export function MapTransitionCoordinator() {
 
       resetTimerRef.current = window.setTimeout(() => {
         clearTransitionClone();
-        notify({
+        const currentState = getCurrentMapTransitionState();
+        setMapTransitionState({
           transitionSource: null,
           transitioning: false,
-          launcherMode: currentState.pathname.startsWith("/mapa") ? "compact" : "default",
+          launcherMode: currentState.pathname.startsWith("/mapa")
+            ? "compact"
+            : "default",
           progressSourceSlot: null,
           progressSourceRect: null,
           progressTargetSlot: null
@@ -377,7 +289,8 @@ export function MapTransitionCoordinator() {
   }, [pathname]);
 
   useEffect(() => {
-    notify(
+    const currentState = getCurrentMapTransitionState();
+    setMapTransitionState(
       currentState.transitioning
         ? { pathname }
         : {
@@ -388,7 +301,7 @@ export function MapTransitionCoordinator() {
 
     if (!pathname.startsWith("/mapa") && !currentState.transitioning) {
       clearTransitionClone();
-      notify({
+      setMapTransitionState({
         transitionSource: null,
         transitioning: false,
         progressSourceSlot: null,
@@ -414,6 +327,7 @@ export function MapTransitionCoordinator() {
   useEffect(() => {
     const handleClickCapture = (event: MouseEvent) => {
       if (hasModifiedClick(event)) return;
+      const currentState = getCurrentMapTransitionState();
       if (currentState.transitioning) return;
 
       const anchor = getAnchorElement(event.target);
@@ -437,7 +351,7 @@ export function MapTransitionCoordinator() {
       const sourceRect = getProgressRect(sourceSlot);
       const hasClone = !reducedMotionRef.current && spawnProgressClone(sourceSlot, sourceRect);
 
-      notify({
+      setMapTransitionState({
         transitionSource: source,
         transitioning: true,
         launcherMode: goingToMap ? "compact" : currentState.launcherMode,
@@ -459,7 +373,7 @@ export function MapTransitionCoordinator() {
       }
       navigationTimerRef.current = window.setTimeout(
         () => {
-      router.push(destinationHref, { scroll: false });
+          router.push(destinationHref, { scroll: false });
           navigationTimerRef.current = null;
         },
         reducedMotionRef.current ? 0 : NAVIGATION_HANDOFF_DELAY_MS
@@ -512,7 +426,7 @@ export function MapTransitionCoordinator() {
       const targetRect = target.getBoundingClientRect();
       setProgressSlotHidden(targetSlot, true);
       if (targetSlot === "map-bottom") {
-        notify({
+        setMapTransitionState({
           launcherMode: "compact"
         });
       }
@@ -524,13 +438,18 @@ export function MapTransitionCoordinator() {
         height: targetRect.height
       } satisfies ProgressSourceRect;
 
-      if (rectDistance(currentRect, nextRect) <= 10) {
+      if (!shouldAnimateToTargetRect(currentRect, nextRect)) {
         pinCloneToRect(nextRect);
         finishTransition(true);
         return;
       }
-      pinCloneToRect(nextRect);
-      finishTransition(true);
+
+      animateCloneBetweenRects(
+        currentRect,
+        nextRect,
+        () => finishTransition(true),
+        getRemainingTransitionDuration(transitionStartedAtRef.current)
+      );
     };
 
     animateCloneToMapBar();
