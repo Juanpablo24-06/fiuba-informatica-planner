@@ -34,6 +34,9 @@ const getRowPosition = (value: string) => {
   return Math.max(0, offset);
 };
 
+const getEventRenderKey = (event: CalendarEvent, index: number) =>
+  `${event.id}-${event.startsAt}-${event.endsAt ?? "open"}-${index}`;
+
 export default function WeeklySchedule({ events }: { events: CalendarEvent[] }) {
   const gridRows = END_HOUR - START_HOUR;
   const gridStyle: CSSProperties = {
@@ -68,7 +71,7 @@ export default function WeeklySchedule({ events }: { events: CalendarEvent[] }) 
             <div key={`col-${day}`} className="relative grid gap-2" style={gridStyle}>
               {events
                 .filter((event) => getDayLabel(event.startsAt) === day)
-                .map((event) => {
+                .map((event, index) => {
                   const start = getRowPosition(event.startsAt);
                   const end = event.endsAt ? getRowPosition(event.endsAt) : start + 1;
                   const rowSpan = Math.max(1, Math.ceil(end - start));
@@ -80,7 +83,7 @@ export default function WeeklySchedule({ events }: { events: CalendarEvent[] }) 
                   } as CSSProperties;
                   return (
                     <div
-                      key={event.id}
+                      key={getEventRenderKey(event, index)}
                       style={style}
                       className={cn(
                         "rounded-2xl border border-border/60 bg-surface/85 p-2 text-[11px] text-text shadow-tile",
@@ -96,9 +99,9 @@ export default function WeeklySchedule({ events }: { events: CalendarEvent[] }) 
                       </p>
                       {event.tags?.length ? (
                         <div className="mt-2 flex flex-wrap gap-1">
-                          {event.tags.map((tag) => (
+                          {event.tags.map((tag, tagIndex) => (
                           <span
-                            key={tag}
+                            key={`${event.id}-${tag}-${tagIndex}`}
                             className="rounded-full border border-border/60 bg-surface-2/70 px-2 py-0.5 text-[9px] font-semibold text-muted"
                           >
                             {tag}

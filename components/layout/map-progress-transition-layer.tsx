@@ -30,11 +30,11 @@ export default function MapProgressTransitionLayer({
   useEffect(() => {
     if (!shouldRender || !cloneRef.current || !state.progressSourceRect) return;
 
-    const targetRect = getProgressRect("map-bottom") ?? getProgressGhostRect("map-bottom");
-    if (!targetRect) return;
-
     const clone = cloneRef.current;
     const fromRect = state.progressSourceRect;
+    let firstFrame: number | null = null;
+    let secondFrame: number | null = null;
+    let animation: Animation | null = null;
 
     Object.assign(clone.style, {
       left: `${fromRect.left}px`,
@@ -45,26 +45,38 @@ export default function MapProgressTransitionLayer({
       opacity: "1"
     });
 
-    const animation = clone.animate(
-      [
-        {
-          transform: "translate3d(0, 0, 0) scale(1, 1)",
-          opacity: 1
-        },
-        {
-          transform: `translate3d(${targetRect.left - fromRect.left}px, ${targetRect.top - fromRect.top}px, 0) scale(${targetRect.width / fromRect.width}, ${targetRect.height / fromRect.height})`,
-          opacity: 1
-        }
-      ],
-      {
-        duration: MAP_TRANSITION_DURATION_MS,
-        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-        fill: "forwards"
-      }
-    );
+    clone.getBoundingClientRect();
+
+    firstFrame = window.requestAnimationFrame(() => {
+      const targetRect =
+        getProgressRect("map-bottom") ?? getProgressGhostRect("map-bottom");
+      if (!targetRect) return;
+
+      secondFrame = window.requestAnimationFrame(() => {
+        animation = clone.animate(
+          [
+            {
+              transform: "translate3d(0, 0, 0) scale(1, 1)",
+              opacity: 1
+            },
+            {
+              transform: `translate3d(${targetRect.left - fromRect.left}px, ${targetRect.top - fromRect.top}px, 0) scale(${targetRect.width / fromRect.width}, ${targetRect.height / fromRect.height})`,
+              opacity: 1
+            }
+          ],
+          {
+            duration: MAP_TRANSITION_DURATION_MS,
+            easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+            fill: "forwards"
+          }
+        );
+      });
+    });
 
     return () => {
-      animation.cancel();
+      if (firstFrame !== null) window.cancelAnimationFrame(firstFrame);
+      if (secondFrame !== null) window.cancelAnimationFrame(secondFrame);
+      animation?.cancel();
     };
   }, [shouldRender, state.progressSourceRect]);
 
@@ -74,6 +86,7 @@ export default function MapProgressTransitionLayer({
     <div
       ref={cloneRef}
       aria-hidden="true"
+      data-progress-transition-clone="true"
       className="pointer-events-none fixed z-[70] m-0 will-change-transform"
       style={{
         left: state.progressSourceRect.left,

@@ -7,7 +7,11 @@ import {
   MAP_TRANSITION_DURATION_MS
 } from "@/components/layout/map-progress-transition";
 import {
+  buildTransitionResetPatch,
+  getCurrentMapTransitionState,
   getDisplaySection,
+  getLauncherModeForSection,
+  isCurrentTransition,
   isPendingNavigationResolved,
   setMapTransitionState,
   useMapTransitionState
@@ -16,8 +20,6 @@ import {
 export { useMapTransitionState } from "@/components/layout/map-transition-store";
 
 const PENDING_NAVIGATION_TIMEOUT_MS = 4500;
-const getLauncherMode = (pathname: string) =>
-  pathname.startsWith("/mapa") ? "compact" : "default";
 
 export function MapTransitionCoordinator() {
   const pathname = usePathname() ?? "";
@@ -25,7 +27,7 @@ export function MapTransitionCoordinator() {
 
   useEffect(() => {
     const displaySection = getDisplaySection(pathname, state.pendingSection);
-    const launcherMode = displaySection === "/mapa" ? "compact" : "default";
+    const launcherMode = getLauncherModeForSection(displaySection);
 
     const patch: Parameters<typeof setMapTransitionState>[0] = {};
 
@@ -64,7 +66,9 @@ export function MapTransitionCoordinator() {
       return;
     }
 
+    const transitionId = state.transitionId;
     const timeout = window.setTimeout(() => {
+      if (!isCurrentTransition(getCurrentMapTransitionState(), transitionId)) return;
       setMapTransitionState({
         mapEntryPhase: "loader",
         loaderStartedAt: Date.now()
@@ -72,7 +76,7 @@ export function MapTransitionCoordinator() {
     }, MAP_TRANSITION_DURATION_MS);
 
     return () => window.clearTimeout(timeout);
-  }, [state.animateMapBar, state.mapEntryPhase, state.transitioning]);
+  }, [state.animateMapBar, state.mapEntryPhase, state.transitionId, state.transitioning]);
 
   useEffect(() => {
     if (
@@ -88,26 +92,14 @@ export function MapTransitionCoordinator() {
       Date.now(),
       state.minimumLoaderMs
     );
+    const transitionId = state.transitionId;
 
     const timeout = window.setTimeout(() => {
-      setMapTransitionState({
-        pendingPath: null,
-        pendingSection: null,
-        loaderKind: null,
-        startedFromSection: null,
-        mapEntryPhase: "idle",
-        transitionStartedAt: null,
-        loaderStartedAt: null,
-        minimumLoaderMs: 0,
-        showMapBar: pathname.startsWith("/mapa"),
-        animateMapBar: false,
-        transitionSource: null,
-        transitioning: false,
-        launcherMode: getLauncherMode(pathname),
-        progressSourceSlot: null,
-        progressSourceRect: null,
-        progressTargetSlot: null
-      });
+      const currentState = getCurrentMapTransitionState();
+      if (!isCurrentTransition(currentState, transitionId)) return;
+
+      const currentPathname = currentState.pathname || pathname;
+      setMapTransitionState(buildTransitionResetPatch(currentPathname));
     }, remainingLoaderMs);
 
     return () => window.clearTimeout(timeout);
@@ -117,35 +109,24 @@ export function MapTransitionCoordinator() {
     state.mapEntryPhase,
     state.minimumLoaderMs,
     state.pendingPath,
+    state.transitionId,
     state.transitioning
   ]);
 
   useEffect(() => {
     if (!state.transitioning || !state.pendingPath) return;
+    const transitionId = state.transitionId;
 
     const timeout = window.setTimeout(() => {
-      setMapTransitionState({
-        pendingPath: null,
-        pendingSection: null,
-        loaderKind: null,
-        startedFromSection: null,
-        mapEntryPhase: "idle",
-        transitionStartedAt: null,
-        loaderStartedAt: null,
-        minimumLoaderMs: 0,
-        showMapBar: pathname.startsWith("/mapa"),
-        animateMapBar: false,
-        transitionSource: null,
-        transitioning: false,
-        launcherMode: getLauncherMode(pathname),
-        progressSourceSlot: null,
-        progressSourceRect: null,
-        progressTargetSlot: null
-      });
+      const currentState = getCurrentMapTransitionState();
+      if (!isCurrentTransition(currentState, transitionId)) return;
+
+      const currentPathname = currentState.pathname || pathname;
+      setMapTransitionState(buildTransitionResetPatch(currentPathname));
     }, PENDING_NAVIGATION_TIMEOUT_MS);
 
     return () => window.clearTimeout(timeout);
-  }, [pathname, state.pendingPath, state.transitioning]);
+  }, [pathname, state.pendingPath, state.transitionId, state.transitioning]);
 
   useEffect(() => {
     const root = document.documentElement;

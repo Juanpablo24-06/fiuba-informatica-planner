@@ -11,4 +11,9 @@ describe("map transition layer source", () => {
   it("renders the cloned bar without registering it as the map-bottom target slot", () => {
     expect(componentSource).toContain("disableSlotRegistration");
   });
+
+  it("waits until the next paint before starting the cloned bar animation", () => {
+    expect(componentSource).toContain("requestAnimationFrame");
+    expect(componentSource).toContain("data-progress-transition-clone");
+  });
 });

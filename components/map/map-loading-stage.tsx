@@ -7,10 +7,17 @@ import {
 } from "@/lib/map/map-loading";
 import MapSceneBackground from "@/components/map/map-scene-background";
 
-export default function MapLoadingStage() {
+type MapLoadingStageProps = {
+  backgroundPosition?: "absolute" | "fixed";
+};
+
+export default function MapLoadingStage({
+  backgroundPosition = "absolute"
+}: MapLoadingStageProps) {
   return (
     <div className="relative min-h-[100svh]">
       <MapSceneBackground
+        position={backgroundPosition}
         contentClassName="px-6 pb-[calc(var(--synapse-launcher-height,56px)+2rem)]"
       >
         <div className="relative w-full max-w-[900px]" data-testid="map-loader-diagram">

@@ -17,6 +17,7 @@ export type ProgressSourceRect = {
 };
 
 export type MapTransitionState = {
+  transitionId: number;
   pathname: string;
   pendingPath: AppSection | null;
   pendingSection: AppSection | null;
@@ -37,6 +38,7 @@ export type MapTransitionState = {
 };
 
 export const DEFAULT_MAP_TRANSITION_STATE: MapTransitionState = {
+  transitionId: 0,
   pathname: "",
   pendingPath: null,
   pendingSection: null,
@@ -68,22 +70,47 @@ export const getDisplaySection = (
   pendingSection: AppSection | null
 ): AppSection => pendingSection ?? getSectionForPathname(pathname);
 
+export const getLauncherModeForSection = (
+  section: AppSection
+): LauncherMode => (section === "/mapa" ? "compact" : "default");
+
+export const buildPendingNavigationStateFromCurrent = ({
+  pathname,
+  pendingSection,
+  toPathname,
+  startedAt = Date.now(),
+  transitionId = 0
+}: {
+  pathname: string;
+  pendingSection: AppSection | null;
+  toPathname: string;
+  startedAt?: number;
+  transitionId?: number;
+}) => buildPendingNavigationState(
+  getDisplaySection(pathname, pendingSection),
+  toPathname,
+  startedAt,
+  transitionId
+);
+
 export const isPendingNavigationResolved = (
   pathname: string,
   pendingPath: AppSection | null
 ) => !pendingPath || getSectionForPathname(pathname) === pendingPath;
 
 export const buildPendingNavigationState = (
-  fromPathname: string,
+  fromSection: AppSection,
   toPathname: string,
-  startedAt = Date.now()
+  startedAt = Date.now(),
+  transitionId = 0
 ) => {
-  const startedFromSection = getSectionForPathname(fromPathname);
+  const startedFromSection = fromSection;
   const pendingSection = getSectionForPathname(toPathname);
   const isMapDestination = pendingSection === "/mapa";
   const isSummaryToMap = startedFromSection === "/" && isMapDestination;
 
   return {
+    transitionId,
     pendingPath: pendingSection,
     pendingSection,
     loaderKind: isMapDestination ? ("map" as const) : ("app" as const),
@@ -97,13 +124,40 @@ export const buildPendingNavigationState = (
   };
 };
 
+export const isCurrentTransition = (
+  state: MapTransitionState,
+  transitionId: number
+) => state.transitioning && state.transitionId === transitionId;
+
+export const buildTransitionResetPatch = (pathname: string): Partial<MapTransitionState> => ({
+  transitionId: 0,
+  pendingPath: null,
+  pendingSection: null,
+  loaderKind: null,
+  startedFromSection: null,
+  mapEntryPhase: "idle",
+  transitionStartedAt: null,
+  loaderStartedAt: null,
+  minimumLoaderMs: 0,
+  showMapBar: getSectionForPathname(pathname) === "/mapa",
+  animateMapBar: false,
+  transitionSource: null,
+  transitioning: false,
+  launcherMode: getLauncherModeForSection(getSectionForPathname(pathname)),
+  progressSourceSlot: null,
+  progressSourceRect: null,
+  progressTargetSlot: null
+});
+
 const subscribers = new Set<() => void>();
 let currentState: MapTransitionState = DEFAULT_MAP_TRANSITION_STATE;
+let nextTransitionId = 0;
 
 export const isMapTransitionStateEqual = (
   first: MapTransitionState,
   second: MapTransitionState
 ) =>
+  first.transitionId === second.transitionId &&
   first.pathname === second.pathname &&
   first.pendingPath === second.pendingPath &&
   first.pendingSection === second.pendingSection &&
@@ -131,6 +185,11 @@ export const subscribeMapTransition = (listener: () => void) => {
 };
 
 export const getCurrentMapTransitionState = () => currentState;
+
+export const createTransitionId = () => {
+  nextTransitionId += 1;
+  return nextTransitionId;
+};
 
 const getServerSnapshot = () => DEFAULT_MAP_TRANSITION_STATE;
 

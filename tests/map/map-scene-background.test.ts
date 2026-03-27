@@ -14,4 +14,14 @@ describe("map scene background source", () => {
     expect(componentSource).not.toContain("data-testid=\"map-loader-node\"");
     expect(componentSource).not.toContain("animate-map-loader-line");
   });
+
+  it("extends the top glow above the viewport so the header transition does not leave a dark seam", () => {
+    expect(componentSource).toContain("-top-[18vh]");
+    expect(componentSource).toContain("h-[46vh]");
+  });
+
+  it("supports fixed positioning so the shared backdrop can cover transitions behind the header", () => {
+    expect(componentSource).toContain("position?: \"absolute\" | \"fixed\"");
+    expect(componentSource).toContain("position === \"fixed\" ? \"fixed\" : \"absolute\"");
+  });
 });

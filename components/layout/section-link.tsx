@@ -1,13 +1,17 @@
 "use client";
 
 import Link, { type LinkProps } from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { ComponentPropsWithoutRef, MouseEvent } from "react";
 import { getProgressRect } from "@/components/layout/map-progress-transition";
 import {
-  buildPendingNavigationState,
+  buildPendingNavigationStateFromCurrent,
+  createTransitionId,
+  getDisplaySection,
+  getLauncherModeForSection,
   getSectionForPathname,
   setMapTransitionState,
+  useMapTransitionState,
   type MapTransitionSource
 } from "@/components/layout/map-transition-store";
 
@@ -27,17 +31,29 @@ export default function SectionLink({
   prefetch = false,
   ...props
 }: SectionLinkProps) {
+  const router = useRouter();
   const pathname = usePathname() ?? "";
+  const transitionState = useMapTransitionState();
 
   const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
     onClick?.(event);
     if (event.defaultPrevented || hasModifiedClick(event)) return;
 
-    const currentSection = getSectionForPathname(pathname);
+    const currentSection = getDisplaySection(pathname, transitionState.pendingSection);
     const nextSection = getSectionForPathname(href);
     if (currentSection === nextSection) return;
 
-    const pendingState = buildPendingNavigationState(pathname, href);
+    event.preventDefault();
+
+    const startedAt = Date.now();
+    const transitionId = createTransitionId();
+    const pendingState = buildPendingNavigationStateFromCurrent({
+      pathname,
+      pendingSection: transitionState.pendingSection,
+      toPathname: href,
+      startedAt,
+      transitionId
+    });
     const shouldCaptureSummaryBar =
       pendingState.animateMapBar && pendingState.startedFromSection === "/";
 
@@ -48,14 +64,16 @@ export default function SectionLink({
       ...pendingState,
       animateMapBar: shouldAnimateMapBar,
       mapEntryPhase: shouldAnimateMapBar ? pendingState.mapEntryPhase : "loader",
-      loaderStartedAt: shouldAnimateMapBar ? pendingState.loaderStartedAt : pendingState.transitionStartedAt,
+      loaderStartedAt: shouldAnimateMapBar ? pendingState.loaderStartedAt : startedAt,
       transitionSource,
       transitioning: true,
-      launcherMode: nextSection === "/mapa" ? "compact" : "default",
+      launcherMode: getLauncherModeForSection(nextSection),
       progressSourceSlot: progressSourceRect ? "summary" : null,
       progressSourceRect,
       progressTargetSlot: pendingState.showMapBar ? "map-bottom" : null
     });
+
+    router.push(href);
   };
 
   return <Link href={href} onClick={handleClick} prefetch={prefetch} {...props} />;

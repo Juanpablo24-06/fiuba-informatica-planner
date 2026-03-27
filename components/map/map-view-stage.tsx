@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useMapTransitionState } from "@/components/layout/map-transition-coordinator";
 import MapLoadingStage from "@/components/map/map-loading-stage";
 import MapView from "@/components/map/map-view";
 import type { MapEdge, MapNode } from "@/lib/map/types";
@@ -12,6 +13,9 @@ type MapViewStageProps = {
 
 export default function MapViewStage({ nodes, edges }: MapViewStageProps) {
   const [ready, setReady] = useState(false);
+  const transitionState = useMapTransitionState();
+  const suppressLoader =
+    transitionState.transitioning && transitionState.pendingPath === "/mapa";
 
   const handleReady = useCallback(() => {
     setReady(true);
@@ -19,7 +23,7 @@ export default function MapViewStage({ nodes, edges }: MapViewStageProps) {
 
   return (
     <div className="relative">
-      {!ready ? (
+      {!ready && !suppressLoader ? (
         <div className="absolute inset-0 z-20">
           <MapLoadingStage />
         </div>

@@ -12,6 +12,9 @@ const dateKey = (value: Date) =>
     day: "2-digit"
   }).format(value);
 
+const getEventRenderKey = (event: CalendarEvent, index: number) =>
+  `${event.id}-${event.startsAt}-${event.endsAt ?? "open"}-${index}`;
+
 export default function MonthlySchedule({
   events,
   referenceDate
@@ -88,8 +91,8 @@ export default function MonthlySchedule({
                   <span>{dayEvents.length ? `${dayEvents.length} evt` : ""}</span>
                 </div>
                 <div className="mt-2 space-y-1 text-[10px] text-muted">
-                  {dayEvents.slice(0, 3).map((event) => (
-                    <div key={event.id} className="flex items-center gap-1">
+                  {dayEvents.slice(0, 3).map((event, index) => (
+                    <div key={getEventRenderKey(event, index)} className="flex items-center gap-1">
                       <span
                         className="h-1.5 w-1.5 rounded-full"
                         style={{

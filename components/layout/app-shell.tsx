@@ -38,6 +38,15 @@ export default function AppShell({ children, progress }: AppShellProps) {
     mapTransitionState.showMapBar &&
     mapTransitionState.animateMapBar &&
     mapTransitionState.mapEntryPhase === "bar-drop";
+  const resolvedMapChildren =
+    pendingNavigationResolved && pathname.startsWith("/mapa") ? (
+      <div
+        aria-hidden="true"
+        className="invisible pointer-events-none absolute inset-0 z-10"
+      >
+        {children}
+      </div>
+    ) : null;
 
   let shellContent = children;
 
@@ -47,10 +56,17 @@ export default function AppShell({ children, progress }: AppShellProps) {
         mapTransitionState.mapEntryPhase === "bar-drop"
           ? (
             <div className="relative min-h-[100svh]">
-              <MapSceneBackground />
+              <MapSceneBackground position="fixed" />
             </div>
           )
-          : <MapLoadingStage />;
+          : (
+            <div className="relative min-h-[100svh]">
+              {resolvedMapChildren}
+              <div className="relative z-20">
+                <MapLoadingStage backgroundPosition="fixed" />
+              </div>
+            </div>
+          );
     } else {
       shellContent = <AppLoadingSurface />;
     }

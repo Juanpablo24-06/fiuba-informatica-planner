@@ -36,4 +36,9 @@ describe("map loading helpers", () => {
     expect(componentSource).not.toContain("pt-[calc(var(--app-header-height,96px)+1.75rem)]");
     expect(componentSource).toContain("MapSceneBackground");
   });
+
+  it("lets the shell request a fixed-position backdrop during section transitions", () => {
+    expect(componentSource).toContain("backgroundPosition");
+    expect(componentSource).toContain("position={backgroundPosition}");
+  });
 });

@@ -6,6 +6,9 @@ import { DEFAULT_TIMEZONE, formatDateTime, formatTime } from "@/lib/date";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 
+const getEventRenderKey = (event: CalendarEvent, index: number) =>
+  `${event.id}-${event.startsAt}-${event.endsAt ?? "open"}-${index}`;
+
 export default function UpcomingEvents({
   events,
   subjectOptions,
@@ -98,9 +101,9 @@ export default function UpcomingEvents({
                 {group.label}
               </header>
               <div className="divide-y divide-border/45">
-                {group.events.map((event) => (
+                {group.events.map((event, index) => (
                   <article
-                    key={event.id}
+                    key={getEventRenderKey(event, index)}
                     className="flex items-start justify-between gap-3 px-3 py-2.5"
                   >
                     <div className="min-w-0">
@@ -123,9 +126,9 @@ export default function UpcomingEvents({
             </section>
           ))
         ) : (
-          filtered.map((event) => (
+          filtered.map((event, index) => (
             <div
-              key={event.id}
+              key={getEventRenderKey(event, index)}
               className="flex flex-col gap-3 rounded-3xl border border-border/60 bg-surface/80 px-4 py-3 text-sm md:flex-row md:items-center md:justify-between"
             >
               <div>
@@ -137,8 +140,8 @@ export default function UpcomingEvents({
                 </p>
                 {event.tags?.length ? (
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {event.tags.map((tag) => (
-                      <Badge key={tag} className="bg-surface-2/70 text-muted">
+                    {event.tags.map((tag, tagIndex) => (
+                      <Badge key={`${event.id}-${tag}-${tagIndex}`} className="bg-surface-2/70 text-muted">
                         {tag}
                       </Badge>
                     ))}

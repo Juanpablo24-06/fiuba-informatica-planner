@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   buildPendingNavigationState,
+  buildPendingNavigationStateFromCurrent,
   DEFAULT_MAP_TRANSITION_STATE,
   getDisplaySection,
   getSectionForPathname,
+  isCurrentTransition,
   isMapTransitionStateEqual,
   isPendingNavigationResolved,
   type MapTransitionState
@@ -147,6 +149,28 @@ describe("map transition helpers", () => {
     });
   });
 
+  it("builds the next transition from the effective section, not the stale pathname", () => {
+    expect(
+      buildPendingNavigationStateFromCurrent({
+        pathname: "/",
+        pendingSection: "/mapa",
+        toPathname: "/horario",
+        startedAt: 3_000,
+        transitionId: 7
+      })
+    ).toMatchObject({
+      pendingPath: "/horario",
+      pendingSection: "/horario",
+      loaderKind: "app",
+      startedFromSection: "/mapa",
+      mapEntryPhase: "loader",
+      transitionStartedAt: 3_000,
+      loaderStartedAt: 3_000,
+      animateMapBar: false,
+      transitionId: 7
+    });
+  });
+
   it("keeps the loader visible until the minimum duration is met", () => {
     expect(getRemainingLoaderDuration(1_000, 1_120, 320)).toBe(200);
     expect(getRemainingLoaderDuration(1_000, 1_400, 320)).toBe(0);
@@ -158,6 +182,41 @@ describe("map transition helpers", () => {
     expect(getDisplaySection("/horario", null)).toBe("/horario");
     expect(isPendingNavigationResolved("/mapa", "/mapa")).toBe(true);
     expect(isPendingNavigationResolved("/", "/mapa")).toBe(false);
+  });
+
+  it("only lets the active transition token mutate pending navigation", () => {
+    expect(
+      isCurrentTransition(
+        buildState({
+          transitionId: 12,
+          transitioning: true,
+          pendingPath: "/mapa"
+        }),
+        12
+      )
+    ).toBe(true);
+
+    expect(
+      isCurrentTransition(
+        buildState({
+          transitionId: 12,
+          transitioning: true,
+          pendingPath: "/mapa"
+        }),
+        11
+      )
+    ).toBe(false);
+
+    expect(
+      isCurrentTransition(
+        buildState({
+          transitionId: 12,
+          transitioning: false,
+          pendingPath: "/mapa"
+        }),
+        12
+      )
+    ).toBe(false);
   });
 
   it("normalizes app sections from arbitrary pathnames", () => {

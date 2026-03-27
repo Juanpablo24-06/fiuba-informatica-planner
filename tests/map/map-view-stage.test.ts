@@ -14,4 +14,10 @@ describe("map view stage source", () => {
     expect(componentSource).toContain("invisible opacity-0");
     expect(componentSource).toContain("visible opacity-100");
   });
+
+  it("suppresses the stage loader when the shared shell transition is already loading map", () => {
+    expect(componentSource).toContain("useMapTransitionState");
+    expect(componentSource).toContain("transitionState.transitioning && transitionState.pendingPath === \"/mapa\"");
+    expect(componentSource).toContain("!ready && !suppressLoader");
+  });
 });

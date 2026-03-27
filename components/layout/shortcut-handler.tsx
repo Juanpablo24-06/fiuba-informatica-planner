@@ -3,7 +3,14 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { getProgressRect } from "@/components/layout/map-progress-transition";
-import { buildPendingNavigationState, setMapTransitionState } from "@/components/layout/map-transition-store";
+import {
+  buildPendingNavigationStateFromCurrent,
+  createTransitionId,
+  getDisplaySection,
+  getLauncherModeForSection,
+  setMapTransitionState,
+  useMapTransitionState
+} from "@/components/layout/map-transition-store";
 
 const isTypingTarget = (target: EventTarget | null) => {
   if (!target || !(target instanceof HTMLElement)) return false;
@@ -13,6 +20,7 @@ const isTypingTarget = (target: EventTarget | null) => {
 export default function ShortcutHandler() {
   const router = useRouter();
   const pathname = usePathname() ?? "";
+  const transitionState = useMapTransitionState();
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -21,16 +29,27 @@ export default function ShortcutHandler() {
       const destination =
         key === "d" ? "/" : key === "m" ? "/mapa" : key === "h" ? "/horario" : null;
       if (destination) {
-        const pendingState = buildPendingNavigationState(pathname, destination);
+        const currentSection = getDisplaySection(pathname, transitionState.pendingSection);
+        if (currentSection === destination) return;
+
+        const startedAt = Date.now();
+        const transitionId = createTransitionId();
+        const pendingState = buildPendingNavigationStateFromCurrent({
+          pathname,
+          pendingSection: transitionState.pendingSection,
+          toPathname: destination,
+          startedAt,
+          transitionId
+        });
         const progressSourceRect = pendingState.animateMapBar ? getProgressRect("summary") : null;
         const shouldAnimateMapBar = pendingState.animateMapBar && Boolean(progressSourceRect);
         setMapTransitionState({
           ...pendingState,
           animateMapBar: shouldAnimateMapBar,
           mapEntryPhase: shouldAnimateMapBar ? pendingState.mapEntryPhase : "loader",
-          loaderStartedAt: shouldAnimateMapBar ? pendingState.loaderStartedAt : pendingState.transitionStartedAt,
+          loaderStartedAt: shouldAnimateMapBar ? pendingState.loaderStartedAt : startedAt,
           transitioning: true,
-          launcherMode: destination === "/mapa" ? "compact" : "default",
+          launcherMode: getLauncherModeForSection(destination),
           progressSourceSlot: progressSourceRect ? "summary" : null,
           progressSourceRect,
           progressTargetSlot: pendingState.showMapBar ? "map-bottom" : null
@@ -43,7 +62,7 @@ export default function ShortcutHandler() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [pathname, router]);
+  }, [pathname, router, transitionState.pendingSection]);
 
   return null;
 }
