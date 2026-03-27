@@ -17,6 +17,7 @@ export default function MapViewStage({ nodes, edges }: MapViewStageProps) {
   const transitionState = useMapTransitionState();
   const suppressLoader =
     transitionState.transitioning && transitionState.pendingPath === "/mapa";
+  const revealMap = ready && !transitionState.transitioning;
 
   const handleReady = useCallback(() => {
     setReady(true);
@@ -35,9 +36,9 @@ export default function MapViewStage({ nodes, edges }: MapViewStageProps) {
 
       <div
         data-map-view-shell="true"
-        aria-hidden={!ready}
+        aria-hidden={!revealMap}
         className={
-          ready
+          revealMap
             ? "visible opacity-100 transition-opacity duration-150"
             : "invisible opacity-0"
         }

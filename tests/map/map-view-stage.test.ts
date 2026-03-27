@@ -10,7 +10,7 @@ describe("map view stage source", () => {
 
   it("keeps an explicit hidden shell for the map while the loader is active", () => {
     expect(componentSource).toContain("data-map-view-shell");
-    expect(componentSource).toContain("aria-hidden={!ready}");
+    expect(componentSource).toContain("aria-hidden={!revealMap}");
     expect(componentSource).toContain("invisible opacity-0");
     expect(componentSource).toContain("visible opacity-100");
   });
@@ -24,5 +24,11 @@ describe("map view stage source", () => {
   it("reports map readiness back to the shared transition state", () => {
     expect(componentSource).toContain("setMapTransitionState");
     expect(componentSource).toContain("mapContentReady: true");
+  });
+
+  it("keeps the real map shell hidden while the shared transition loader is still active", () => {
+    expect(componentSource).toContain("const revealMap = ready && !transitionState.transitioning");
+    expect(componentSource).toContain("aria-hidden={!revealMap}");
+    expect(componentSource).toContain("revealMap");
   });
 });

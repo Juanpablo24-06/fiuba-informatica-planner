@@ -30,7 +30,6 @@ export default function MapSceneBackground({
         className="absolute inset-0 subtle-grid opacity-[0.08]"
         style={{ backgroundPosition: "0 0, 0 0" }}
       />
-      <div className="absolute inset-x-0 -top-[18vh] h-[46vh] bg-[radial-gradient(circle_at_top,_rgb(var(--color-accent)_/_0.18),_transparent_72%)]" />
 
       {children ? (
         <div className={cn("relative flex min-h-[100svh] items-center justify-center", contentClassName)}>

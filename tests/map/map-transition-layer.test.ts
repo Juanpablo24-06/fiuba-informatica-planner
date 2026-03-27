@@ -22,4 +22,9 @@ describe("map transition layer source", () => {
     expect(componentSource).toContain("left:");
     expect(componentSource).toContain("width:");
   });
+
+  it("keeps the cloned bar mounted through the loader handoff so the real bottom bar can take over underneath it", () => {
+    expect(componentSource).toContain("state.mapEntryPhase !== \"idle\"");
+    expect(componentSource).toContain("if (state.mapEntryPhase !== \"bar-drop\")");
+  });
 });

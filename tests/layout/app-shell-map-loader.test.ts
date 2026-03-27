@@ -14,4 +14,15 @@ describe("app shell map loading source", () => {
     expect(componentSource).toContain("{children}");
     expect(componentSource).toContain("{pendingNavigationActive ? <div className=\"relative z-20\">{loadingContent}</div> : null}");
   });
+
+  it("keeps the real bottom map bar hidden for the full animated map transition so it does not overlap the moving clone", () => {
+    const hideActualMapBarBlock = componentSource.match(
+      /const hideActualMapBar =[\s\S]*?;\n/
+    )?.[0] ?? "";
+
+    expect(hideActualMapBarBlock).toContain("pendingNavigationActive &&");
+    expect(hideActualMapBarBlock).toContain("mapTransitionState.showMapBar &&");
+    expect(hideActualMapBarBlock).toContain("mapTransitionState.animateMapBar");
+    expect(hideActualMapBarBlock).not.toContain("mapTransitionState.mapEntryPhase === \"bar-drop\"");
+  });
 });

@@ -33,8 +33,7 @@ export default function AppShell({ children, progress }: AppShellProps) {
   const hideActualMapBar =
     pendingNavigationActive &&
     mapTransitionState.showMapBar &&
-    mapTransitionState.animateMapBar &&
-    mapTransitionState.mapEntryPhase === "bar-drop";
+    mapTransitionState.animateMapBar;
   const hideRouteContent = pendingNavigationActive;
 
   let loadingContent: React.ReactNode = null;

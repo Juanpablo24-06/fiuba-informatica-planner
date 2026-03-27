@@ -24,7 +24,7 @@ export default function MapProgressTransitionLayer({
     state.transitioning &&
     state.showMapBar &&
     state.animateMapBar &&
-    state.mapEntryPhase === "bar-drop" &&
+    state.mapEntryPhase !== "idle" &&
     Boolean(state.progressSourceRect);
 
   useEffect(() => {
@@ -35,6 +35,9 @@ export default function MapProgressTransitionLayer({
     let firstFrame: number | null = null;
     let secondFrame: number | null = null;
     let animation: Animation | null = null;
+    const targetRect = getProgressRect("map-bottom") ?? getProgressGhostRect("map-bottom");
+
+    if (!targetRect) return;
 
     Object.assign(clone.style, {
       left: `${fromRect.left}px`,
@@ -44,13 +47,19 @@ export default function MapProgressTransitionLayer({
       opacity: "1"
     });
 
+    if (state.mapEntryPhase !== "bar-drop") {
+      Object.assign(clone.style, {
+        left: `${targetRect.left}px`,
+        top: `${targetRect.top}px`,
+        width: `${targetRect.width}px`,
+        height: `${targetRect.height}px`
+      });
+      return;
+    }
+
     clone.getBoundingClientRect();
 
     firstFrame = window.requestAnimationFrame(() => {
-      const targetRect =
-        getProgressRect("map-bottom") ?? getProgressGhostRect("map-bottom");
-      if (!targetRect) return;
-
       secondFrame = window.requestAnimationFrame(() => {
         animation = clone.animate(
           [
@@ -83,7 +92,7 @@ export default function MapProgressTransitionLayer({
       if (secondFrame !== null) window.cancelAnimationFrame(secondFrame);
       animation?.cancel();
     };
-  }, [shouldRender, state.progressSourceRect]);
+  }, [shouldRender, state.mapEntryPhase, state.progressSourceRect]);
 
   if (!shouldRender || !state.progressSourceRect) return null;
 

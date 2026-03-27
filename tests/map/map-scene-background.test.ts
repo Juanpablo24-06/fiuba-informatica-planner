@@ -15,17 +15,15 @@ describe("map scene background source", () => {
     expect(componentSource).not.toContain("animate-map-loader-line");
   });
 
-  it("extends the top glow above the viewport so the header transition does not leave a dark seam", () => {
-    expect(componentSource).toContain("-top-[18vh]");
-    expect(componentSource).toContain("h-[46vh]");
-  });
-
   it("supports fixed positioning so the shared backdrop can cover transitions behind the header", () => {
     expect(componentSource).toContain("position?: \"absolute\" | \"fixed\"");
     expect(componentSource).toContain("position === \"fixed\" ? \"fixed\" : \"absolute\"");
   });
 
-  it("keeps the top glow fully opaque enough to avoid a washed-out horizontal seam", () => {
-    expect(componentSource).not.toContain("opacity-80");
+  it("does not add an extra top orb on top of the shared app background, avoiding the horizontal seam", () => {
+    expect(componentSource).not.toContain("radial-gradient(circle_at_top");
+    expect(componentSource).not.toContain("blur-[120px]");
+    expect(componentSource).not.toContain("top-[-16rem]");
+    expect(componentSource).not.toContain("w-[72rem]");
   });
 });
