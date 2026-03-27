@@ -1,143 +1,228 @@
 # Planificador FIUBA Informática (Plan 2023)
 
-Web privada para organizar la carrera de Ingeniería en Informática (FIUBA). Incluye dashboard, mapa de correlatividades inspirado en FIUBA-Map y gestión de cuatrimestres, materias, y evaluaciones.
+Aplicación web privada para seguir la carrera de Ingeniería en Informática de FIUBA. El proyecto hoy ya no es solo un dashboard: incluye resumen académico, mapa interactivo de correlatividades, agenda integrada, panel admin y un asistente interno para consultar o editar información académica.
+
+## Qué tiene hoy
+
+### Secciones principales
+- `Resumen`: estado general de la carrera, progreso por bloques, materias activas, próximas fechas y accesos rápidos.
+- `Mapa`: mapa de correlatividades interactivo con zoom, pan, detalle por materia, filtros y barra de progreso acoplada a la vista.
+- `Agenda`: vista semanal y mensual combinando Google Calendar, eventos internos y horarios de cursada.
+- `Admin`: gestión de cuatrimestres, materias base, revisión de cursadas/eventos e integración con Calendar.
+
+### Funciones importantes
+- Login por roles (`admin` / `viewer`) con sesión server-side y middleware.
+- Gestión de materias, correlativas, cuatrimestres, cursadas y eventos internos.
+- Importación y cacheo de eventos desde Google Calendar vía service account.
+- Chat interno “Synapse” con selección de proveedor/modelo y soporte de persistencia opcional.
+- Navegación entre secciones con loaders y transición dedicada para entrar al mapa.
+- Tests con Vitest y utilidades para seed y hashing de passwords.
 
 ## Stack
-- Next.js (App Router) + TypeScript
-- Tailwind CSS + componentes UI
+- Next.js 14 (`App Router`) + React 18 + TypeScript
+- Tailwind CSS
 - Supabase (Postgres)
-- Integración Google Calendar (solo lectura, service account)
+- Google Calendar API (`googleapis`)
+- Zod
+- Vitest + Testing Library
+
+## Requisitos
+- Node.js 20+ recomendado
+- npm
+- Un proyecto de Supabase
+- Opcional: credenciales de Google Calendar
+- Opcional: credenciales de AI (`Cerebras`, `NVIDIA` o `Gemini`)
 
 ## Setup local
 
-### 1) Supabase
-1. Crear proyecto en Supabase.
-2. El repo versiona `supabase/config.toml` y `supabase/migrations/` como parte del flujo oficial con Supabase CLI.
-3. Hacer el link local una sola vez:
-   - `npm run sb:login`
-   - `npm run sb:link -- --project-ref <tu-project-ref>` o `npm run sb:link` y elegir el proyecto
-4. Ejecutar las migrations en orden desde `supabase/migrations/` (`001_init.sql`, `002_ai_calendar.sql`, `003_enrollment_schedule.sql` y `004_subject_type_cbc_backfill.sql`) o usar la CLI (`npm run sb:push` / `npm run sb:pull`) segun tu flujo.
-5. Copiar la URL y las keys (anon + service role).
-
-Notas de versionado:
-- `supabase/config.toml` se comparte en Git porque describe la configuracion del proyecto.
-- El estado local del link y archivos temporales de la CLI viven en `supabase/.temp/`, `supabase/.branches/` y `.env` locales, y quedan ignorados por `supabase/.gitignore`.
-- Los scripts `sb:*` fijan la version de la CLI (`2.76.15`) sin agregarla a `package.json`, asi evitamos ruido innecesario en `package-lock.json`.
+### 1) Instalar dependencias
+```bash
+npm install
+```
 
 ### 2) Variables de entorno
-Copiar `.env.example` a `.env.local` y completar:
+Copiar `.env.example` a `.env.local` y completar lo que corresponda.
 
+#### Requeridas
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `ADMIN_PASSWORD_HASH`
 - `VIEWER_PASSWORD_HASH`
 - `SESSION_SECRET`
+
+#### Recomendadas
+- `SESSION_TTL_DAYS`
+- `GOOGLE_CALENDAR_TIMEZONE`
+- `CHAT_PERSISTENCE_ENABLED`
+- `NEXT_PUBLIC_CHAT_PERSISTENCE`
+- `CRON_SECRET`
+
+#### Google Calendar
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL`
 - `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`
 - `GOOGLE_CALENDAR_ID`
 - `GOOGLE_CALENDAR_TIMEZONE`
+
+#### AI / chat
+- `CEREBRAS_API_KEY`
+- `CEREBRAS_MODEL`
+- `CEREBRAS_API_URL`
+- `CEREBRAS_REQUEST_TIMEOUT_MS`
+- `CEREBRAS_MAX_TOKENS`
+- `NVIDIA_API_KEY`
+- `NVIDIA_MODEL`
+- `NVIDIA_API_URL`
+- `NVIDIA_REQUEST_TIMEOUT_MS`
+- `NVIDIA_MAX_TOKENS`
 - `GEMINI_API_KEY`
 - `GEMINI_MODEL`
 - `GEMINI_API_URL`
-- `CHAT_PERSISTENCE_ENABLED`
-- `NEXT_PUBLIC_CHAT_PERSISTENCE`
-- `CRON_SECRET` (recomendado para asegurar cron jobs)
 
-**Hash de passwords**
+### 3) Hash de contraseñas
+```bash
+npm run hash-password -- "tu-password"
 ```
-node scripts/hash-password.mjs "tu-password"
-```
-Pegar el hash resultante en `ADMIN_PASSWORD_HASH` o `VIEWER_PASSWORD_HASH`.
 
-**SESSION_SECRET**
-```
+### 4) Session secret
+```bash
 openssl rand -base64 32
 ```
 
-### 3) Google Calendar (lectura)
-1. Crear un Service Account en Google Cloud.
-2. Descargar el JSON de credenciales.
-3. Compartir tu calendario con el email del service account (permiso “Ver todos los detalles”).
-4. Completar en `.env.local`:
-   - `GOOGLE_SERVICE_ACCOUNT_EMAIL`
-   - `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` (reemplazar saltos de línea por `\n`)
-   - `GOOGLE_CALENDAR_ID` (ID del calendario compartido)
+### 5) Supabase
+El repo versiona:
+- `supabase/config.toml`
+- `supabase/migrations/`
 
-### 3.1) AI + Chat (opcional)
-1. Configurar proveedor AI:
-   - `CEREBRAS_API_KEY` + `CEREBRAS_MODEL` (ej: `gpt-oss-*`) **o**
-   - `NVIDIA_API_KEY` + `NVIDIA_MODEL` (ej: `z-ai/glm4.7`, `z-ai/glm5`, `minimaxai/minimax-m2.5`) **o**
-   - `GEMINI_API_KEY` (+ opcional `GEMINI_MODEL` / `GEMINI_API_URL`).
-2. Poblar `calendar_events_raw` con eventos (manual o via job futuro).
-3. Enriquecer con `POST /api/ai/enrich-calendar` (admin).
-4. Resumir semana con `POST /api/ai/summarize-week` (admin).
-5. Para historial de chat: setear `CHAT_PERSISTENCE_ENABLED=true` y `NEXT_PUBLIC_CHAT_PERSISTENCE=true`.
-6. Reglas del asistente versionadas: `config/assistant-rules.json`.
-7. El panel permite elegir proveedor (`Auto`, `Cerebras`, `NVIDIA`, `Gemini`), modelo y nivel de razonamiento (`bajo`, `medio`, `alto`).
-
-### 3.2) Webhooks Google Calendar (futuro)
-- Implementar OAuth y watch channels antes de usar `/api/calendar/sync-provider`.
-- Ideal: cron para mantener `calendar_events_raw` actualizado.
-
-### 3.3) Keep-alive Supabase (Vercel Cron)
-- Se agregó `GET /api/cron/keepalive` para tocar una tabla liviana en Supabase.
-- `vercel.json` ejecuta este endpoint 1 vez por día.
-- Si definís `CRON_SECRET`, el endpoint valida `Authorization: Bearer <CRON_SECRET>`.
-
-### 4) Seed inicial
-Carga materias y correlativas desde `data/subjects.json`:
+Flujo recomendado:
+```bash
+npm run sb:login
+npm run sb:link -- --project-ref <tu-project-ref>
+npm run sb:push
 ```
+
+Si prefieres revisar el estado antes:
+```bash
+npm run sb:migrations
+```
+
+Migrations actuales:
+- `001_init.sql`
+- `002_ai_calendar.sql`
+- `003_enrollment_schedule.sql`
+- `004_subject_type_cbc_backfill.sql`
+
+### 6) Seed base
+Carga materias y correlativas desde `data/subjects.json`.
+```bash
 npm run seed
 ```
 
-### 5) Correr el proyecto
-```
-npm install
+### 7) Levantar el proyecto
+```bash
 npm run dev
 ```
 
-## Deploy en Vercel (gratis)
-1. Subir repo a GitHub.
-2. Importar el repo en Vercel.
-3. Configurar las mismas variables de entorno en Vercel.
-4. Deploy.
+Nota: el script de desarrollo limpia la caché problemática de webpack antes de arrancar para evitar errores locales de `.next/cache`.
 
-## Estructura de datos (Supabase)
-- `subjects`: materias del plan + plantilla de evaluación.
-- `subject_prerequisites`: correlativas.
-- `terms`: cuatrimestres.
-- `enrollments`: materias activadas por cuatrimestre, estado, color, notas y horario semanal (`schedule`).
-- `events`: evaluaciones/entregas con fecha, nota y estado.
-- `calendar_sources`: configuración y última sincronización de Google Calendar.
-- `calendar_events_raw`: eventos crudos (Google o internos) listos para AI.
-- `calendar_event_enrichments`: clasificaciones AI por evento.
-- `chat_threads` y `chat_messages`: historial opcional del chat. Si persistencia está desactivada, los mensajes quedan solo en memoria del navegador.
+## Scripts útiles
+- `npm run dev`: desarrollo
+- `npm run build`: build de producción
+- `npm run start`: servidor de producción
+- `npm run lint`: lint
+- `npm test`: tests
+- `npm run test:watch`: tests en watch mode
+- `npm run seed`: seed de materias/correlativas
+- `npm run hash-password -- "texto"`: generar hash
+- `npm run sb:login`
+- `npm run sb:link`
+- `npm run sb:migrations`
+- `npm run sb:pull`
+- `npm run sb:push`
+
+## Google Calendar
+El proyecto usa una service account con permisos de solo lectura.
+
+Pasos:
+1. Crear una service account en Google Cloud.
+2. Descargar el JSON de credenciales.
+3. Compartir el calendario con el email de la service account.
+4. Completar las variables `GOOGLE_*` en `.env.local`.
+
+La app usa esa integración para:
+- traer eventos del calendario,
+- mostrarlos en `Resumen` y `Agenda`,
+- enriquecerlos opcionalmente con AI.
+
+## AI y chat
+El panel de chat permite:
+- elegir proveedor (`Auto`, `Cerebras`, `NVIDIA`, `Gemini`),
+- elegir modelo o escribir uno custom,
+- definir nivel de razonamiento,
+- persistir historial opcionalmente,
+- habilitar acciones de edición si el usuario es admin.
+
+Reglas/versionado del asistente:
+- `config/assistant-rules.json`
+
+## Endpoints principales
+
+### Auth
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `POST /api/auth/demo`
+
+### Datos académicos
+- `GET/POST /api/subjects`
+- `PATCH/DELETE /api/subjects/[id]`
+- `GET/POST /api/terms`
+- `PATCH/DELETE /api/terms/[id]`
+- `GET/POST /api/enrollments`
+- `PATCH/DELETE /api/enrollments/[id]`
+- `GET/POST /api/events`
+- `PATCH/DELETE /api/events/[id]`
+
+### Integraciones y AI
+- `POST /api/calendar/sync`
+- `POST /api/calendar/sync-provider`
+- `POST /api/ai/enrich-calendar`
+- `POST /api/ai/summarize-week`
+- `POST /api/chat`
+- `GET /api/cron/keepalive`
+- `POST /api/admin/bootstrap-cbc`
 
 ## Seguridad
-- Validación de passwords 100% server-side.
-- Cookie HttpOnly cifrada con rol.
-- Middleware protege todo el sitio, bloquea `/admin` si no es admin.
-- Service role key nunca llega al cliente.
+- Validación de credenciales 100% server-side.
+- Cookie de sesión sellada con `SESSION_SECRET`.
+- Middleware que protege toda la app y restringe `/admin` a rol admin.
+- La `service role key` de Supabase nunca va al cliente.
 
-## Mapa de correlatividades (UI)
-### Como usar
-- Hover sobre una materia para ver prerequisitos y materias que habilita.
-- Click fija la seleccion (boton limpiar o Escape para liberar).
-- Toggle Electivas para mostrar/ocultar la capa opcional.
-- Busqueda por nombre o codigo con sugerencias.
-- Zoom con rueda / pinch, pan con drag y modo expandido dentro del layout.
+## Estructura del proyecto
+- `app/`: rutas, layouts y API routes
+- `components/dashboard/`: resumen, agenda, admin y chat
+- `components/layout/`: shell, top nav, loaders, transiciones y launcher
+- `components/map/`: mapa, escena de carga, detalle y nodos
+- `lib/`: lógica de dominio, queries, auth, AI, calendario y utilidades
+- `data/`: seed base del plan
+- `config/`: configuración del asistente
+- `scripts/`: tareas locales
+- `supabase/`: config y migrations
 
-### Decisiones de diseno
-- Lanes por cuatrimestre con auto-orden para reducir cruces visuales.
-- Colores semanticos para prerequisitos, desbloqueos, electivas y estados.
-- Curvas Bezier para conectar materias, con atenuacion de lo no relacionado.
-- Panel lateral fijo para detalles y listas de correlativas/desbloqueos.
+## Deploy
+
+### Vercel
+1. Subir el repo a GitHub.
+2. Importarlo en Vercel.
+3. Configurar las variables de entorno.
+4. Deploy.
+
+Si usas cron en Vercel:
+- `GET /api/cron/keepalive` puede protegerse con `CRON_SECRET`.
 
 ## Inspiración
-El mapa de correlatividades toma inspiración del proyecto **FIUBA-Map**:
+El mapa de correlatividades toma inspiración de FIUBA-Map:
 - https://fede.dm/FIUBA-Map/
 - https://github.com/FdelMazo/FIUBA-Map
 
-## Notas sobre plantillas
-Las plantillas de evaluación provienen de los PDFs en `Datos/` y se precargan en `data/subjects.json`. Para materias sin detalle explícito, se usa una plantilla genérica editable desde la UI.
+## Estado del README
+Este README intenta reflejar el estado actual del proyecto real. Si cambias arquitectura, variables, scripts o secciones principales, conviene actualizarlo en la misma tanda de trabajo.
