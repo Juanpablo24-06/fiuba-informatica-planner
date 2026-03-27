@@ -33,6 +33,7 @@ type SummaryProgressBarProps = {
   englishApproved?: boolean;
   mode?: "summary" | "map-bottom";
   disableBottomMeasurement?: boolean;
+  disableSlotRegistration?: boolean;
 };
 
 const clamp = (value: number, min: number, max: number) =>
@@ -58,7 +59,8 @@ export default function SummaryProgressBar({
   totalTifCredits,
   englishApproved = false,
   mode = "summary",
-  disableBottomMeasurement = false
+  disableBottomMeasurement = false,
+  disableSlotRegistration = false
 }: SummaryProgressBarProps) {
   const [finalTrack, setFinalTrack] = useState<FinalProjectTrack>("tesis");
   const sharedBarRef = useRef<HTMLDivElement | null>(null);
@@ -165,7 +167,7 @@ export default function SummaryProgressBar({
 
       <div
         ref={sharedBarRef}
-        data-progress-slot={mode}
+        data-progress-slot={disableSlotRegistration ? undefined : mode}
         className={cn(
           "relative transition-opacity duration-200",
           showSummaryStats ? "mt-5" : "w-full"

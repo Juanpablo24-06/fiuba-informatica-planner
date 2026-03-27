@@ -101,6 +101,7 @@ export default function MapProgressTransitionLayer({
         totalTifCredits={progress.totalTifCredits}
         mode="map-bottom"
         disableBottomMeasurement
+        disableSlotRegistration
       />
     </div>
   );
