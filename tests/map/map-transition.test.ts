@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildPendingNavigationState,
   DEFAULT_MAP_TRANSITION_STATE,
+  getDisplaySection,
+  getSectionForPathname,
   isMapTransitionStateEqual,
+  isPendingNavigationResolved,
   type MapTransitionState
 } from "@/components/layout/map-transition-store";
 import {
@@ -87,5 +91,56 @@ describe("map transition helpers", () => {
       isRenderableProgressRect({ left: 0, top: 0, width: 100, height: 0 })
     ).toBe(false);
     expect(isRenderableProgressRect(null)).toBe(false);
+  });
+
+  it("builds the special map entry state only for summary to map", () => {
+    expect(buildPendingNavigationState("/", "/mapa")).toMatchObject({
+      pendingPath: "/mapa",
+      pendingSection: "/mapa",
+      loaderKind: "map",
+      startedFromSection: "/",
+      showMapBar: true,
+      animateMapBar: true
+    });
+
+    expect(buildPendingNavigationState("/horario", "/mapa")).toMatchObject({
+      pendingPath: "/mapa",
+      pendingSection: "/mapa",
+      loaderKind: "map",
+      startedFromSection: "/horario",
+      showMapBar: true,
+      animateMapBar: false
+    });
+  });
+
+  it("uses the generic loader when the destination is not map", () => {
+    expect(buildPendingNavigationState("/mapa", "/")).toMatchObject({
+      pendingPath: "/",
+      pendingSection: "/",
+      loaderKind: "app",
+      showMapBar: false,
+      animateMapBar: false
+    });
+    expect(buildPendingNavigationState("/", "/horario")).toMatchObject({
+      pendingPath: "/horario",
+      pendingSection: "/horario",
+      loaderKind: "app",
+      showMapBar: false,
+      animateMapBar: false
+    });
+  });
+
+  it("prefers the pending section while navigation is still unresolved", () => {
+    expect(getDisplaySection("/", "/mapa")).toBe("/mapa");
+    expect(getDisplaySection("/horario", null)).toBe("/horario");
+    expect(isPendingNavigationResolved("/mapa", "/mapa")).toBe(true);
+    expect(isPendingNavigationResolved("/", "/mapa")).toBe(false);
+  });
+
+  it("normalizes app sections from arbitrary pathnames", () => {
+    expect(getSectionForPathname("/mapa")).toBe("/mapa");
+    expect(getSectionForPathname("/horario/semana")).toBe("/horario");
+    expect(getSectionForPathname("/admin/config")).toBe("/admin");
+    expect(getSectionForPathname("/cualquier-cosa")).toBe("/");
   });
 });

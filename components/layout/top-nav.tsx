@@ -1,21 +1,28 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, LayoutGrid, MapPinned, Settings } from "lucide-react";
+import { CalendarDays, LayoutGrid, MapPinned, Settings, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import type { CSSProperties } from "react";
 import { useMapTransitionState } from "@/components/layout/map-transition-coordinator";
+import SectionLink from "@/components/layout/section-link";
 import { cn } from "@/lib/utils";
 import BrandLogo from "@/components/layout/brand-logo";
 import ProfileMenu from "@/components/layout/profile-menu";
 import ThemeToggle from "@/components/layout/theme-toggle";
+import { getDisplaySection, type AppSection } from "@/components/layout/map-transition-store";
 
-const baseItems = [
+type NavItem = {
+  href: AppSection;
+  label: string;
+  icon: LucideIcon;
+};
+
+const baseItems: NavItem[] = [
   { href: "/", label: "Resumen", icon: LayoutGrid },
   { href: "/mapa", label: "Mapa", icon: MapPinned },
   { href: "/horario", label: "Agenda", icon: CalendarDays }
-] as const;
+];
 
 const iconMotionClassByHref: Record<string, string> = {
   "/": "group-hover:animate-nav-summary-hover group-data-[active=true]:animate-nav-summary-active",
@@ -35,17 +42,13 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
   const pathname = usePathname();
   const headerRef = useRef<HTMLElement | null>(null);
   const mapTransitionState = useMapTransitionState();
-  const navItems = role === "admin"
+  const navItems: NavItem[] = role === "admin"
     ? [...baseItems, { href: "/admin", label: "Admin", icon: Settings }]
     : baseItems;
 
   const activeHref = useMemo(() => {
-    if (!pathname) return "/";
-    if (pathname.startsWith("/mapa")) return "/mapa";
-    if (pathname.startsWith("/horario")) return "/horario";
-    if (pathname.startsWith("/admin")) return "/admin";
-    return "/";
-  }, [pathname]);
+    return getDisplaySection(pathname ?? "/", mapTransitionState.pendingSection);
+  }, [mapTransitionState.pendingSection, pathname]);
 
   useEffect(() => {
     if (!headerRef.current) return;
@@ -91,10 +94,17 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
               const Icon = item.icon;
               const active = activeHref === item.href;
               return (
-                <Link
+                <SectionLink
                   key={item.href}
                   href={item.href}
-                  prefetch={item.href === "/mapa" ? false : undefined}
+                  prefetch={false}
+                  transitionSource={
+                    item.href === "/mapa"
+                      ? "top-nav-map"
+                      : item.href === "/"
+                      ? "top-nav-summary"
+                      : null
+                  }
                   data-map-transition-source={
                     item.href === "/mapa"
                       ? "top-nav-map"
@@ -136,7 +146,7 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
                         : "scale-x-0 group-hover:scale-x-100"
                     )}
                   />
-                </Link>
+                </SectionLink>
               );
             })}
           </nav>
@@ -157,10 +167,17 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
               const Icon = item.icon;
               const active = activeHref === item.href;
               return (
-                <Link
+                <SectionLink
                   key={item.href}
                   href={item.href}
-                  prefetch={item.href === "/mapa" ? false : undefined}
+                  prefetch={false}
+                  transitionSource={
+                    item.href === "/mapa"
+                      ? "top-nav-map"
+                      : item.href === "/"
+                      ? "top-nav-summary"
+                      : null
+                  }
                   data-map-transition-source={
                     item.href === "/mapa"
                       ? "top-nav-map"
@@ -189,7 +206,7 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
                     />
                     {item.label}
                   </span>
-                </Link>
+                </SectionLink>
               );
             })}
           </nav>

@@ -5,6 +5,8 @@ import { useSyncExternalStore } from "react";
 export type MapTransitionSource = "summary-link" | "top-nav-map" | "top-nav-summary" | null;
 export type LauncherMode = "default" | "compact";
 export type ProgressSlot = "summary" | "map-bottom";
+export type AppSection = "/" | "/mapa" | "/horario" | "/admin";
+export type LoaderKind = "app" | "map" | null;
 export type ProgressSourceRect = {
   left: number;
   top: number;
@@ -14,6 +16,12 @@ export type ProgressSourceRect = {
 
 export type MapTransitionState = {
   pathname: string;
+  pendingPath: AppSection | null;
+  pendingSection: AppSection | null;
+  loaderKind: LoaderKind;
+  startedFromSection: AppSection | null;
+  showMapBar: boolean;
+  animateMapBar: boolean;
   transitionSource: MapTransitionSource;
   transitioning: boolean;
   launcherMode: LauncherMode;
@@ -24,12 +32,53 @@ export type MapTransitionState = {
 
 export const DEFAULT_MAP_TRANSITION_STATE: MapTransitionState = {
   pathname: "",
+  pendingPath: null,
+  pendingSection: null,
+  loaderKind: null,
+  startedFromSection: null,
+  showMapBar: false,
+  animateMapBar: false,
   transitionSource: null,
   transitioning: false,
   launcherMode: "default",
   progressSourceSlot: null,
   progressSourceRect: null,
   progressTargetSlot: null
+};
+
+export const getSectionForPathname = (pathname: string): AppSection => {
+  if (pathname.startsWith("/mapa")) return "/mapa";
+  if (pathname.startsWith("/horario")) return "/horario";
+  if (pathname.startsWith("/admin")) return "/admin";
+  return "/";
+};
+
+export const getDisplaySection = (
+  pathname: string,
+  pendingSection: AppSection | null
+): AppSection => pendingSection ?? getSectionForPathname(pathname);
+
+export const isPendingNavigationResolved = (
+  pathname: string,
+  pendingPath: AppSection | null
+) => !pendingPath || getSectionForPathname(pathname) === pendingPath;
+
+export const buildPendingNavigationState = (
+  fromPathname: string,
+  toPathname: string
+) => {
+  const startedFromSection = getSectionForPathname(fromPathname);
+  const pendingSection = getSectionForPathname(toPathname);
+  const isMapDestination = pendingSection === "/mapa";
+
+  return {
+    pendingPath: pendingSection,
+    pendingSection,
+    loaderKind: isMapDestination ? ("map" as const) : ("app" as const),
+    startedFromSection,
+    showMapBar: isMapDestination,
+    animateMapBar: startedFromSection === "/" && isMapDestination
+  };
 };
 
 const subscribers = new Set<() => void>();
@@ -40,6 +89,12 @@ export const isMapTransitionStateEqual = (
   second: MapTransitionState
 ) =>
   first.pathname === second.pathname &&
+  first.pendingPath === second.pendingPath &&
+  first.pendingSection === second.pendingSection &&
+  first.loaderKind === second.loaderKind &&
+  first.startedFromSection === second.startedFromSection &&
+  first.showMapBar === second.showMapBar &&
+  first.animateMapBar === second.animateMapBar &&
   first.transitionSource === second.transitionSource &&
   first.transitioning === second.transitioning &&
   first.launcherMode === second.launcherMode &&

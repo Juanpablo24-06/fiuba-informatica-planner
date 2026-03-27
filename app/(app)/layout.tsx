@@ -4,6 +4,8 @@ import AppShell from "@/components/layout/app-shell";
 import ShortcutHandler from "@/components/layout/shortcut-handler";
 import TopNav from "@/components/layout/top-nav";
 import { getSession } from "@/lib/auth";
+import { buildProgressSnapshot } from "@/lib/progress";
+import { getLatestEnrollmentStatus, getSubjects } from "@/lib/queries";
 
 const SynapseLauncher = dynamic(() => import("@/components/layout/synapse-launcher"), {
   ssr: false,
@@ -13,14 +15,19 @@ const SynapseLauncher = dynamic(() => import("@/components/layout/synapse-launch
 export default async function AppLayout({
   children
 }: Readonly<{ children: React.ReactNode }>) {
-  const session = await getSession();
+  const [session, subjects, latestStatusMap] = await Promise.all([
+    getSession(),
+    getSubjects(),
+    getLatestEnrollmentStatus()
+  ]);
+  const progress = buildProgressSnapshot(subjects, latestStatusMap);
 
   return (
     <div className="relative min-h-screen overflow-x-hidden">
       <AppBackground />
       <TopNav role={session?.role} />
       <ShortcutHandler />
-      <AppShell>{children}</AppShell>
+      <AppShell progress={progress}>{children}</AppShell>
       <SynapseLauncher role={session?.role} />
     </div>
   );

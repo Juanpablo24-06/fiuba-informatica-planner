@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMapTransitionState } from "@/components/layout/map-transition-coordinator";
+import SectionLink from "@/components/layout/section-link";
 import {
   buildSummaryProgressSegments,
   isTrailingSummarySegment,
@@ -32,6 +32,7 @@ type SummaryProgressBarProps = {
   totalTifCredits: number;
   englishApproved?: boolean;
   mode?: "summary" | "map-bottom";
+  disableBottomMeasurement?: boolean;
 };
 
 const clamp = (value: number, min: number, max: number) =>
@@ -56,7 +57,8 @@ export default function SummaryProgressBar({
   approvedTifCredits,
   totalTifCredits,
   englishApproved = false,
-  mode = "summary"
+  mode = "summary",
+  disableBottomMeasurement = false
 }: SummaryProgressBarProps) {
   const [finalTrack, setFinalTrack] = useState<FinalProjectTrack>("tesis");
   const sharedBarRef = useRef<HTMLDivElement | null>(null);
@@ -77,7 +79,7 @@ export default function SummaryProgressBar({
   }, []);
 
   useEffect(() => {
-    if (!isMapBottom || !sharedBarRef.current) return;
+    if (!isMapBottom || disableBottomMeasurement || !sharedBarRef.current) return;
     const element = sharedBarRef.current;
     const update = () => {
       document.documentElement.style.setProperty(
@@ -96,7 +98,7 @@ export default function SummaryProgressBar({
       window.removeEventListener("resize", update);
       document.documentElement.style.removeProperty(MAP_BOTTOM_BAR_HEIGHT_CSS_VAR);
     };
-  }, [isMapBottom]);
+  }, [disableBottomMeasurement, isMapBottom]);
 
   const segments = useMemo<SummaryProgressSegment[]>(
     () =>
@@ -148,14 +150,15 @@ export default function SummaryProgressBar({
             </div>
           </div>
         <div className="flex items-end gap-4">
-            <Link
+            <SectionLink
               href="/mapa"
               prefetch={false}
+              transitionSource="summary-link"
               data-map-transition-source="summary-link"
               className="text-sm font-semibold text-accent transition hover:text-accent/80"
             >
               Ver mapa
-            </Link>
+            </SectionLink>
           </div>
         </div>
       ) : null}

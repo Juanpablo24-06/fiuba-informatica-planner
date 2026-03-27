@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { CalendarDays, Clock3 } from "lucide-react";
 import CourseWorkspaceDrawer from "@/components/dashboard/course-workspace-drawer";
 import SummaryProgressBar from "@/components/dashboard/summary-progress-bar";
+import SectionLink from "@/components/layout/section-link";
 import { getSession } from "@/lib/auth";
 import { formatDateTime } from "@/lib/date";
 import { getCalendarEvents } from "@/lib/google-calendar";
@@ -237,12 +237,13 @@ export default async function DashboardPage() {
               )}
             </div>
 
-            <Link
+            <SectionLink
               href="/horario"
+              prefetch={false}
               className="mt-5 inline-flex w-full items-center justify-center rounded-xl border border-border/65 bg-surface-2/45 px-4 py-3 text-sm font-semibold text-text backdrop-blur-[4px]"
             >
               Abrir agenda
-            </Link>
+            </SectionLink>
           </section>
 
           <div className="h-px w-full bg-border/40" />

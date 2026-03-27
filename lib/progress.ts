@@ -96,3 +96,5 @@ export const buildProgressSnapshot = (
     totalTifCredits: OFFICIAL_TIF_CREDITS
   };
 };
+
+export type ProgressSnapshot = ReturnType<typeof buildProgressSnapshot>;
