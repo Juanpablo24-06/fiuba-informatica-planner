@@ -606,20 +606,6 @@ body :is(div, section, article, aside, header, footer, nav, button, a, input, se
     }
   }
 
-  @keyframes map-loader-footer {
-
-    0%,
-    100% {
-      transform: scaleX(0.86);
-      opacity: 0.36;
-    }
-
-    50% {
-      transform: scaleX(1);
-      opacity: 0.84;
-    }
-  }
-
   .animate-map-loader-node {
     animation: map-loader-node 2.8s cubic-bezier(.25, .8, .25, 1) infinite;
   }
@@ -632,16 +618,10 @@ body :is(div, section, article, aside, header, footer, nav, button, a, input, se
     animation: map-loader-pulse 1.8s ease-in-out infinite;
   }
 
-  .animate-map-loader-footer {
-    transform-origin: left center;
-    animation: map-loader-footer 1.9s ease-in-out infinite;
-  }
-
   @media (prefers-reduced-motion: reduce) {
     .animate-map-loader-node,
     .animate-map-loader-line,
-    .animate-map-loader-pulse,
-    .animate-map-loader-footer {
+    .animate-map-loader-pulse {
       animation: none;
     }
   }

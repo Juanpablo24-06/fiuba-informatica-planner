@@ -16,7 +16,6 @@ export function MapTransitionCoordinator() {
 
   useEffect(() => {
     router.prefetch("/");
-    router.prefetch("/mapa");
   }, [router]);
 
   useEffect(() => {

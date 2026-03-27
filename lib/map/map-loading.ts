@@ -19,14 +19,6 @@ export const MAP_LOADING_FLOW_PATHS = [
   "M 376 274 C 462 332, 612 332, 774 258"
 ] as const;
 
-export const MAP_LOADING_FOOTER_SEGMENTS = [
-  { width: "18%", tint: "rgb(var(--color-accent) / 0.55)" },
-  { width: "42%", tint: "rgb(var(--color-accent-2) / 0.42)" },
-  { width: "14%", tint: "rgb(var(--color-accent-3) / 0.4)" },
-  { width: "10%", tint: "rgb(var(--color-elective) / 0.42)" },
-  { width: "8%", tint: "rgb(var(--color-accent-4) / 0.42)" }
-] as const;
-
 export const getMapLoadingNodeTint = (index: number) => {
   if (index % 3 === 0) return "rgb(var(--color-accent))";
   if (index % 3 === 1) return "rgb(var(--color-accent-2))";

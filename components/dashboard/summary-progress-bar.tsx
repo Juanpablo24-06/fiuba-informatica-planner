@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMapTransitionState } from "@/components/layout/map-transition-coordinator";
-import { armMapEntryLoader } from "@/lib/map/map-entry-transition";
 import {
   buildSummaryProgressSegments,
   isTrailingSummarySegment,
@@ -151,7 +150,7 @@ export default function SummaryProgressBar({
         <div className="flex items-end gap-4">
             <Link
               href="/mapa"
-              onClick={() => armMapEntryLoader()}
+              prefetch={false}
               data-map-transition-source="summary-link"
               className="text-sm font-semibold text-accent transition hover:text-accent/80"
             >

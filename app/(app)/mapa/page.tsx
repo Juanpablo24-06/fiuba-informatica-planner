@@ -1,5 +1,4 @@
-import MapView from "@/components/map/map-view";
-import MapEntryOverlay from "@/components/map/map-entry-overlay";
+import MapViewStage from "@/components/map/map-view-stage";
 import { getLatestEnrollmentStatus, getPrerequisites, getSubjects } from "@/lib/queries";
 import SummaryProgressBar from "@/components/dashboard/summary-progress-bar";
 import { buildProgressSnapshot, OFFICIAL_TOTAL_CREDITS } from "@/lib/progress";
@@ -20,8 +19,7 @@ export default async function MapaPage() {
 
   return (
     <>
-      <MapEntryOverlay />
-      <MapView nodes={nodes} edges={edges} />
+      <MapViewStage nodes={nodes} edges={edges} />
       <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+0.9rem)] z-40 hidden px-4 lg:block">
         <div className="mx-auto w-full max-w-[1320px] pl-[12.75rem] pr-[4.75rem]">
           <div className="pointer-events-auto w-full">

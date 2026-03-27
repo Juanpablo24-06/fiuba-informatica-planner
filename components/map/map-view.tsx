@@ -47,7 +47,13 @@ import {
   ZOOM_FACTOR
 } from "@/lib/map/map-constants";
 
-export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: MapEdge[] }) {
+type MapViewProps = {
+  nodes: MapNode[];
+  edges: MapEdge[];
+  onReady?: () => void;
+};
+
+export default function MapView({ nodes, edges, onReady }: MapViewProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const worldRef = useRef<HTMLDivElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -314,6 +320,16 @@ export default function MapView({ nodes, edges }: { nodes: MapNode[]; edges: Map
   const selectedDisplayName = selectedNode
     ? getDisplayNodeName(selectedNode, finalProjectTrack)
     : null;
+
+  useEffect(() => {
+    if (!layout.width || !layout.height || !onReady) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      onReady();
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [layout.height, layout.width, onReady]);
 
   const scheduleTransform = useCallback((next: Transform) => {
     transformRef.current = next;
