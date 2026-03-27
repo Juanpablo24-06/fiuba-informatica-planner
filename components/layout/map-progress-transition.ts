@@ -6,17 +6,23 @@ export const MAP_TRANSITION_DURATION_MS = 480;
 export const MIN_DESTINATION_SETTLE_MS = 300;
 export const MAP_TRANSITION_SNAP_THRESHOLD_PX = 10;
 
+export const isRenderableProgressRect = (
+  rect: ProgressSourceRect | null | undefined
+): rect is ProgressSourceRect => Boolean(rect && rect.width > 0 && rect.height > 0);
+
 export const getProgressRect = (slot: ProgressSlot): ProgressSourceRect | null => {
   const element = document.querySelector<HTMLElement>(`[data-progress-slot='${slot}']`);
   if (!element) return null;
 
   const rect = element.getBoundingClientRect();
-  return {
+  const measuredRect = {
     left: rect.left,
     top: rect.top,
     width: rect.width,
     height: rect.height
   };
+
+  return isRenderableProgressRect(measuredRect) ? measuredRect : null;
 };
 
 export const getProgressGhostRect = (slot: ProgressSlot): ProgressSourceRect | null => {
@@ -26,12 +32,14 @@ export const getProgressGhostRect = (slot: ProgressSlot): ProgressSourceRect | n
   if (!element) return null;
 
   const rect = element.getBoundingClientRect();
-  return {
+  const measuredRect = {
     left: rect.left,
     top: rect.top,
     width: rect.width,
     height: rect.height
   };
+
+  return isRenderableProgressRect(measuredRect) ? measuredRect : null;
 };
 
 export const setProgressSlotHidden = (slot: ProgressSlot | null, hidden: boolean) => {

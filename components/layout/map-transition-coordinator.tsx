@@ -6,6 +6,7 @@ import {
   getProgressGhostRect,
   getProgressRect,
   getRemainingTransitionDuration,
+  isRenderableProgressRect,
   MAP_TRANSITION_DURATION_MS,
   MIN_DESTINATION_SETTLE_MS,
   setProgressSlotHidden,
@@ -233,7 +234,7 @@ export function MapTransitionCoordinator() {
   }, [clearTransitionClone]);
 
   const getTargetRect = useCallback(
-    (slot: ProgressSlot, sourceRect: ProgressSourceRect) => {
+    (slot: ProgressSlot) => {
       const liveRect = getProgressRect(slot);
       if (liveRect) {
         knownSlotRects[slot] = liveRect;
@@ -246,7 +247,7 @@ export function MapTransitionCoordinator() {
         return ghostRect;
       }
 
-      if (knownSlotRects[slot]) return knownSlotRects[slot]!;
+      if (isRenderableProgressRect(knownSlotRects[slot])) return knownSlotRects[slot];
       return null;
     },
     []
@@ -349,7 +350,23 @@ export function MapTransitionCoordinator() {
       const sourceSlot: ProgressSlot = pathname.startsWith("/mapa") ? "map-bottom" : "summary";
       const targetSlot: ProgressSlot = goingToMap ? "map-bottom" : "summary";
       const sourceRect = getProgressRect(sourceSlot);
-      const hasClone = !reducedMotionRef.current && spawnProgressClone(sourceSlot, sourceRect);
+      const targetRect = reducedMotionRef.current ? null : getTargetRect(targetSlot);
+      const canAnimateTransition =
+        !reducedMotionRef.current &&
+        isRenderableProgressRect(sourceRect) &&
+        isRenderableProgressRect(targetRect);
+      const destinationHref = goingToMap ? "/mapa" : "/";
+
+      if (!canAnimateTransition) {
+        router.push(destinationHref, { scroll: false });
+        return;
+      }
+
+      const hasClone = spawnProgressClone(sourceSlot, sourceRect);
+      if (!hasClone) {
+        router.push(destinationHref, { scroll: false });
+        return;
+      }
 
       setMapTransitionState({
         transitionSource: source,
@@ -361,13 +378,7 @@ export function MapTransitionCoordinator() {
       });
       transitionStartedAtRef.current = performance.now();
 
-      const destinationHref = goingToMap ? "/mapa" : "/";
-      if (hasClone && sourceRect) {
-        const targetRect = getTargetRect(targetSlot, sourceRect);
-        if (targetRect) {
-          animateCloneBetweenRects(sourceRect, targetRect);
-        }
-      }
+      animateCloneBetweenRects(sourceRect, targetRect);
       if (navigationTimerRef.current !== null) {
         window.clearTimeout(navigationTimerRef.current);
       }
@@ -379,9 +390,6 @@ export function MapTransitionCoordinator() {
         reducedMotionRef.current ? 0 : NAVIGATION_HANDOFF_DELAY_MS
       );
 
-      if (!hasClone) {
-        finishTransition();
-      }
     };
 
     document.addEventListener("click", handleClickCapture, true);
