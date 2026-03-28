@@ -93,7 +93,6 @@ export default async function EvaluacionesPage({
   searchParams: { month?: string }
 }) {
   const now = new Date();
-  await new Promise((resolve) => setTimeout(resolve, 1500));
 
   let referenceDate = now;
   if (searchParams.month) {

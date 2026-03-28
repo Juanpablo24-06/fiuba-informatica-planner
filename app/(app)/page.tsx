@@ -35,7 +35,6 @@ const STATUS_PILL_TONE: Record<string, string> = {
 
 export default async function DashboardPage() {
   const now = new Date();
-  await new Promise((resolve) => setTimeout(resolve, 1500));
   const [session, currentTerm, subjects, latestStatusMap, calendarEvents] = await Promise.all([
     getSession(),
     getCurrentTerm(),

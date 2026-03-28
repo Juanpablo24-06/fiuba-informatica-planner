@@ -1,6 +1,7 @@
 import WeeklySchedule from "@/components/dashboard/weekly-schedule";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { getCalendarEventEnrichments } from "@/lib/ai/queries";
+import { dedupeWeeklyScheduleEvents } from "@/lib/dashboard/weekly-schedule";
 import { getWeekRange } from "@/lib/date";
 import { getCalendarEvents } from "@/lib/google-calendar";
 import { getCurrentTerm, getEnrollmentsForTerm, getEventsForTerm } from "@/lib/queries";
@@ -86,7 +87,6 @@ const buildEnrichmentTags = (enrichment: { kind: string | null; instance: string
 
 export default async function SemanaPage() {
   const now = new Date();
-  await new Promise((resolve) => setTimeout(resolve, 1500));
 
   const weekRange = getWeekRange(now);
   const upcomingEnd = new Date(now.getTime() + 14 * DAY_MS);
@@ -134,6 +134,7 @@ export default async function SemanaPage() {
     const tags = buildEnrichmentTags(enrichment);
     return tags.length ? { ...event, tags } : event;
   });
+  const dedupedScheduleEvents = dedupeWeeklyScheduleEvents(enrichedScheduleEvents);
 
   return (
     <div className="space-y-6">
@@ -142,7 +143,7 @@ export default async function SemanaPage() {
           <p className="text-xs uppercase tracking-[0.3em] text-muted">Semana actual</p>
         </CardHeader>
         <CardBody>
-          <WeeklySchedule events={enrichedScheduleEvents} />
+          <WeeklySchedule events={dedupedScheduleEvents} />
         </CardBody>
       </Card>
     </div>

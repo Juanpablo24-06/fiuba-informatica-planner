@@ -134,103 +134,106 @@ export default function WeeklySchedule({ events }: { events: CalendarEvent[] }) 
         )}
       </div>
       <div className="hidden md:block">
-        <div className="grid grid-cols-[76px_repeat(6,minmax(0,1fr))] gap-3 text-xs">
-          <div />
-          {dayGroups.map((day) => (
-            <div
-              key={day.short}
-              className="px-1 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-muted"
-            >
-              {day.short}
-            </div>
-          ))}
-          <div className="grid gap-3 pt-2" style={gridStyle}>
-            {Array.from({ length: gridRows }).map((_, index) => (
+        <div className="overflow-x-auto pb-1">
+          <div className="grid min-w-[720px] grid-cols-[76px_repeat(6,minmax(0,1fr))] gap-3 text-xs">
+            <div />
+            {dayGroups.map((day) => (
               <div
-                key={`hour-${index}`}
-                className="flex items-start justify-end pr-2 text-[10px] font-medium text-muted"
+                key={day.short}
+                className="px-1 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-muted"
               >
-                {`${startHour + index}:00`}
+                {day.short}
+              </div>
+            ))}
+            <div className="grid gap-3 pt-2" style={gridStyle}>
+              {Array.from({ length: gridRows }).map((_, index) => (
+                <div
+                  key={`hour-${index}`}
+                  className="flex items-start justify-end pr-2 text-[10px] font-medium text-muted"
+                >
+                  {`${startHour + index}:00`}
+                </div>
+              ))}
+            </div>
+            {dayGroups.map((day) => (
+              <div
+                key={`col-${day.short}`}
+                className="relative grid gap-3 rounded-[1.7rem] border border-border/40 bg-surface/40 p-2.5"
+                style={gridStyle}
+              >
+                {Array.from({ length: gridRows }).map((_, index) => (
+                  <div
+                    key={`${day.short}-slot-${index}`}
+                    className="rounded-[1.05rem] border border-border/15 bg-surface/15"
+                  />
+                ))}
+                {day.events.map((event, index) => {
+                    const { hour: startEventHour, minute: startEventMinute } = getZonedHour(
+                      event.startsAt,
+                      DEFAULT_TIMEZONE
+                    );
+                    const start = Math.max(
+                      0,
+                      startEventHour + startEventMinute / 60 - startHour
+                    );
+                    const endEventHour = event.endsAt
+                      ? getZonedHour(event.endsAt, DEFAULT_TIMEZONE)
+                      : undefined;
+                    const end = event.endsAt
+                      ? Math.max(
+                          start + 1,
+                          (endEventHour?.hour ?? startEventHour) +
+                            (endEventHour?.minute ?? startEventMinute) / 60 -
+                            startHour
+                        )
+                      : start + 1;
+                    const rowSpan = Math.max(1, Math.ceil(end - start));
+                    const style = {
+                      gridColumn: "1",
+                      gridRow: `${Math.floor(start) + 1} / span ${rowSpan}`,
+                      ...(event.color
+                        ? { borderColor: event.color, boxShadow: `0 0 0 1px ${event.color}33` }
+                        : {})
+                    } as CSSProperties;
+                    return (
+                      <div
+                        key={getEventRenderKey(event, index)}
+                        style={style}
+                        className={cn(
+                          "relative z-10 rounded-2xl border border-border/60 bg-surface/88 p-3 text-[11px] text-text shadow-soft",
+                          event.source === "calendar" ? "border-accent/40" : "border-accent-2/40"
+                        )}
+                      >
+                        <p className="font-semibold text-balance leading-tight">
+                          {event.title}
+                        </p>
+                        <p className="mt-1 text-[10px] text-muted">
+                          {formatTime(event.startsAt)}
+                          {event.endsAt ? ` - ${formatTime(event.endsAt)}` : ""}
+                        </p>
+                        {event.tags?.length ? (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {event.tags.slice(0, 2).map((tag, tagIndex) => (
+                              <span
+                                key={`${event.id}-${tag}-${tagIndex}`}
+                                className="rounded-full border border-border/60 bg-surface-2/70 px-2 py-0.5 text-[9px] font-semibold text-muted"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                            {event.tags.length > 2 ? (
+                              <span className="rounded-full border border-border/40 bg-surface/70 px-2 py-0.5 text-[9px] font-semibold text-muted">
+                                +{event.tags.length - 2}
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
               </div>
             ))}
           </div>
-          {dayGroups.map((day) => (
-            <div
-              key={`col-${day.short}`}
-              className="relative grid gap-3 rounded-[1.7rem] border border-border/40 bg-surface/40 p-2.5"
-              style={gridStyle}
-            >
-              {Array.from({ length: gridRows }).map((_, index) => (
-                <div
-                  key={`${day.short}-slot-${index}`}
-                  className="rounded-[1.05rem] border border-border/15 bg-surface/15"
-                />
-              ))}
-              {day.events.map((event, index) => {
-                  const { hour: startEventHour, minute: startEventMinute } = getZonedHour(
-                    event.startsAt,
-                    DEFAULT_TIMEZONE
-                  );
-                  const start = Math.max(
-                    0,
-                    startEventHour + startEventMinute / 60 - startHour
-                  );
-                  const endEventHour = event.endsAt
-                    ? getZonedHour(event.endsAt, DEFAULT_TIMEZONE)
-                    : undefined;
-                  const end = event.endsAt
-                    ? Math.max(
-                        start + 1,
-                        (endEventHour?.hour ?? startEventHour) +
-                          (endEventHour?.minute ?? startEventMinute) / 60 -
-                          startHour
-                      )
-                    : start + 1;
-                  const rowSpan = Math.max(1, Math.ceil(end - start));
-                  const style = {
-                    gridRow: `${Math.floor(start) + 1} / span ${rowSpan}`,
-                    ...(event.color
-                      ? { borderColor: event.color, boxShadow: `0 0 0 1px ${event.color}33` }
-                      : {})
-                  } as CSSProperties;
-                  return (
-                    <div
-                      key={getEventRenderKey(event, index)}
-                      style={style}
-                      className={cn(
-                        "relative z-10 rounded-2xl border border-border/60 bg-surface/88 p-3 text-[11px] text-text shadow-soft",
-                        event.source === "calendar" ? "border-accent/40" : "border-accent-2/40"
-                      )}
-                    >
-                      <p className="font-semibold text-balance leading-tight">
-                        {event.title}
-                      </p>
-                      <p className="mt-1 text-[10px] text-muted">
-                        {formatTime(event.startsAt)}
-                        {event.endsAt ? ` - ${formatTime(event.endsAt)}` : ""}
-                      </p>
-                      {event.tags?.length ? (
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {event.tags.slice(0, 2).map((tag, tagIndex) => (
-                            <span
-                              key={`${event.id}-${tag}-${tagIndex}`}
-                              className="rounded-full border border-border/60 bg-surface-2/70 px-2 py-0.5 text-[9px] font-semibold text-muted"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                          {event.tags.length > 2 ? (
-                            <span className="rounded-full border border-border/40 bg-surface/70 px-2 py-0.5 text-[9px] font-semibold text-muted">
-                              +{event.tags.length - 2}
-                            </span>
-                          ) : null}
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                })}
-            </div>
-          ))}
         </div>
       </div>
     </div>

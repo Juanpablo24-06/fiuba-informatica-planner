@@ -103,7 +103,9 @@
 }
 
 html {
-  scrollbar-gutter: stable both-edges;
+  background-color: rgb(var(--color-canvas));
+  color: rgb(var(--color-text));
+  scrollbar-gutter: stable;
 }
 
 body {

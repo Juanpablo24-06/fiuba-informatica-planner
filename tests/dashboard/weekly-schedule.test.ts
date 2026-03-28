@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { getWeeklyScheduleHourBounds } from "@/lib/dashboard/weekly-schedule";
+import {
+  dedupeWeeklyScheduleEvents,
+  getWeeklyScheduleHourBounds
+} from "@/lib/dashboard/weekly-schedule";
 import type { CalendarEvent } from "@/lib/types";
 
 const buildEvent = (overrides: Partial<CalendarEvent>): CalendarEvent => ({
@@ -40,5 +43,46 @@ describe("getWeeklyScheduleHourBounds", () => {
       startHour: 8,
       endHour: 11
     });
+  });
+});
+
+describe("dedupeWeeklyScheduleEvents", () => {
+  it("prefers richer non-generated class events over generated schedule duplicates on the same day", () => {
+    const events = dedupeWeeklyScheduleEvents([
+      buildEvent({
+        id: "schedule-analysis-lun-0800",
+        startsAt: "2026-03-23T11:00:00.000Z",
+        endsAt: "2026-03-23T14:00:00.000Z",
+        tags: ["Cursada"]
+      }),
+      buildEvent({
+        id: "calendar-analysis-lun-0800",
+        startsAt: "2026-03-23T11:00:00.000Z",
+        endsAt: "2026-03-23T13:00:00.000Z",
+        source: "calendar",
+        type: undefined,
+        tags: ["Aula 101", "Comisión 2"]
+      })
+    ]);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]?.id).toBe("calendar-analysis-lun-0800");
+  });
+
+  it("keeps genuinely different events even if they share the same subject on the same day", () => {
+    const events = dedupeWeeklyScheduleEvents([
+      buildEvent({
+        id: "schedule-analysis-lun-0800",
+        startsAt: "2026-03-23T11:00:00.000Z",
+        endsAt: "2026-03-23T13:00:00.000Z"
+      }),
+      buildEvent({
+        id: "schedule-analysis-lun-1600",
+        startsAt: "2026-03-23T19:00:00.000Z",
+        endsAt: "2026-03-23T21:00:00.000Z"
+      })
+    ]);
+
+    expect(events).toHaveLength(2);
   });
 });
