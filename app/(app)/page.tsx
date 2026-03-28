@@ -35,6 +35,7 @@ const STATUS_PILL_TONE: Record<string, string> = {
 
 export default async function DashboardPage() {
   const now = new Date();
+  await new Promise((resolve) => setTimeout(resolve, 1500));
   const [session, currentTerm, subjects, latestStatusMap, calendarEvents] = await Promise.all([
     getSession(),
     getCurrentTerm(),
@@ -69,37 +70,40 @@ export default async function DashboardPage() {
   const nextEventByEnrollment = getNextFutureEventByEnrollment(termEvents, now);
 
   return (
-    <div className="mx-auto w-full max-w-[1380px] space-y-6 pb-8">
-      <div className="grid gap-6 xl:grid-cols-[1.7fr_0.9fr]">
-        <section className="space-y-12 px-2 xl:col-span-2">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-muted">Ruta académica</p>
-              <h1 className="mt-1 text-4xl font-semibold text-text">Resumen Académico</h1>
-            </div>
+    <div className="mx-auto w-full max-w-[1380px] space-y-8 pb-8">
+      {/* ── Header + Progress Bar (full width) ── */}
+      <section className="space-y-6 px-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.24em] text-muted">Ruta académica</p>
+            <h1 className="mt-1 text-4xl font-semibold text-text">Resumen Académico</h1>
           </div>
+        </div>
 
-          <div className="mt-6">
-            <SummaryProgressBar
-              approvedTotalCredits={progress.approvedTotalCredits}
-              totalCredits={OFFICIAL_TOTAL_CREDITS}
-              progressPct={progress.progressPct}
-              approvedCbcCredits={progress.approvedCbcCredits}
-              totalCbcCredits={progress.totalCbcCredits}
-              approvedCbcCourses={progress.approvedCbcCourses}
-              totalCbcCourses={progress.totalCbcCourses}
-              approvedObligatoryCredits={progress.approvedObligatoryCredits}
-              totalObligatoryCredits={progress.totalObligatoryCredits}
-              approvedObligatoryCourses={progress.approvedObligatoryCourses}
-              totalObligatoryCourses={progress.totalObligatoryCourses}
-              approvedElectiveCredits={progress.approvedElectiveCredits}
-              totalElectiveCredits={progress.totalElectiveCredits}
-              approvedTifCredits={progress.approvedTifCredits}
-              totalTifCredits={progress.totalTifCredits}
-              mode="summary"
-            />
-          </div>
-        </section>
+        <div>
+          <SummaryProgressBar
+            approvedTotalCredits={progress.approvedTotalCredits}
+            totalCredits={OFFICIAL_TOTAL_CREDITS}
+            progressPct={progress.progressPct}
+            approvedCbcCredits={progress.approvedCbcCredits}
+            totalCbcCredits={progress.totalCbcCredits}
+            approvedCbcCourses={progress.approvedCbcCourses}
+            totalCbcCourses={progress.totalCbcCourses}
+            approvedObligatoryCredits={progress.approvedObligatoryCredits}
+            totalObligatoryCredits={progress.totalObligatoryCredits}
+            approvedObligatoryCourses={progress.approvedObligatoryCourses}
+            totalObligatoryCourses={progress.totalObligatoryCourses}
+            approvedElectiveCredits={progress.approvedElectiveCredits}
+            totalElectiveCredits={progress.totalElectiveCredits}
+            approvedTifCredits={progress.approvedTifCredits}
+            totalTifCredits={progress.totalTifCredits}
+            mode="summary"
+          />
+        </div>
+      </section>
+
+      {/* ── Main content grid ── */}
+      <div className="grid gap-6 xl:grid-cols-[1.7fr_0.9fr]">
 
         <section className="px-2">
             <div className="mb-4 flex items-center justify-between gap-4">
@@ -107,6 +111,13 @@ export default async function DashboardPage() {
                 <p className="text-xs uppercase tracking-[0.24em] text-muted">Materias activas</p>
                 <h2 className="mt-1 text-3xl font-semibold text-text">Cursada actual</h2>
               </div>
+              <SectionLink
+                href="/agenda/semana"
+                prefetch={false}
+                className="text-sm font-semibold text-accent transition hover:text-accent/80"
+              >
+                Ver horario
+              </SectionLink>
             </div>
 
             {enrollments.length === 0 ? (
@@ -200,37 +211,46 @@ export default async function DashboardPage() {
             )}
         </section>
 
-        <aside className="panel flex h-fit flex-col gap-8 bg-surface/80 p-8 backdrop-blur-[8px]">
-          <section>
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-3xl font-semibold leading-none text-text">Próximas fechas</h3>
+        <aside className="flex h-fit flex-col gap-6">
+          {/* Próximas Fechas Card */}
+          <section className="relative overflow-hidden rounded-2xl border border-border/45 bg-surface/80 p-6 shadow-sm backdrop-blur-[6px] transition-all duration-300 hover:border-accent/30 hover:shadow-md">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">
+                  Agenda
+                </p>
+                <h3 className="mt-1 text-2xl font-semibold leading-none text-text">Próximas fechas</h3>
+              </div>
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent/12 text-accent">
                 <Clock3 className="h-4 w-4" />
               </span>
             </div>
-            <p className="text-xs uppercase tracking-[0.26em] text-muted">
+
+            <p className="text-[11px] uppercase tracking-[0.18em] text-muted">
               {now.toLocaleDateString("es-AR", { weekday: "long", day: "2-digit", month: "long" })}
             </p>
 
             <div className="mt-5 space-y-4">
               {nextEvents.length === 0 ? (
-                <p className="text-sm text-muted">No hay actividades próximas.</p>
+                <div className="rounded-xl border border-border/40 bg-surface-2/30 p-4 text-center">
+                  <p className="text-sm text-muted">No hay actividades próximas.</p>
+                </div>
               ) : (
                 nextEvents.map((event) => (
-                  <div key={event.id} className="relative border-l border-border/60 pl-4">
+                  <div key={event.id} className="relative border-l-2 border-border/60 pl-4 py-1">
                     <span
-                      className="absolute -left-[5px] top-2 h-2.5 w-2.5 rounded-full"
+                      className="absolute -left-[5px] top-2.5 h-2 w-2 rounded-full ring-4 ring-surface"
                       style={{ backgroundColor: event.color ?? "rgb(var(--color-accent))" }}
                     />
-                    <p className="font-mono text-xs text-muted">
+                    <p className="font-mono text-[11px] text-muted">
                       {new Date(event.startsAt).toLocaleTimeString("es-AR", {
                         hour: "2-digit",
                         minute: "2-digit"
                       })}
                     </p>
-                    <p className="text-base font-semibold text-text">{event.title}</p>
+                    <p className="mt-0.5 text-[15px] font-medium text-text">{event.title}</p>
                     {event.subject ? (
-                      <p className="text-sm text-muted">{event.subject}</p>
+                      <p className="mt-0.5 text-[13px] text-muted">{event.subject}</p>
                     ) : null}
                   </div>
                 ))
@@ -238,41 +258,38 @@ export default async function DashboardPage() {
             </div>
 
             <SectionLink
-              href="/horario"
+              href="/agenda/evaluaciones"
               prefetch={false}
-              className="mt-5 inline-flex w-full items-center justify-center rounded-xl border border-border/65 bg-surface-2/45 px-4 py-3 text-sm font-semibold text-text backdrop-blur-[4px]"
+              className="mt-6 inline-flex w-full items-center justify-center rounded-xl border border-border/65 bg-surface-2/45 px-4 py-3 text-[13px] font-semibold text-text backdrop-blur-[4px] transition-colors hover:bg-surface-2"
             >
-              Abrir agenda
+              Ver calendario y próximas fechas
             </SectionLink>
           </section>
 
-          <div className="h-px w-full bg-border/40" />
-
-          <section>
-            <p className="text-xs uppercase tracking-[0.26em] text-muted">Carga semanal</p>
-            <div className="mt-3 flex items-center gap-2">
-              <span
-                className={`h-3 w-3 rounded-full transition ${load.level === "baja" ? "scale-125 bg-success shadow-soft" : "bg-success/40"}`}
-              />
-              <span
-                className={`h-3 w-3 rounded-full transition ${load.level === "media" ? "scale-125 bg-warning shadow-soft" : "bg-warning/40"}`}
-              />
-              <span
-                className={`h-3 w-3 rounded-full transition ${load.level === "alta" ? "scale-125 bg-danger shadow-soft" : "bg-danger/40"}`}
-              />
+          {/* Carga Semanal Card */}
+          <section className="relative overflow-hidden rounded-2xl border border-border/45 bg-surface/80 p-6 shadow-sm backdrop-blur-[6px] transition-all duration-300 hover:border-accent/30 hover:shadow-md">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">Carga semanal</p>
+                <p className="mt-1 text-2xl font-semibold text-text">{load.label}</p>
+              </div>
+              <div className="flex items-center gap-1.5 rounded-full bg-surface-2/50 px-3 py-1.5">
+                <span className={`h-2.5 w-2.5 rounded-full transition ${load.level === "baja" ? "scale-110 bg-success shadow-soft" : "bg-success/30"}`} />
+                <span className={`h-2.5 w-2.5 rounded-full transition ${load.level === "media" ? "scale-110 bg-warning shadow-soft" : "bg-warning/30"}`} />
+                <span className={`h-2.5 w-2.5 rounded-full transition ${load.level === "alta" ? "scale-110 bg-danger shadow-soft" : "bg-danger/30"}`} />
+              </div>
             </div>
-            <p className="mt-3 text-4xl font-semibold text-text">{load.label}</p>
-            <p className="text-sm text-muted">{load.mood}</p>
-            <p className="mt-1 text-xs text-muted">
-              {load.weekEvents} actividades en los próximos 7 días · {load.exams} evaluaciones exigentes
+
+            <p className="mt-4 text-[13px] text-text/90 font-medium">{load.mood}</p>
+            <p className="mt-1 text-[12px] text-muted">
+              {load.weekEvents} actividades en 7 días · {load.exams} exám.
             </p>
           </section>
 
-          <div className="h-px w-full bg-border/40" />
-
-          <section>
-            <p className="text-xs uppercase tracking-[0.24em] text-muted">Frase del día</p>
-            <p className="mt-3 text-xl leading-relaxed text-text font-display">&ldquo;{editorialPhrase}&rdquo;</p>
+          {/* Frase del día Card */}
+          <section className="relative overflow-hidden rounded-2xl border border-border/45 bg-surface/80 p-6 shadow-sm backdrop-blur-[6px] transition-all duration-300 hover:border-accent/30 hover:shadow-md">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">Frase del día</p>
+            <p className="mt-3 text-[1.15rem] leading-snug text-text font-display italic text-text/80">&ldquo;{editorialPhrase}&rdquo;</p>
           </section>
         </aside>
       </div>

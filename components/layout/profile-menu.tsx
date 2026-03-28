@@ -95,7 +95,7 @@ export default function ProfileMenu({ role }: { role?: "admin" | "viewer" }) {
       </button>
 
       {open ? (
-        <div className="absolute right-0 z-[80] mt-3 w-[300px] rounded-2xl border border-border/70 bg-surface/98 p-4 shadow-glow backdrop-blur-xl">
+        <div className="absolute right-0 z-[80] mt-3 w-[300px] rounded-2xl border border-border/70 bg-surface p-4 shadow-glow">
           <div className="mb-4 flex items-center gap-3">
             <Image
               src="/avatar-generico.svg"

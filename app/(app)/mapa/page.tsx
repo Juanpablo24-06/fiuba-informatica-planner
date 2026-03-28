@@ -3,6 +3,7 @@ import { getLatestEnrollmentStatus, getPrerequisites, getSubjects } from "@/lib/
 import { buildMapGraph } from "@/lib/map/map-graph";
 
 export default async function MapaPage() {
+  await new Promise((resolve) => setTimeout(resolve, 1500));
   const [subjects, prerequisites, statusMap] = await Promise.all([
     getSubjects(),
     getPrerequisites(),

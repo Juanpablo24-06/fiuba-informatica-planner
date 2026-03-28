@@ -8,6 +8,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { getCurrentTerm, getEnrollmentsForTerm, getEventsForTerm, getLatestEnrollmentStatus, getSubjects, getTerms } from "@/lib/queries";
 
 export default async function AdminPage() {
+  await new Promise((resolve) => setTimeout(resolve, 1500));
   const currentTerm = await getCurrentTerm();
   const terms = await getTerms();
   const subjects = await getSubjects();

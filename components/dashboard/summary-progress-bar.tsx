@@ -5,6 +5,7 @@ import { useMapTransitionState } from "@/components/layout/map-transition-coordi
 import SectionLink from "@/components/layout/section-link";
 import {
   buildSummaryProgressSegments,
+  getSummarySegmentFillWidth,
   isTrailingSummarySegment,
   type FinalProjectTrack,
   type SummaryProgressSegment
@@ -180,6 +181,7 @@ export default function SummaryProgressBar({
               0,
               100
             );
+            const fillWidth = getSummarySegmentFillWidth(fillPct);
             const percentLabel =
               segment.key === "ingles"
                 ? englishApproved
@@ -215,25 +217,23 @@ export default function SummaryProgressBar({
 
                 <div
                   className={cn(
-                    "relative h-[21px] overflow-hidden rounded-[9px] border bg-surface-2",
+                    "relative h-[22px] overflow-hidden rounded-[6px] border",
                     segment.trackClass
                   )}
-                  style={{
-                    backgroundColor: `color-mix(in srgb, ${segment.accentColor} 30%, rgb(var(--color-surface)) 70%)`
-                  }}
+                  style={{ backgroundColor: segment.trackTint }}
                 >
                   <div
-                    className="relative h-full rounded-[7px] transition-[width] duration-300"
+                    className="relative h-full rounded-[5px] transition-[width] duration-300"
                     style={{
-                      width: `${fillPct}%`,
+                      width: fillWidth,
                       backgroundColor: segment.accentColor
                     }}
                   />
                   {fillPct > 0 ? (
                     <div
-                      className="pointer-events-none absolute inset-y-0 left-0 rounded-[7px] mix-blend-screen"
+                      className="pointer-events-none absolute inset-y-0 left-0 rounded-[5px] mix-blend-screen"
                       style={{
-                        width: `${fillPct}%`,
+                        width: fillWidth,
                         backgroundImage: `repeating-linear-gradient(-45deg, ${segment.stripeColor} 0 8px, transparent 8px 16px)`
                       }}
                     />

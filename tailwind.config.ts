@@ -78,6 +78,14 @@ const config: Config = {
         "logo-float": {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-1px)" }
+        },
+        "shimmer-sweep": {
+          "0%": { backgroundPosition: "200% 0" },
+          "100%": { backgroundPosition: "-50% 0" }
+        },
+        "stagger-fade-in": {
+          from: { opacity: "0", transform: "translateY(12px)" },
+          to: { opacity: "1", transform: "translateY(0)" }
         }
       },
       animation: {
@@ -91,7 +99,9 @@ const config: Config = {
         "message-in": "message-in 220ms ease-out forwards",
         "eye-blink": "eye-blink 4.2s ease-in-out infinite",
         "caret-blink": "caret-blink 1.1s steps(2, end) infinite",
-        "logo-float": "logo-float 3.8s ease-in-out infinite"
+        "logo-float": "logo-float 3.8s ease-in-out infinite",
+        "shimmer": "shimmer-sweep 2.2s ease-in-out infinite",
+        "stagger-in": "stagger-fade-in 0.45s cubic-bezier(.22,1,.36,1) forwards"
       }
     }
   },

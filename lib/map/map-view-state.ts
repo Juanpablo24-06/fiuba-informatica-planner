@@ -3,6 +3,7 @@ import {
   getDisplayNodeName,
   isCbcLeafNode
 } from "@/lib/map/map-layout";
+import { MAP_ELECTIVES_VISIBLE_STORAGE_KEY } from "@/lib/map/map-constants";
 import type {
   FinalProjectTrack,
   MapEdge,
@@ -39,6 +40,27 @@ export const buildVisibleNodeIds = ({
   });
 
   return ids;
+};
+
+export const getInitialElectivesVisibility = (
+  storage: Pick<Storage, "getItem">
+) => {
+  try {
+    return storage.getItem(MAP_ELECTIVES_VISIBLE_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+};
+
+export const persistElectivesVisibility = (
+  storage: Pick<Storage, "setItem">,
+  showElectives: boolean
+) => {
+  try {
+    storage.setItem(MAP_ELECTIVES_VISIBLE_STORAGE_KEY, String(showElectives));
+  } catch {
+    // Ignore storage write errors and keep the toggle responsive.
+  }
 };
 
 export const buildMapEdgeIndex = (edges: MapEdge[]): MapEdgeIndex => {

@@ -2,7 +2,9 @@
 
 import { usePathname } from "next/navigation";
 import SummaryProgressBar from "@/components/dashboard/summary-progress-bar";
+import AdminLoadingSurface from "@/components/layout/admin-loading-surface";
 import AppLoadingSurface from "@/components/layout/app-loading-surface";
+import HorarioLoadingSurface from "@/components/layout/horario-loading-surface";
 import MapLoadingStage from "@/components/map/map-loading-stage";
 import MapSceneBackground from "@/components/map/map-scene-background";
 import MapProgressTransitionLayer from "@/components/layout/map-progress-transition-layer";
@@ -29,7 +31,7 @@ export default function AppShell({ children, progress }: AppShellProps) {
   const pendingNavigationActive = mapTransitionState.transitioning;
   const mapSceneActive =
     isMapa || (pendingNavigationActive && mapTransitionState.loaderKind === "map");
-  const showMapBottomBar = displaySection === "/mapa";
+  const showMapBottomBar = mapTransitionState.showMapBar;
   const hideActualMapBar =
     pendingNavigationActive &&
     mapTransitionState.showMapBar &&
@@ -54,6 +56,10 @@ export default function AppShell({ children, progress }: AppShellProps) {
               </div>
             </div>
           );
+    } else if (mapTransitionState.pendingSection === "/agenda") {
+      loadingContent = <HorarioLoadingSurface />;
+    } else if (mapTransitionState.pendingSection === "/admin") {
+      loadingContent = <AdminLoadingSurface />;
     } else {
       loadingContent = <AppLoadingSurface />;
     }
@@ -96,7 +102,7 @@ export default function AppShell({ children, progress }: AppShellProps) {
           {showMapBottomBar ? (
             <div
               className={cn(
-                "pointer-events-auto w-full transition-opacity duration-200",
+                "pointer-events-auto w-full",
                 hideActualMapBar ? "opacity-0" : "opacity-100"
               )}
             >

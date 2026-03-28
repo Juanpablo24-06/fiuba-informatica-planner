@@ -12,12 +12,13 @@ import {
   getSectionForPathname,
   setMapTransitionState,
   useMapTransitionState,
+  type AppSection,
   type MapTransitionSource
 } from "@/components/layout/map-transition-store";
 
 type SectionLinkProps = Omit<ComponentPropsWithoutRef<typeof Link>, "href"> &
   Omit<LinkProps, "href"> & {
-    href: "/" | "/mapa" | "/horario" | "/admin";
+    href: AppSection | "/agenda/semana" | "/agenda/evaluaciones";
     transitionSource?: MapTransitionSource;
   };
 

@@ -100,4 +100,18 @@ describe("map camera safe top inset", () => {
 
     expect(withInset.y).toBeGreaterThan(withoutInset.y);
   });
+
+  it("still allows upward panning when a zoomed map is shorter than the visible viewport", () => {
+    const clamped = getClampedTransform({
+      next: { x: 0, y: 0, scale: 1.2 },
+      viewportWidth: 1200,
+      viewportHeight: 900,
+      worldWidth: 600,
+      worldHeight: 300,
+      safeTopInset: 120
+    });
+
+    expect(clamped.y).toBeLessThan(120);
+  });
+
 });

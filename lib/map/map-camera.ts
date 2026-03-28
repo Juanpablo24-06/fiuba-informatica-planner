@@ -127,7 +127,9 @@ export const getClampedTransform = ({
 
   if (scaledHeight <= availableHeight) {
     const centered = safeTopInset + (availableHeight - scaledHeight) / 2;
-    minY = safeTopInset;
+    const zoomedInsetAllowance =
+      next.scale > 1 ? Math.min(48, (next.scale - 1) * 180) : 0;
+    minY = Math.max(0, safeTopInset - zoomedInsetAllowance);
     maxY = centered + extraY;
   }
 

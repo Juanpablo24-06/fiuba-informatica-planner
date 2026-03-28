@@ -28,7 +28,9 @@ import {
 import {
   buildMapEdgeIndex,
   buildNodePreviewIndex,
-  buildVisibleNodeIds
+  buildVisibleNodeIds,
+  getInitialElectivesVisibility,
+  persistElectivesVisibility
 } from "@/lib/map/map-view-state";
 import type {
   FinalProjectTrack,
@@ -53,6 +55,11 @@ type MapViewProps = {
   edges: MapEdge[];
   onReady?: () => void;
 };
+
+export const getRelaxedInteractiveTopInset = (
+  safeTopInset: number,
+  isDesktop: boolean
+) => Math.max(0, safeTopInset - (isDesktop ? 24 : 16));
 
 export default function MapView({ nodes, edges, onReady }: MapViewProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -86,7 +93,7 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
   const [worldSize, setWorldSize] = useState({ width: 0, height: 0 });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [showElectives, setShowElectives] = useState(true);
+  const [showElectives, setShowElectives] = useState(false);
   const [collapseCbc, setCollapseCbc] = useState(false);
   const [panelState, setPanelState] = useState<"collapsed" | "half" | "full">("collapsed");
   const [sheetHeight, setSheetHeight] = useState(0);
@@ -102,6 +109,8 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
   const desktopViewportBottomInset = "0px";
   const mobileBottomInset = "calc(var(--synapse-launcher-height, 72px) + 1rem)";
   const safeTopInset = headerHeight + (isDesktop ? 18 : 12);
+  // Give drag/zoom gestures a bit more vertical slack than the initial camera fit.
+  const relaxedInteractiveTopInset = getRelaxedInteractiveTopInset(safeTopInset, isDesktop);
 
   const clearSelection = useCallback(() => {
     setSelectedId(null);
@@ -191,6 +200,11 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
     } catch {
       // Ignore storage read issues.
     }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setShowElectives(getInitialElectivesVisibility(window.localStorage));
   }, []);
 
   useEffect(() => {
@@ -399,11 +413,34 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
     [safeTopInset, worldSize.height, worldSize.width]
   );
 
+  const clampInteractiveTransform = useCallback(
+    (next: Transform) => {
+      const viewport = viewportRef.current;
+      if (!viewport || !worldSize.width || !worldSize.height) return next;
+      return getClampedTransform({
+        next,
+        viewportWidth: viewport.clientWidth,
+        viewportHeight: viewport.clientHeight,
+        worldWidth: worldSize.width,
+        worldHeight: worldSize.height,
+        safeTopInset: relaxedInteractiveTopInset
+      });
+    },
+    [relaxedInteractiveTopInset, worldSize.height, worldSize.width]
+  );
+
   const setTransformSafe = useCallback(
     (next: Transform) => {
       scheduleTransform(clampTransform(next));
     },
     [clampTransform, scheduleTransform]
+  );
+
+  const setInteractiveTransformSafe = useCallback(
+    (next: Transform) => {
+      scheduleTransform(clampInteractiveTransform(next));
+    },
+    [clampInteractiveTransform, scheduleTransform]
   );
 
   useEffect(() => {
@@ -535,7 +572,7 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
     (scale: number, centerX: number, centerY: number) => {
       stopCameraAnimation();
       hasUserMovedRef.current = true;
-      setTransformSafe(
+      setInteractiveTransformSafe(
         computeZoomTransform({
           currentTransform: transformRef.current,
           nextScale: scale,
@@ -544,7 +581,7 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
         })
       );
     },
-    [setTransformSafe, stopCameraAnimation]
+    [setInteractiveTransformSafe, stopCameraAnimation]
   );
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -597,7 +634,7 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
       const dy = points[0].y - points[1].y;
       const distance = Math.hypot(dx, dy);
       hasUserMovedRef.current = true;
-      setTransformSafe(
+      setInteractiveTransformSafe(
         computePinchTransform({
           initialDistance: pinchRef.current.distance,
           currentDistance: distance,
@@ -616,7 +653,7 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
       const deltaY = (event.clientY - panRef.current.startY) * PAN_DRAG_MULTIPLIER;
       dragDistanceRef.current = Math.max(dragDistanceRef.current, Math.hypot(deltaX, deltaY));
       hasUserMovedRef.current = true;
-      setTransformSafe({
+      setInteractiveTransformSafe({
         x: panRef.current.originX + deltaX,
         y: panRef.current.originY + deltaY,
         scale: transformRef.current.scale
@@ -803,7 +840,13 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
               <button
                 type="button"
                 aria-pressed={showElectives}
-                onClick={() => setShowElectives((value) => !value)}
+                onClick={() =>
+                  setShowElectives((value) => {
+                    const next = !value;
+                    persistElectivesVisibility(window.localStorage, next);
+                    return next;
+                  })
+                }
                 className={cn(
                   "inline-flex items-center gap-3 rounded-full border px-4 py-2 text-sm font-semibold shadow-glow backdrop-blur transition",
                   showElectives

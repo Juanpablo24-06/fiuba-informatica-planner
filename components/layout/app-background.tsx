@@ -93,14 +93,7 @@ export default function AppBackground() {
         }
       />
 
-      {/* Subtle dot pattern */}
-      <div
-        className="absolute inset-0 opacity-[0.03]"
-        style={{
-          backgroundImage: 'radial-gradient(rgb(var(--color-text)) 1px, transparent 1px)',
-          backgroundSize: '32px 32px'
-        }}
-      />
+
     </div>
   );
 }

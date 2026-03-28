@@ -25,4 +25,10 @@ describe("app shell map loading source", () => {
     expect(hideActualMapBarBlock).toContain("mapTransitionState.animateMapBar");
     expect(hideActualMapBarBlock).not.toContain("mapTransitionState.mapEntryPhase === \"bar-drop\"");
   });
+
+  it("drives the visible map bar from the shared flag without adding a second opacity tween after the clone handoff", () => {
+    expect(componentSource).toContain("const showMapBottomBar = mapTransitionState.showMapBar;");
+    expect(componentSource).not.toContain("transition-opacity duration-100");
+    expect(componentSource).toContain('"pointer-events-auto w-full"');
+  });
 });

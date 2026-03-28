@@ -26,7 +26,7 @@ export default async function LoginPage() {
             <div className="mt-2 flex flex-wrap gap-2">
               <span className="rounded-full border border-border/70 px-2 py-1">Shift + D · Resumen</span>
               <span className="rounded-full border border-border/70 px-2 py-1">Shift + M · Mapa</span>
-              <span className="rounded-full border border-border/70 px-2 py-1">Shift + H · Horario</span>
+              <span className="rounded-full border border-border/70 px-2 py-1">Shift + H · Agenda</span>
             </div>
           </div>
         </div>

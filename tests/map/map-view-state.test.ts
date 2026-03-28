@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildMapEdgeIndex,
   buildNodePreviewIndex,
-  buildVisibleNodeIds
+  buildVisibleNodeIds,
+  getInitialElectivesVisibility,
+  persistElectivesVisibility
 } from "@/lib/map/map-view-state";
 import { getDefaultFocusBounds } from "@/lib/map/map-camera";
 import type {
@@ -39,6 +41,36 @@ const layout = (x: number, y: number): NodeLayout => ({
 });
 
 describe("map view state helpers", () => {
+  it("defaults elective visibility to off when nothing was stored", () => {
+    const storage = {
+      getItem: vi.fn().mockReturnValue(null)
+    };
+
+    expect(getInitialElectivesVisibility(storage)).toBe(false);
+    expect(storage.getItem).toHaveBeenCalledWith("fiuba-map-electives-visible-v1");
+  });
+
+  it("restores elective visibility when the user left it on", () => {
+    const storage = {
+      getItem: vi.fn().mockReturnValue("true")
+    };
+
+    expect(getInitialElectivesVisibility(storage)).toBe(true);
+  });
+
+  it("persists the explicit elective visibility choice", () => {
+    const storage = {
+      setItem: vi.fn()
+    };
+
+    persistElectivesVisibility(storage, false);
+
+    expect(storage.setItem).toHaveBeenCalledWith(
+      "fiuba-map-electives-visible-v1",
+      "false"
+    );
+  });
+
   it("filters electives and collapsed CBC leaves without hiding the synthetic CBC cluster", () => {
     const ids = buildVisibleNodeIds({
       nodes: [

@@ -26,10 +26,7 @@ export default function MapSceneBackground({
         className
       )}
     >
-      <div
-        className="absolute inset-0 subtle-grid opacity-[0.08]"
-        style={{ backgroundPosition: "0 0, 0 0" }}
-      />
+
 
       {children ? (
         <div className={cn("relative flex min-h-[100svh] items-center justify-center", contentClassName)}>

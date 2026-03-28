@@ -35,6 +35,7 @@ export const DRAG_THRESHOLD = 8;
 export const MAP_VIEW_STORAGE_KEY = "fiuba-map-view-v2";
 export const MAP_FINAL_TRACK_STORAGE_KEY = "fiuba-map-final-track-v1";
 export const MAP_CBC_COLLAPSED_STORAGE_KEY = "fiuba-map-cbc-collapsed-v1";
+export const MAP_ELECTIVES_VISIBLE_STORAGE_KEY = "fiuba-map-electives-visible-v1";
 export const PAN_DRAG_MULTIPLIER = 1.18;
 export const CBC_CLUSTER_NODE_ID = "__cbc__";
 export const FINAL_PROJECT_NODE_ID = "__tif__";

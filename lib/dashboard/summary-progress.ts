@@ -17,6 +17,9 @@ type SummaryProgressSegment = {
 
 type FinalProjectTrack = "tesis" | "trabajo_profesional";
 
+export const getSummarySegmentFillWidth = (fillPct: number) =>
+  fillPct >= 100 ? "calc(100% + 1px)" : `${fillPct}%`;
+
 export const buildSummaryProgressSegments = ({
   approvedCbcCredits,
   totalCbcCredits,

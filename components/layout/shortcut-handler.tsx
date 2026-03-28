@@ -7,6 +7,7 @@ import {
   buildPendingNavigationStateFromCurrent,
   createTransitionId,
   getDisplaySection,
+  getSectionForPathname,
   getLauncherModeForSection,
   setMapTransitionState,
   useMapTransitionState
@@ -27,10 +28,11 @@ export default function ShortcutHandler() {
       if (!event.shiftKey || isTypingTarget(event.target)) return;
       const key = event.key.toLowerCase();
       const destination =
-        key === "d" ? "/" : key === "m" ? "/mapa" : key === "h" ? "/horario" : null;
+        key === "d" ? "/" : key === "m" ? "/mapa" : key === "h" ? "/agenda/semana" : null;
       if (destination) {
         const currentSection = getDisplaySection(pathname, transitionState.pendingSection);
-        if (currentSection === destination) return;
+        const targetSection = getSectionForPathname(destination);
+        if (currentSection === targetSection) return;
 
         const startedAt = Date.now();
         const transitionId = createTransitionId();
@@ -49,7 +51,7 @@ export default function ShortcutHandler() {
           mapEntryPhase: shouldAnimateMapBar ? pendingState.mapEntryPhase : "loader",
           loaderStartedAt: shouldAnimateMapBar ? pendingState.loaderStartedAt : startedAt,
           transitioning: true,
-          launcherMode: getLauncherModeForSection(destination),
+          launcherMode: getLauncherModeForSection(targetSection),
           progressSourceSlot: progressSourceRect ? "summary" : null,
           progressSourceRect,
           progressTargetSlot: pendingState.showMapBar ? "map-bottom" : null
