@@ -8,8 +8,8 @@ describe("global layout source", () => {
     "utf8"
   );
 
-  it("keeps a stable scrollbar gutter without reserving fake space on both sides", () => {
-    expect(globalsSource).toContain("scrollbar-gutter: stable;");
-    expect(globalsSource).not.toContain("scrollbar-gutter: stable both-edges;");
+  it("stabilizes vertical scroll without reserving invisible gutters that shrink the map canvas", () => {
+    expect(globalsSource).toContain("overflow-y: scroll;");
+    expect(globalsSource).not.toContain("scrollbar-gutter:");
   });
 });

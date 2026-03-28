@@ -103,9 +103,7 @@
 }
 
 html {
-  background-color: rgb(var(--color-canvas));
-  color: rgb(var(--color-text));
-  scrollbar-gutter: stable;
+  overflow-y: scroll;
 }
 
 body {
