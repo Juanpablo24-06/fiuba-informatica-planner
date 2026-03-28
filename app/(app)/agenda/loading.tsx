@@ -1,5 +1,5 @@
-import HorarioLoadingSurface from "@/components/layout/horario-loading-surface";
+import RouteLoadingSurface from "@/components/layout/route-loading-surface";
 
 export default function HorarioLoading() {
-  return <HorarioLoadingSurface />;
+  return <RouteLoadingSurface pathnameOverride="/agenda/semana" />;
 }

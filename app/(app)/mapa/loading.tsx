@@ -1,5 +1,5 @@
-import MapLoadingStage from "@/components/map/map-loading-stage";
+import RouteLoadingSurface from "@/components/layout/route-loading-surface";
 
 export default function Loading() {
-  return <MapLoadingStage />;
+  return <RouteLoadingSurface pathnameOverride="/mapa" />;
 }

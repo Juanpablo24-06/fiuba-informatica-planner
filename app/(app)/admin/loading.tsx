@@ -1,5 +1,5 @@
-import AdminLoadingSurface from "@/components/layout/admin-loading-surface";
+import RouteLoadingSurface from "@/components/layout/route-loading-surface";
 
 export default function AdminLoading() {
-  return <AdminLoadingSurface />;
+  return <RouteLoadingSurface pathnameOverride="/admin" />;
 }

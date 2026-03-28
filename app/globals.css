@@ -103,7 +103,14 @@
 }
 
 html {
-  overflow-y: scroll;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+html[data-app-section="mapa"],
+html:has([data-map-root="true"]) {
+  overflow-y: hidden;
+  scrollbar-gutter: auto;
 }
 
 body {

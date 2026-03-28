@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useMapTransitionState } from "@/components/layout/map-transition-coordinator";
 import SectionLink from "@/components/layout/section-link";
+import { resolveMobileSectionHref } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import BrandLogo from "@/components/layout/brand-logo";
 import ProfileMenu from "@/components/layout/profile-menu";
@@ -196,7 +197,11 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
               return (
                 <SectionLink
                   key={item.href}
-                  href={item.subItems ? item.subItems[0].href : item.href}
+                  href={resolveMobileSectionHref({
+                    href: item.href,
+                    pathname,
+                    subItemHrefs: item.subItems?.map((subItem) => subItem.href)
+                  })}
                   prefetch={false}
                   transitionSource={
                     item.href === "/mapa"

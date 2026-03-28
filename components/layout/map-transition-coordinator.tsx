@@ -116,18 +116,30 @@ export function MapTransitionCoordinator() {
 
   useEffect(() => {
     const root = document.documentElement;
+    const displaySection = getDisplaySection(pathname, state.pendingSection);
+    const appSection =
+      displaySection === "/" ? "summary" : displaySection.slice(1).replace("/", "-");
     root.dataset.mapTransitionState = state.transitioning ? "active" : "idle";
     root.dataset.mapTransitionSource = state.transitionSource ?? "";
     root.dataset.mapLauncherMode = state.launcherMode;
     root.dataset.mapEntryPhase = state.mapEntryPhase;
+    root.dataset.appSection = appSection;
 
     return () => {
       delete root.dataset.mapTransitionState;
       delete root.dataset.mapTransitionSource;
       delete root.dataset.mapLauncherMode;
       delete root.dataset.mapEntryPhase;
+      delete root.dataset.appSection;
     };
-  }, [state.launcherMode, state.mapEntryPhase, state.transitionSource, state.transitioning]);
+  }, [
+    pathname,
+    state.launcherMode,
+    state.mapEntryPhase,
+    state.pendingSection,
+    state.transitionSource,
+    state.transitioning
+  ]);
 
   return null;
 }

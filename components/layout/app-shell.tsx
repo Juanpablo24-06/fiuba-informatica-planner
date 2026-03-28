@@ -2,12 +2,10 @@
 
 import { usePathname } from "next/navigation";
 import SummaryProgressBar from "@/components/dashboard/summary-progress-bar";
-import AdminLoadingSurface from "@/components/layout/admin-loading-surface";
-import AppLoadingSurface from "@/components/layout/app-loading-surface";
-import HorarioLoadingSurface from "@/components/layout/horario-loading-surface";
 import MapLoadingStage from "@/components/map/map-loading-stage";
 import MapSceneBackground from "@/components/map/map-scene-background";
 import MapProgressTransitionLayer from "@/components/layout/map-progress-transition-layer";
+import RouteLoadingSurface from "@/components/layout/route-loading-surface";
 import { OFFICIAL_TOTAL_CREDITS, type ProgressSnapshot } from "@/lib/progress";
 import { cn } from "@/lib/utils";
 import {
@@ -56,12 +54,10 @@ export default function AppShell({ children, progress }: AppShellProps) {
               </div>
             </div>
           );
-    } else if (mapTransitionState.pendingSection === "/agenda") {
-      loadingContent = <HorarioLoadingSurface />;
-    } else if (mapTransitionState.pendingSection === "/admin") {
-      loadingContent = <AdminLoadingSurface />;
     } else {
-      loadingContent = <AppLoadingSurface />;
+      loadingContent = (
+        <RouteLoadingSurface pathnameOverride={mapTransitionState.pendingPath ?? pathname} />
+      );
     }
   }
 

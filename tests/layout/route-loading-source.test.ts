@@ -6,6 +6,7 @@ const readRoute = (routePath: string) =>
   fs.readFileSync(path.join(process.cwd(), routePath), "utf8");
 
 describe("app route loading source", () => {
+  const rootLoadingSource = readRoute("app/(app)/loading.tsx");
   const routeSources = [
     "app/(app)/page.tsx",
     "app/(app)/mapa/page.tsx",
@@ -24,5 +25,10 @@ describe("app route loading source", () => {
         "await new Promise((resolve) => setTimeout(resolve, 1500));"
       );
     }
+  });
+
+  it("uses a route-aware loading surface for the shared app boundary so admin and agenda do not flash the resumen loader", () => {
+    expect(rootLoadingSource).toContain("RouteLoadingSurface");
+    expect(rootLoadingSource).not.toContain("AppLoadingSurface");
   });
 });

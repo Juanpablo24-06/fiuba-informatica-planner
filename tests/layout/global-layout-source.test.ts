@@ -8,8 +8,11 @@ describe("global layout source", () => {
     "utf8"
   );
 
-  it("stabilizes vertical scroll without reserving invisible gutters that shrink the map canvas", () => {
-    expect(globalsSource).toContain("overflow-y: scroll;");
-    expect(globalsSource).not.toContain("scrollbar-gutter:");
+  it("keeps non-map routes stable while letting the map opt out of the root scrollbar entirely", () => {
+    expect(globalsSource).toContain("scrollbar-gutter: stable;");
+    expect(globalsSource).toContain('html[data-app-section="mapa"]');
+    expect(globalsSource).toContain("overflow-y: hidden;");
+    expect(globalsSource).toContain("scrollbar-gutter: auto;");
+    expect(globalsSource).not.toContain("overflow-y: scroll;");
   });
 });

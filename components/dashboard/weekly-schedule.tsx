@@ -10,7 +10,8 @@ const DAYS = [
   { short: "Mié", long: "Miércoles" },
   { short: "Jue", long: "Jueves" },
   { short: "Vie", long: "Viernes" },
-  { short: "Sáb", long: "Sábado" }
+  { short: "Sáb", long: "Sábado" },
+  { short: "Dom", long: "Domingo" }
 ] as const;
 const dayMap: Record<string, (typeof DAYS)[number]["short"]> = {
   lun: "Lun",
@@ -20,7 +21,8 @@ const dayMap: Record<string, (typeof DAYS)[number]["short"]> = {
   jue: "Jue",
   vie: "Vie",
   sáb: "Sáb",
-  sab: "Sáb"
+  sab: "Sáb",
+  dom: "Dom"
 };
 
 const getDayLabel = (value: string) => {
@@ -135,7 +137,7 @@ export default function WeeklySchedule({ events }: { events: CalendarEvent[] }) 
       </div>
       <div className="hidden md:block">
         <div className="overflow-x-auto pb-1">
-          <div className="grid min-w-[720px] grid-cols-[76px_repeat(6,minmax(0,1fr))] gap-3 text-xs">
+          <div className="grid min-w-[820px] grid-cols-[76px_repeat(7,minmax(0,1fr))] gap-3 text-xs">
             <div />
             {dayGroups.map((day) => (
               <div

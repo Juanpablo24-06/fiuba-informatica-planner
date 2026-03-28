@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import type { Enrollment, Event, Subject, Term } from "@/lib/types";
 import { mapEnrollmentRow, mapEventRow } from "@/lib/query-mappers";
@@ -58,7 +59,7 @@ const queryWithScheduleFallback = async <T>({
   return { data: second.data ?? [], hasSchedule: false };
 };
 
-export const getTerms = async (): Promise<Term[]> => {
+export const getTerms = cache(async (): Promise<Term[]> => {
   const { data, error } = await supabaseAdmin
     .from("terms")
     .select("id,label,start_date,end_date,is_current")
@@ -69,9 +70,9 @@ export const getTerms = async (): Promise<Term[]> => {
     throw error;
   }
   return (data ?? []) as Term[];
-};
+});
 
-export const getCurrentTerm = async (): Promise<Term | null> => {
+export const getCurrentTerm = cache(async (): Promise<Term | null> => {
   const terms = await getTerms();
   const current = terms.filter((term) => term.is_current);
   if (current.length > 0) {
@@ -79,9 +80,9 @@ export const getCurrentTerm = async (): Promise<Term | null> => {
   }
   if (terms.length === 0) return null;
   return [...terms].sort(sortTermsByRecency)[0];
-};
+});
 
-export const getSubjects = async (): Promise<Subject[]> => {
+export const getSubjects = cache(async (): Promise<Subject[]> => {
   const { data, error } = await supabaseAdmin
     .from("subjects")
     .select(
@@ -93,7 +94,7 @@ export const getSubjects = async (): Promise<Subject[]> => {
     throw error;
   }
   return (data ?? []) as Subject[];
-};
+});
 
 export const getEnrollmentsForTerm = async (
   termId: string
@@ -260,7 +261,7 @@ export const getUpcomingEvents = async (termId?: string) => {
   );
 };
 
-export const getPrerequisites = async () => {
+export const getPrerequisites = cache(async () => {
   const { data, error } = await supabaseAdmin
     .from("subject_prerequisites")
     .select("subject_id,prerequisite_id");
@@ -268,9 +269,9 @@ export const getPrerequisites = async () => {
     throw error;
   }
   return data ?? [];
-};
+});
 
-export const getLatestEnrollmentStatus = async () => {
+export const getLatestEnrollmentStatus = cache(async () => {
   const { data, error } = await supabaseAdmin
     .from("enrollments")
     .select(
@@ -320,4 +321,4 @@ export const getLatestEnrollmentStatus = async () => {
   });
 
   return statusMap;
-};
+});
