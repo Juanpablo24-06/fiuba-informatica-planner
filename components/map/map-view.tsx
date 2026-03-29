@@ -22,8 +22,11 @@ import {
   findNearestSheetState,
   getClampedTransform,
   getDefaultFocusBounds,
+  readPersistedMapTransform,
+  serializePersistedMapTransform,
   getSheetSizePreset,
-  resolveInitialMapTransform
+  resolveInitialMapTransform,
+  type PersistedMapViewportMode
 } from "@/lib/map/map-camera";
 import {
   buildMapEdgeIndex,
@@ -100,9 +103,11 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
   const [viewportHeight, setViewportHeight] = useState(0);
   const [headerHeight, setHeaderHeight] = useState(96);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [viewportModeReady, setViewportModeReady] = useState(false);
   const [isDraggingSheet, setIsDraggingSheet] = useState(false);
   const [isPanningViewport, setIsPanningViewport] = useState(false);
   const [finalProjectTrack, setFinalProjectTrack] = useState<FinalProjectTrack>("tesis");
+  const viewportMode: PersistedMapViewportMode = isDesktop ? "desktop" : "mobile";
   const desktopDockBottom = "calc(env(safe-area-inset-bottom,0px) + 0.95rem)";
   const desktopPanelBottomInset =
     "calc(var(--map-bottom-bar-height, var(--synapse-launcher-height, 72px)) + env(safe-area-inset-bottom,0px) + 1.2rem)";
@@ -160,35 +165,27 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const query = window.matchMedia("(min-width: 1024px)");
-    const handle = () => setIsDesktop(query.matches);
+    const handle = () => {
+      setIsDesktop(query.matches);
+      setViewportModeReady(true);
+    };
     handle();
     query.addEventListener("change", handle);
     return () => query.removeEventListener("change", handle);
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || !viewportModeReady) return;
+    persistedTransformRef.current = readPersistedMapTransform(
+      window.localStorage.getItem(MAP_VIEW_STORAGE_KEY),
+      viewportMode
+    );
+  }, [viewportMode, viewportModeReady]);
 
-    try {
-      const raw = window.localStorage.getItem(MAP_VIEW_STORAGE_KEY);
-      if (!raw) return;
-
-      const parsed = JSON.parse(raw) as Partial<Transform>;
-      if (
-        typeof parsed.x === "number" &&
-        typeof parsed.y === "number" &&
-        typeof parsed.scale === "number"
-      ) {
-        persistedTransformRef.current = {
-          x: parsed.x,
-          y: parsed.y,
-          scale: clamp(parsed.scale, MIN_ZOOM, MAX_ZOOM)
-        };
-      }
-    } catch {
-      persistedTransformRef.current = null;
-    }
-  }, []);
+  useEffect(() => {
+    if (!viewportModeReady) return;
+    initialCameraAppliedRef.current = false;
+  }, [viewportMode, viewportModeReady]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -448,6 +445,7 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
   }, [layout.height, layout.width]);
 
   useEffect(() => {
+    if (!viewportModeReady) return;
     if (!layout.width || !layout.height) return;
     const viewport = viewportRef.current;
     if (!viewport) return;
@@ -490,18 +488,29 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
     }
 
     setTransformSafe({ ...transformRef.current });
-  }, [defaultFocus, isDesktop, layout.height, layout.width, safeTopInset, setTransformSafe]);
+  }, [
+    defaultFocus,
+    isDesktop,
+    layout.height,
+    layout.width,
+    safeTopInset,
+    setTransformSafe,
+    viewportModeReady
+  ]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || !viewportModeReady) return;
     if (!initialCameraAppliedRef.current) return;
 
     try {
-      window.localStorage.setItem(MAP_VIEW_STORAGE_KEY, JSON.stringify(transform));
+      window.localStorage.setItem(
+        MAP_VIEW_STORAGE_KEY,
+        serializePersistedMapTransform(transform, viewportMode)
+      );
     } catch {
       // Ignore storage errors and keep map interactions responsive.
     }
-  }, [transform]);
+  }, [transform, viewportMode, viewportModeReady]);
 
   useEffect(() => {
     return () => {

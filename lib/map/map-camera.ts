@@ -26,6 +26,58 @@ export type SheetSizes = {
   full: number;
 };
 
+export type PersistedMapViewportMode = "desktop" | "mobile";
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value);
+
+export const readPersistedMapTransform = (
+  raw: string | null,
+  viewportMode: PersistedMapViewportMode
+): Transform | null => {
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<Transform> & {
+      viewportMode?: PersistedMapViewportMode;
+    };
+
+    if (
+      !isFiniteNumber(parsed.x) ||
+      !isFiniteNumber(parsed.y) ||
+      !isFiniteNumber(parsed.scale)
+    ) {
+      return null;
+    }
+
+    if (parsed.viewportMode && parsed.viewportMode !== viewportMode) {
+      return null;
+    }
+
+    // Legacy payloads didn't record the viewport kind, which made a desktop camera
+    // carry over into narrow mobile screens and start the map fully zoomed out.
+    if (!parsed.viewportMode && viewportMode === "mobile") {
+      return null;
+    }
+
+    return {
+      x: parsed.x,
+      y: parsed.y,
+      scale: clamp(parsed.scale, MIN_ZOOM, MAX_ZOOM)
+    };
+  } catch {
+    return null;
+  }
+};
+
+export const serializePersistedMapTransform = (
+  transform: Transform,
+  viewportMode: PersistedMapViewportMode
+) => JSON.stringify({
+  ...transform,
+  viewportMode
+});
+
 export const getSheetSizePreset = (viewportHeight: number): SheetSizes => ({
   collapsed: 126,
   half: Math.max(256, Math.min(430, viewportHeight * 0.54)),

@@ -21,7 +21,15 @@ import { getPrimaryEventLinkDraft } from "@/lib/dashboard/event-links";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ColorPalette, SUBJECT_COLORS } from "@/components/ui/color-palette";
-import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -279,20 +287,23 @@ export default function CourseWorkspaceDrawer({
   return (
     <Dialog>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="h-[88svh] w-[95vw] max-w-6xl overflow-hidden rounded-[2.1rem] border border-border/75 bg-surface p-0">
+      <DialogContent className="h-[90svh] w-[96vw] max-w-6xl overflow-hidden rounded-[1.75rem] border border-border/75 bg-surface p-0 sm:h-[88svh] sm:w-[95vw] sm:rounded-[2.1rem]">
         <div className="flex h-full flex-col">
-          <DialogHeader className="border-b border-border/60 px-7 py-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
+          <DialogHeader className="border-b border-border/60 px-4 py-4 sm:px-7 sm:py-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
                 <p className="text-xs uppercase tracking-[0.3em] text-muted">Ficha de materia</p>
                 <DialogTitle className="mt-1 text-2xl font-semibold font-display text-text">
                   {localEnrollment.subject.name}
                 </DialogTitle>
+                <DialogDescription className="sr-only">
+                  Espacio para revisar la materia, su cronología y la información de cursada con un layout adaptado para mobile.
+                </DialogDescription>
                 <p className="mt-1 font-mono text-xs text-muted">
                   {localEnrollment.subject.code ?? "SIN-COD"} · {localEnrollment.term?.label ?? "Sin cuatrimestre"}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 self-start sm:self-auto">
                 <Badge className="border-accent/40 bg-accent/10 text-accent">
                   {STATUS_OPTIONS.find((item) => item.value === localEnrollment.status)?.label ?? localEnrollment.status}
                 </Badge>
@@ -310,7 +321,7 @@ export default function CourseWorkspaceDrawer({
           </DialogHeader>
 
           <div className="grid min-w-0 flex-1 gap-0 overflow-hidden lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.2fr)]">
-            <section className="min-w-0 space-y-4 overflow-y-auto overflow-x-hidden border-b border-border/55 px-7 py-6 lg:border-b-0 lg:border-r">
+            <section className="min-w-0 space-y-4 overflow-y-auto overflow-x-hidden border-b border-border/55 px-4 py-5 sm:px-7 sm:py-6 lg:border-b-0 lg:border-r">
               <div className="rounded-2xl border border-border/60 bg-surface-2/60 p-4">
                 <p className="text-xs uppercase tracking-[0.24em] text-muted">Descripción base</p>
                 <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted">{description}</p>
@@ -478,7 +489,7 @@ export default function CourseWorkspaceDrawer({
               </div>
             </section>
 
-            <section className="flex min-h-0 min-w-0 flex-col overflow-hidden px-7 py-6">
+            <section className="flex min-h-0 min-w-0 flex-col overflow-hidden px-4 py-5 sm:px-7 sm:py-6">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs uppercase tracking-[0.24em] text-muted">Cronología</p>

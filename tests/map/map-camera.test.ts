@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeFocusedNodeTransform,
   getClampedTransform,
+  readPersistedMapTransform,
   resolveInitialMapTransform
 } from "@/lib/map/map-camera";
 
@@ -110,6 +111,28 @@ describe("map camera safe top inset", () => {
     });
 
     expect(clamped.y).toBeLessThan(120);
+  });
+
+  it("ignores legacy persisted transforms on mobile so an old desktop camera does not shrink the map", () => {
+    expect(
+      readPersistedMapTransform(
+        "{\"x\":-145.2,\"y\":153,\"scale\":0.12}",
+        "mobile"
+      )
+    ).toBeNull();
+  });
+
+  it("keeps persisted transforms when the stored viewport mode matches the current one", () => {
+    expect(
+      readPersistedMapTransform(
+        "{\"x\":-537.36,\"y\":313.12,\"scale\":0.61,\"viewportMode\":\"mobile\"}",
+        "mobile"
+      )
+    ).toEqual({
+      x: -537.36,
+      y: 313.12,
+      scale: 0.61
+    });
   });
 
 });

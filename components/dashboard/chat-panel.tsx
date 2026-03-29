@@ -3,7 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from "@/components/ui/dialog";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -388,19 +396,22 @@ export default function ChatPanel({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="h-[84svh] w-[94vw] max-w-[920px] overflow-hidden rounded-[2.1rem] border border-border/75 bg-surface p-0">
+      <DialogContent className="h-[88svh] w-[96vw] max-w-[920px] overflow-hidden rounded-[1.75rem] border border-border/75 bg-surface p-0 sm:h-[84svh] sm:w-[94vw] sm:rounded-[2.1rem]">
         <div className="flex h-full flex-col">
-          <DialogHeader className="space-y-0 border-b border-border/60 px-5 py-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 min-w-0">
+          <DialogHeader className="space-y-0 border-b border-border/60 px-4 py-3 sm:px-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex min-w-0 flex-wrap items-center gap-2.5">
                 <DialogTitle className="text-base font-semibold leading-tight whitespace-nowrap">Synapse IA</DialogTitle>
+                <DialogDescription className="sr-only">
+                  Chat académico para consultar semana, parciales, correlativas y prioridades desde el celular o escritorio.
+                </DialogDescription>
 
                 <Select
                   hideChevron
                   value={activeSessionId ?? ""}
                   onChange={(event) => selectSession(event.target.value)}
                   disabled={!historyReady || sessions.length === 0}
-                  className="h-7 w-[130px] shrink-0 rounded-lg px-2 py-0 text-[10px] bg-surface-2/80 text-muted transition border-border/40"
+                  className="h-7 min-w-0 flex-1 rounded-lg border-border/40 bg-surface-2/80 px-2 py-0 text-[10px] text-muted transition sm:w-[130px] sm:flex-none"
                 >
                   {sessions.length === 0 ? (
                     <option value="">Sin chats</option>
@@ -428,7 +439,7 @@ export default function ChatPanel({
                 ) : null}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:justify-end">
                 <Select
                   hideChevron
                   value={`${provider}:${selectedModel}`}
@@ -437,7 +448,7 @@ export default function ChatPanel({
                     setProvider(newProvider);
                     setSelectedModel(newModel);
                   }}
-                  className="h-7 rounded-lg px-2 py-0 text-[10px] bg-surface-2/80 text-muted hover:text-text transition border-border/40"
+                  className="h-7 min-w-0 flex-1 rounded-lg border-border/40 bg-surface-2/80 px-2 py-0 text-[10px] text-muted transition hover:text-text sm:flex-none"
                 >
                   <optgroup label="Cerebras">
                     {modelOptions.cerebras.map((option) => (
@@ -468,7 +479,7 @@ export default function ChatPanel({
             </div>
           </DialogHeader>
 
-          <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-5 py-4 text-sm">
+          <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-4 text-sm sm:px-5">
             {messages.length === 0 ? (
               <div className="rounded-3xl border border-border/70 bg-surface-2 p-4 text-xs text-muted">
                 Preguntá por tu semana, parciales o prioridades. Si sos admin, podés habilitar acciones para que Synapse aplique cambios.
@@ -558,9 +569,9 @@ export default function ChatPanel({
             ) : null}
           </div>
 
-          <div className="border-t border-border/60 px-5 py-3">
-            <div className="flex items-end gap-3">
-              <div className="flex flex-col gap-1.5">
+          <div className="border-t border-border/60 px-4 py-3 sm:px-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="flex flex-wrap gap-1.5 sm:flex-col">
                 {reasoningByIndex.map((level) => (
                   <button
                     key={level}
@@ -594,9 +605,15 @@ export default function ChatPanel({
                   onKeyDown={handleKeyDown}
                   placeholder="Preguntá sobre parciales, horarios, correlativas..."
                   rows={2}
+                  className="min-h-[88px] sm:min-h-[100px]"
                 />
               </div>
-              <Button size="sm" onClick={handleSend} disabled={isSending || !input.trim()} className="shrink-0">
+              <Button
+                size="sm"
+                onClick={handleSend}
+                disabled={isSending || !input.trim()}
+                className="w-full sm:w-auto shrink-0"
+              >
                 {isSending ? "..." : "Enviar"}
               </Button>
             </div>

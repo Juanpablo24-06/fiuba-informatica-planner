@@ -50,7 +50,7 @@ export default function SynapseLauncher({ role }: { role?: "admin" | "viewer" })
                 "pointer-events-auto inline-flex h-12 items-center overflow-hidden border border-border/70 bg-surface text-left shadow-[0_10px_24px_-18px_rgb(var(--shadow-color)/0.34)] transition-[width,transform,opacity,border-color,background-color,padding] duration-[360ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width,transform]",
                 isCompact
                   ? "ml-auto w-12 justify-center rounded-full px-0"
-                  : "mx-auto w-[14.5rem] justify-between gap-1.5 rounded-2xl px-2.5 hover:-translate-y-0.5 hover:border-accent/45"
+                  : "ml-auto w-12 justify-center rounded-full px-0 sm:mx-auto sm:w-[14.5rem] sm:justify-between sm:gap-1.5 sm:rounded-2xl sm:px-2.5 sm:hover:-translate-y-0.5 sm:hover:border-accent/45"
               )}
             >
               <span
@@ -64,7 +64,9 @@ export default function SynapseLauncher({ role }: { role?: "admin" | "viewer" })
               <span
                 className={cn(
                   "flex-1 truncate text-[12px] font-medium text-muted transition-[opacity,max-width] duration-[200ms]",
-                  isCompact && "pointer-events-none max-w-0 opacity-0"
+                  isCompact
+                    ? "pointer-events-none max-w-0 opacity-0"
+                    : "pointer-events-none max-w-0 opacity-0 sm:pointer-events-auto sm:max-w-none sm:opacity-100"
                 )}
               >
                 Consultá a Synapse
@@ -72,7 +74,9 @@ export default function SynapseLauncher({ role }: { role?: "admin" | "viewer" })
               <span
                 className={cn(
                   "shrink-0 rounded-full border border-accent/40 px-1.5 py-0.5 text-[10px] font-semibold text-accent transition-[opacity,max-width,border-color,padding] duration-[200ms]",
-                  isCompact && "pointer-events-none max-w-0 overflow-hidden border-transparent px-0 opacity-0"
+                  isCompact
+                    ? "pointer-events-none max-w-0 overflow-hidden border-transparent px-0 opacity-0"
+                    : "pointer-events-none max-w-0 overflow-hidden border-transparent px-0 opacity-0 sm:pointer-events-auto sm:max-w-none sm:border-accent/40 sm:px-1.5 sm:opacity-100"
                 )}
               >
                 →
