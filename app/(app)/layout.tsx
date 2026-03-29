@@ -1,6 +1,7 @@
 import dynamic from "next/dynamic";
 import AppBackground from "@/components/layout/app-background";
 import AppShell from "@/components/layout/app-shell";
+import ScrollbarCompensationSync from "@/components/layout/scrollbar-compensation-sync";
 import ShortcutHandler from "@/components/layout/shortcut-handler";
 import TopNav from "@/components/layout/top-nav";
 import { getSession } from "@/lib/auth";
@@ -25,6 +26,7 @@ export default async function AppLayout({
   return (
     <div className="relative min-h-screen overflow-x-hidden">
       <AppBackground />
+      <ScrollbarCompensationSync />
       <TopNav role={session?.role} />
       <ShortcutHandler />
       <AppShell progress={progress}>{children}</AppShell>

@@ -15,7 +15,10 @@ export default async function MapaPage() {
   });
 
   return (
-    <div data-map-root="true" className="min-h-[100svh]">
+    <div
+      data-map-root="true"
+      className="fixed inset-0 overflow-hidden"
+    >
       <MapViewStage nodes={nodes} edges={edges} />
     </div>
   );

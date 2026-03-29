@@ -28,6 +28,7 @@
   --panel-head-x: 1.5rem;
   --panel-body-y: 1.25rem;
   --panel-body-x: 1.5rem;
+  --layout-scrollbar-compensation: 0px;
 }
 
 [data-theme="dark"] {
@@ -104,13 +105,11 @@
 
 html {
   overflow-y: auto;
-  scrollbar-gutter: stable;
 }
 
 html[data-app-section="mapa"],
 html:has([data-map-root="true"]) {
   overflow-y: hidden;
-  scrollbar-gutter: auto;
 }
 
 body {
@@ -122,6 +121,13 @@ body {
   transition:
     background-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
     color 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html[data-scrollbar-compensation-state="active"] [data-scrollbar-compensate="true"],
+body[data-scroll-locked] [data-scrollbar-compensate="true"] {
+  padding-right: calc(
+    var(--scrollbar-compensation-base-padding, 0px) + var(--layout-scrollbar-compensation)
+  );
 }
 
 body :is(div, section, article, aside, header, footer, nav, button, a, input, select, textarea) {

@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { usePathname } from "next/navigation";
 import SummaryProgressBar from "@/components/dashboard/summary-progress-bar";
 import MapLoadingStage from "@/components/map/map-loading-stage";
@@ -71,8 +72,14 @@ export default function AppShell({ children, progress }: AppShellProps) {
             ? "max-w-none px-0 pb-0 pt-0"
             : "max-w-7xl pt-[calc(var(--app-header-height,96px)+0.75rem)]"
         )}
+        data-scrollbar-compensate="true"
         data-pending-navigation={pendingNavigationActive ? "true" : "false"}
         data-pending-resolved={pendingNavigationActive ? "false" : "true"}
+        style={
+          {
+            "--scrollbar-compensation-base-padding": mapSceneActive ? "0px" : "24px"
+          } as CSSProperties
+        }
       >
         <div className={cn("relative", mapSceneActive && "min-h-[100svh]")}>
           <div
@@ -93,6 +100,8 @@ export default function AppShell({ children, progress }: AppShellProps) {
       <div
         aria-hidden="true"
         className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+0.9rem)] z-20 hidden px-4 lg:block"
+        data-scrollbar-compensate="true"
+        style={{ "--scrollbar-compensation-base-padding": "16px" } as CSSProperties}
       >
         <div className="mx-auto w-full max-w-[1320px] pl-[12.75rem] pr-[4.75rem]">
           {showMapBottomBar ? (

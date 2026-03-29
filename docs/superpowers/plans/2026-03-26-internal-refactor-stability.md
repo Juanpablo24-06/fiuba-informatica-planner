@@ -1,3 +1,5 @@
+> Legacy location note: newer implementation plans should live under `docs/plans/active/` or `docs/plans/completed/`. This file remains here as historical context from the previous docs convention.
+
 # Internal Refactor Stability Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

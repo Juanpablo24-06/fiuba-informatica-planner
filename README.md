@@ -27,7 +27,7 @@ Aplicación web privada para seguir la carrera de Ingeniería en Informática de
 - Vitest + Testing Library
 
 ## Requisitos
-- Node.js 20+ recomendado
+- Node.js 20+ requerido
 - npm
 - Un proyecto de Supabase
 - Opcional: credenciales de Google Calendar
@@ -127,11 +127,18 @@ Nota: el script de desarrollo limpia la caché problemática de webpack antes de
 
 ## Scripts útiles
 - `npm run dev`: desarrollo
+- `npm run dev:harness`: desarrollo local fijo en `127.0.0.1:3000` para browser automation
 - `npm run build`: build de producción
 - `npm run start`: servidor de producción
+- `npm run typecheck`: chequeo de tipos con `tsc --noEmit`
 - `npm run lint`: lint
 - `npm test`: tests
 - `npm run test:watch`: tests en watch mode
+- `npm run verify`: pipeline local de verificación (`typecheck`, `lint`, `test`, `build`)
+- `npm run e2e`: suite Playwright
+- `npm run e2e:headed`: suite Playwright visible
+- `npm run harness:smoke`: recorrido corto de navegador
+- `npm run e2e:install`: instala Chromium para Playwright
 - `npm run seed`: seed de materias/correlativas
 - `npm run hash-password -- "texto"`: generar hash
 - `npm run sb:login`
@@ -226,3 +233,15 @@ El mapa de correlatividades toma inspiración de FIUBA-Map:
 
 ## Estado del README
 Este README intenta reflejar el estado actual del proyecto real. Si cambias arquitectura, variables, scripts o secciones principales, conviene actualizarlo en la misma tanda de trabajo.
+
+## Harness Del Repo
+
+Además del README, el repo ahora usa:
+
+- `AGENTS.md`: índice operativo para agentes
+- `docs/README.md`: índice de conocimiento del sistema
+- `docs/specs/`: specs nuevas
+- `docs/plans/active/` y `docs/plans/completed/`: planes vivos
+- `docs/runbooks/`: guías de operación por dominio
+
+Nota: `docs/superpowers/` queda como ubicación histórica de documentos previos, pero no como convención nueva por defecto.

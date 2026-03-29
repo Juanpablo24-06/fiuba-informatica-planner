@@ -66,8 +66,7 @@ describe("map camera safe top inset", () => {
         y: 220,
         width: 172,
         height: 112,
-        row: 2,
-        col: 3
+        lane: 2
       },
       viewportWidth: 1200,
       viewportHeight: 900,
@@ -85,8 +84,7 @@ describe("map camera safe top inset", () => {
         y: 220,
         width: 172,
         height: 112,
-        row: 2,
-        col: 3
+        lane: 2
       },
       viewportWidth: 1200,
       viewportHeight: 900,

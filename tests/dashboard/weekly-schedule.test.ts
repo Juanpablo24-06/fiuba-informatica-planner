@@ -13,8 +13,8 @@ const buildEvent = (overrides: Partial<CalendarEvent>): CalendarEvent => ({
   source: overrides.source ?? "internal",
   subject: overrides.subject ?? "Análisis Matemático II",
   type: overrides.type ?? "clase",
-  color: overrides.color ?? null,
-  tags: overrides.tags ?? null
+  color: overrides.color ?? undefined,
+  tags: overrides.tags ?? undefined
 });
 
 describe("getWeeklyScheduleHourBounds", () => {

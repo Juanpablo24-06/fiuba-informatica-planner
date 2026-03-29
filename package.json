@@ -2,13 +2,23 @@
   "name": "fiuba-informatica-plan",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "node scripts/clean-next-webpack-cache.mjs && next dev",
+    "dev:harness": "node scripts/clean-next-webpack-cache.mjs && next dev --hostname 127.0.0.1 --port 3100",
     "build": "next build",
     "start": "next start",
+    "typecheck": "tsc --noEmit",
     "lint": "next lint",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
+    "verify": "npm run typecheck && npm run lint && npm test && npm run build",
+    "e2e": "playwright test",
+    "e2e:headed": "playwright test --headed",
+    "harness:smoke": "playwright test tests/e2e/navigation-smoke.spec.ts",
+    "e2e:install": "playwright install chromium",
     "seed": "node scripts/seed.mjs",
     "hash-password": "node scripts/hash-password.mjs",
     "sb:login": "npx --yes supabase@2.76.15 login",
@@ -33,6 +43,7 @@
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
+    "@playwright/test": "^1.55.0",
     "@types/node": "^20.14.10",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",

@@ -8,11 +8,14 @@ describe("global layout source", () => {
     "utf8"
   );
 
-  it("keeps non-map routes stable while letting the map opt out of the root scrollbar entirely", () => {
-    expect(globalsSource).toContain("scrollbar-gutter: stable;");
+  it("defines a shared scrollbar compensation variable instead of reserving a visible root gutter", () => {
+    expect(globalsSource).toContain("--layout-scrollbar-compensation");
+    expect(globalsSource).toContain("body[data-scroll-locked]");
+    expect(globalsSource).not.toContain("scrollbar-gutter: stable;");
+  });
+
+  it("still disables root scrolling for the map section without relying on a permanent gutter reservation", () => {
     expect(globalsSource).toContain('html[data-app-section="mapa"]');
     expect(globalsSource).toContain("overflow-y: hidden;");
-    expect(globalsSource).toContain("scrollbar-gutter: auto;");
-    expect(globalsSource).not.toContain("overflow-y: scroll;");
   });
 });

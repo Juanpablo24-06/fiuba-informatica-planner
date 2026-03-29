@@ -1,3 +1,5 @@
+> Legacy location note: newer design docs should live under `docs/specs/`. This file remains here as historical context from the previous docs convention.
+
 # Internal Refactor Stability Design
 
 **Date:** 2026-03-26

@@ -3,6 +3,11 @@ node_modules
 .next
 out
 coverage
+playwright-report
+test-results
+.playwright
+.playwright-cli
+output
 
 # local env files
 .env*

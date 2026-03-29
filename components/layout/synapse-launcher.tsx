@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import ChatPanel from "@/components/dashboard/chat-panel";
@@ -34,6 +35,8 @@ export default function SynapseLauncher({ role }: { role?: "admin" | "viewer" })
     <div
       ref={launcherRef}
       className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] z-50 px-4"
+      data-scrollbar-compensate="true"
+      style={{ "--scrollbar-compensation-base-padding": "16px" } as CSSProperties}
     >
       <div className="mx-auto flex h-14 w-full max-w-[1320px] items-end">
         <ChatPanel

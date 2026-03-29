@@ -91,6 +91,8 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
     <header
       ref={headerRef}
       className="pointer-events-none fixed inset-x-0 top-0 z-50 px-4 pt-2.5"
+      data-scrollbar-compensate="true"
+      style={{ "--scrollbar-compensation-base-padding": "16px" } as CSSProperties}
     >
       <div
         className="pointer-events-auto relative mx-auto w-full max-w-[1270px] nav-glass rounded-xl px-3 py-2"
