@@ -10,3 +10,4 @@ Estos documentos explican cómo tocar áreas sensibles del sistema sin depender 
 - [admin-data.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/runbooks/admin-data.md)
 - [supabase.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/runbooks/supabase.md)
 - [browser-harness.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/runbooks/browser-harness.md)
+- [mcp-chatgpt.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/runbooks/mcp-chatgpt.md)

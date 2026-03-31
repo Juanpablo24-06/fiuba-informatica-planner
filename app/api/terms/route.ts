@@ -1,30 +1,19 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { z } from "zod";
 import { requireRoleFromRequest } from "@/lib/auth";
-import { supabaseAdmin } from "@/lib/supabase-admin";
-
-const TERM_LABEL_PATTERN = /^\d{4}-(1|2)$/i;
-
-const termSchema = z.object({
-  label: z.string().trim().min(3).regex(TERM_LABEL_PATTERN, "Formato inválido"),
-  start_date: z.string().nullable().optional(),
-  end_date: z.string().nullable().optional(),
-  is_current: z.boolean().optional()
-});
+import {
+  createTerm,
+  listTerms,
+  termCreateSchema
+} from "@/lib/admin/terms";
 
 export async function GET() {
-  const { data, error } = await supabaseAdmin
-    .from("terms")
-    .select("id,label,start_date,end_date,is_current")
-    .order("start_date", { ascending: false, nullsFirst: false })
-    .order("label", { ascending: false });
-
-  if (error) {
+  try {
+    const terms = await listTerms();
+    return NextResponse.json({ terms });
+  } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  return NextResponse.json({ terms: data ?? [] });
 }
 
 export async function POST(request: NextRequest) {
@@ -34,7 +23,7 @@ export async function POST(request: NextRequest) {
   }
 
   const payload = await request.json().catch(() => null);
-  const parsed = termSchema.safeParse(payload);
+  const parsed = termCreateSchema.safeParse(payload);
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Datos inválidos. El cuatrimestre debe tener formato YYYY-1 o YYYY-2." },
@@ -42,26 +31,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (parsed.data.is_current) {
-    await supabaseAdmin
-      .from("terms")
-      .update({ is_current: false })
-      .neq("id", "00000000-0000-0000-0000-000000000000");
-  }
+  try {
+    const term = await createTerm(parsed.data);
+    if (!term) {
+      return NextResponse.json({ error: "No se pudo crear el cuatrimestre." }, { status: 500 });
+    }
 
-  const { data, error } = await supabaseAdmin
-    .from("terms")
-    .insert(parsed.data)
-    .select("id,label,start_date,end_date,is_current");
-
-  if (error) {
+    return NextResponse.json({ term });
+  } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  const term = Array.isArray(data) ? data[0] ?? null : data ?? null;
-  if (!term) {
-    return NextResponse.json({ error: "No se pudo crear el cuatrimestre." }, { status: 500 });
-  }
-
-  return NextResponse.json({ term });
 }

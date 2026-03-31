@@ -57,6 +57,7 @@ Copiar `.env.example` a `.env.local` y completar lo que corresponda.
 - `CHAT_PERSISTENCE_ENABLED`
 - `NEXT_PUBLIC_CHAT_PERSISTENCE`
 - `CRON_SECRET`
+- `MCP_ENABLED` (`false` para apagar el endpoint MCP remoto)
 
 #### Google Calendar
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL`
@@ -195,6 +196,7 @@ Reglas/versionado del asistente:
 - `POST /api/ai/enrich-calendar`
 - `POST /api/ai/summarize-week`
 - `POST /api/chat`
+- `GET/POST /api/mcp`
 - `GET /api/cron/keepalive`
 - `POST /api/admin/bootstrap-cbc`
 
@@ -225,6 +227,22 @@ Reglas/versionado del asistente:
 
 Si usas cron en Vercel:
 - `GET /api/cron/keepalive` puede protegerse con `CRON_SECRET`.
+
+### MCP Para ChatGPT Custom
+
+La misma app puede exponer un servidor MCP remoto para ChatGPT custom en:
+
+- `https://tu-dominio.vercel.app/api/mcp`
+
+Notas importantes:
+
+- No necesitás otro proyecto de Vercel para esta primera versión.
+- Si `MCP_ENABLED=false`, el endpoint queda apagado.
+- Esta primera iteración está abierta para pruebas y no exige login/OAuth.
+
+Guía operativa completa:
+
+- [docs/runbooks/mcp-chatgpt.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/runbooks/mcp-chatgpt.md)
 
 ## Inspiración
 El mapa de correlatividades toma inspiración de FIUBA-Map:

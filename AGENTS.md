@@ -31,6 +31,7 @@ Este repositorio usa `README.md` para onboarding humano y este archivo como índ
 - Arquitectura e invariantes: [docs/architecture/README.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/architecture/README.md)
 - Hotspots: [docs/architecture/hotspots.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/architecture/hotspots.md)
 - Runbooks: [docs/runbooks/README.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/runbooks/README.md)
+- MCP/ChatGPT custom: [docs/runbooks/mcp-chatgpt.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/runbooks/mcp-chatgpt.md)
 
 ## Dominios Principales
 
@@ -53,4 +54,5 @@ Este repositorio usa `README.md` para onboarding humano y este archivo como índ
 - No usar `docs/superpowers/*` como ubicación nueva por defecto. Esa ruta queda como legado.
 - Si tocás navegación, loaders, mapa o chat, corré browser harness además de validación estática.
 - Si tocás rutas API o flujos admin, verificá tipos, comportamiento y efectos visibles.
+- Si tocás el endpoint MCP, corré al menos `npm test -- tests/mcp tests/admin`, `npm run typecheck` y `npm run build`.
 - Preferí cambios pequeños y archivos enfocados cuando edites hotspots.

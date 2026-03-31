@@ -10,6 +10,7 @@ Esta carpeta es el sistema de registro del proyecto para trabajo humano y agenti
 - Cambios en mapa: [runbooks/map.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/runbooks/map.md)
 - Cambios en agenda o Calendar: [runbooks/agenda-calendar.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/runbooks/agenda-calendar.md)
 - Cambios en datos/admin: [runbooks/admin-data.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/runbooks/admin-data.md)
+- Cambios en MCP o conexión con ChatGPT custom: [runbooks/mcp-chatgpt.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/runbooks/mcp-chatgpt.md)
 - Cambios en base de datos o Supabase: [runbooks/supabase.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/runbooks/supabase.md)
 
 ## Convenciones
