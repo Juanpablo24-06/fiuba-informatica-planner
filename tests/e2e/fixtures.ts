@@ -11,7 +11,12 @@ export async function loginAsDemo(page: Page, targetPath = "/") {
 }
 
 export async function openChatPanel(page: Page) {
-  await page.getByRole("button", { name: "Consultá a Synapse" }).click();
+  const trigger = page.getByLabel("Consultá a Synapse");
+  if (!(await trigger.isVisible({ timeout: 10000 }).catch(() => false))) {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(trigger).toBeVisible({ timeout: 15000 });
+  }
+  await trigger.click();
   await expect(page.getByText("Synapse IA")).toBeVisible();
 }
 

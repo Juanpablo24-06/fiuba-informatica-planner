@@ -9,8 +9,8 @@ describe("chat panel mobile source", () => {
   );
 
   it("keeps the composer compact with a bottom controls row", () => {
-    expect(componentSource).toContain("border-t border-white/10 px-4 py-3");
-    expect(componentSource).toContain("flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between");
+    expect(componentSource).toContain("border-t border-border/70 bg-surface/98");
+    expect(componentSource).toContain("rounded-2xl border border-border/75 bg-surface-2/65");
   });
 
   it("shows an accessible subtitle in the chat modal header", () => {
@@ -22,6 +22,13 @@ describe("chat panel mobile source", () => {
     expect(componentSource).toContain("OpenRouter");
     expect(componentSource).toContain("GPT-OSS 120B Free");
     expect(componentSource).not.toContain("<optgroup label=\"Cerebras\">");
-    expect(componentSource).toContain("Nivel {reasoningLabelByLevel[level]}");
+    expect(componentSource).toContain("{reasoningLabelByLevel[level]}");
+  });
+
+  it("does not fake live reasoning or append suggestions in the chat UI", () => {
+    expect(componentSource).not.toContain("getPreflightDelayMs");
+    expect(componentSource).not.toContain("Razonamiento");
+    expect(componentSource).not.toContain("Sugerencias:");
+    expect(componentSource).toContain("Cancelar respuesta");
   });
 });

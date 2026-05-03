@@ -172,11 +172,13 @@ const buildPrompt = ({
     "Nunca devuelvas acciones si el modo de acciones está deshabilitado o faltan datos mínimos; pedí confirmación o datos faltantes.",
     "Si el usuario pide editar datos y el modo de acciones está habilitado, devuelve acciones en el campo `actions`.",
     "Si no corresponde editar, devuelve `actions: []`.",
+    "No agregues sugerencias genéricas ni cierres con preguntas de seguimiento si el usuario no las necesita.",
+    "Usa `follow_up_questions: []` salvo que falte un dato imprescindible para responder o ejecutar una acción.",
     "Responde SOLO JSON valido con este schema:",
     JSON.stringify({
       answer: "string",
       reasoning: "string con profundidad segun nivel",
-      follow_up_questions: ["string"],
+      follow_up_questions: [],
       warnings: ["string"],
       actions: [
         {
@@ -468,10 +470,7 @@ export async function POST(request: NextRequest) {
     responseBody = {
       answer: diagnostics.answer,
       reasoning: diagnostics.reasoning,
-      follow_up_questions: [
-        "Si querés, te puedo reintentar automáticamente con el modelo predeterminado del proveedor.",
-        "También podés pasarme el cuatrimestre exacto (ej: 2026-2) con fechas YYYY-MM-DD para aplicarlo directo."
-      ],
+      follow_up_questions: [],
       warnings: [
         `${diagnostics.warningLabel}: ${result.error}`
       ],

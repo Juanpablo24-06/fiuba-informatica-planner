@@ -17,12 +17,7 @@ export type ChatMessage = {
   role: "user" | "assistant";
   content: string;
   displayed: string;
-  reasoning?: string | null;
-  displayedReasoning?: string;
-  streamStage?: "reasoning" | "answer" | "done";
-  reasoningOpen?: boolean;
   actionResults?: AssistantActionResult[];
-  isStreaming?: boolean;
 };
 
 export type ChatSession = {
@@ -31,10 +26,4 @@ export type ChatSession = {
   threadId: string | null;
   messages: ChatMessage[];
   updatedAt: number;
-};
-
-export type StreamProfile = {
-  intervalMs: number;
-  reasoningStep: number;
-  answerStep: number;
 };

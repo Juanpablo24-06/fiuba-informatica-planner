@@ -31,7 +31,7 @@ Aplicación web privada para seguir la carrera de Ingeniería en Informática de
 - npm
 - Un proyecto de Supabase
 - Opcional: credenciales de Google Calendar
-- Opcional: credenciales de AI (`Cerebras`, `NVIDIA` o `Gemini`)
+- Opcional: credenciales de AI (`OpenRouter`, `NVIDIA` o `Gemini`)
 
 ## Setup local
 
@@ -66,11 +66,11 @@ Copiar `.env.example` a `.env.local` y completar lo que corresponda.
 - `GOOGLE_CALENDAR_TIMEZONE`
 
 #### AI / chat
-- `CEREBRAS_API_KEY`
-- `CEREBRAS_MODEL`
-- `CEREBRAS_API_URL`
-- `CEREBRAS_REQUEST_TIMEOUT_MS`
-- `CEREBRAS_MAX_TOKENS`
+- `OPENROUTER_API_KEY`
+- `OPENROUTER_MODEL`
+- `OPENROUTER_API_URL`
+- `OPENROUTER_REQUEST_TIMEOUT_MS`
+- `OPENROUTER_MAX_TOKENS`
 - `NVIDIA_API_KEY`
 - `NVIDIA_MODEL`
 - `NVIDIA_API_URL`
@@ -164,7 +164,7 @@ La app usa esa integración para:
 
 ## AI y chat
 El panel de chat permite:
-- elegir proveedor (`Auto`, `Cerebras`, `NVIDIA`, `Gemini`),
+- elegir proveedor/modelo (`OpenRouter`, `NVIDIA`, `Gemini`),
 - elegir modelo o escribir uno custom,
 - definir nivel de razonamiento,
 - persistir historial opcionalmente,

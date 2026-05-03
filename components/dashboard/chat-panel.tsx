@@ -13,7 +13,6 @@ import {
   DialogTrigger
 } from "@/components/ui/dialog";
 import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import {
   CHAT_HISTORY_KEY,
   buildChatId,
@@ -24,11 +23,6 @@ import {
   restoreChatSessions,
   syncActiveSession
 } from "@/lib/chat/session-history";
-import {
-  advanceStreamingMessage,
-  getPreflightDelayMs,
-  getStreamProfile
-} from "@/lib/chat/streaming";
 import type {
   AIProvider,
   AssistantActionResult,
@@ -146,7 +140,7 @@ export default function ChatPanel({
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [historyReady, setHistoryReady] = useState(false);
-  const streamRef = useRef<number | null>(null);
+  const requestAbortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -157,21 +151,8 @@ export default function ChatPanel({
   const selectedModelOverride = selectedModel.trim();
   const availableReasoningLevels = currentModelOption.reasoningLevels;
   const reasoningSelectorDisabled = availableReasoningLevels.length === 0;
-  const hasLiveReasoning = messages.some(
-    (message) =>
-      message.role === "assistant" &&
-      message.isStreaming &&
-      message.streamStage === "reasoning"
-  );
 
-  useEffect(() => {
-    return () => {
-      if (streamRef.current) {
-        window.clearInterval(streamRef.current);
-        streamRef.current = null;
-      }
-    };
-  }, []);
+  useEffect(() => () => requestAbortRef.current?.abort(), []);
 
   useEffect(() => {
     if (!scrollRef.current) return;
@@ -228,16 +209,6 @@ export default function ChatPanel({
     });
   }, [activeSessionId, historyReady, messages, threadId]);
 
-  const toggleReasoning = (messageId: string) => {
-    setMessages((prev) =>
-      prev.map((message) =>
-        message.id === messageId
-          ? { ...message, reasoningOpen: !message.reasoningOpen }
-          : message
-      )
-    );
-  };
-
   const selectSession = (sessionId: string) => {
     setSessions((prev) => {
       return discardEmptyActiveSession({
@@ -286,75 +257,45 @@ export default function ChatPanel({
     });
   };
 
-  const startStreaming = (messageId: string, level: ReasoningLevel) => {
-    if (streamRef.current) {
-      window.clearInterval(streamRef.current);
-    }
-
-    const profile = getStreamProfile(level);
-
-    streamRef.current = window.setInterval(() => {
-      let completed = false;
-
-      setMessages((prev) => {
-        const index = prev.findIndex((item) => item.id === messageId);
-        if (index === -1) {
-          completed = true;
-          return prev;
-        }
-        const message = prev[index];
-        if (message.role !== "assistant") {
-          completed = true;
-          return prev;
-        }
-
-        const next = [...prev];
-        const advanced = advanceStreamingMessage(message, profile);
-        completed = advanced.completed;
-        next[index] = advanced.message;
-        return next;
-      });
-
-      if (completed && streamRef.current) {
-        window.clearInterval(streamRef.current);
-        streamRef.current = null;
-      }
-    }, profile.intervalMs);
-  };
-
   const handleSend = async () => {
     const trimmed = input.trim();
     if (!trimmed || isSending) return;
     setError(null);
     setInput("");
 
+    const nextUserMessage: ChatMessage = {
+      id: buildChatId(),
+      role: "user",
+      content: trimmed,
+      displayed: trimmed
+    };
+    const messagesForRequest = [...messages, nextUserMessage];
+
     setMessages((prev) => [
       ...prev,
-      { id: buildChatId(), role: "user", content: trimmed, displayed: trimmed }
+      nextUserMessage
     ]);
 
     setIsSending(true);
     setIsThinking(true);
 
-    const streamingLevel = reasoningLevel;
+    const controller = new AbortController();
+    requestAbortRef.current = controller;
 
     try {
-      const recentHistory: ChatRequestHistoryItem[] = [
-        ...messages
-          .filter((message) => message.role === "user" || message.role === "assistant")
-          .map((message) => ({
-            role: message.role,
-            content: message.content.trim().slice(0, 1200)
-          }))
-          .filter((message) => message.content.length > 0)
-          .slice(-13),
-        { role: "user", content: trimmed.slice(0, 1200) }
-      ];
+      const recentHistory: ChatRequestHistoryItem[] = messagesForRequest
+        .filter((message) => message.role === "user" || message.role === "assistant")
+        .map((message) => ({
+          role: message.role,
+          content: message.content.trim().slice(0, 1200)
+        }))
+        .filter((message) => message.content.length > 0)
+        .slice(-14);
 
       const requestBody: Record<string, unknown> = {
         message: trimmed,
         storeHistory: storeHistory && persistenceEnabled,
-        reasoningLevel: streamingLevel,
+        reasoningLevel,
         provider,
         allowActions: canEditWithAI ? allowActions : false,
         history: recentHistory.slice(-14)
@@ -366,15 +307,11 @@ export default function ChatPanel({
         requestBody.threadId = threadId;
       }
 
-      const preflightDelay = getPreflightDelayMs(streamingLevel);
-      if (preflightDelay > 0) {
-        await new Promise((resolve) => window.setTimeout(resolve, preflightDelay));
-      }
-
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
       });
 
       const data = await response.json().catch(() => null);
@@ -394,16 +331,7 @@ export default function ChatPanel({
       const warnings = data?.response?.warnings?.length
         ? `Avisos: ${data.response.warnings.join(" / ")}`
         : "";
-      const followUps = data?.response?.follow_up_questions?.length
-        ? `Sugerencias: ${data.response.follow_up_questions.join(" / ")}`
-        : "";
-      const combined = [answer, warnings, followUps].filter(Boolean).join("\n\n");
-
-      const reasoning =
-        typeof data?.response?.reasoning === "string" &&
-          data.response.reasoning.trim().length > 0
-          ? data.response.reasoning.trim()
-          : null;
+      const combined = [answer, warnings].filter(Boolean).join("\n\n");
 
       const actionResults = Array.isArray(data?.actionResults)
         ? (data.actionResults as AssistantActionResult[])
@@ -416,18 +344,15 @@ export default function ChatPanel({
           id: assistantId,
           role: "assistant",
           content: combined,
-          displayed: "",
-          reasoning,
-          displayedReasoning: "",
-          streamStage: reasoning ? "reasoning" : "answer",
-          reasoningOpen: Boolean(reasoning),
+          displayed: combined,
           actionResults,
-          isStreaming: true
         }
       ]);
-      startStreaming(assistantId, streamingLevel);
       setThreadId(data?.threadId ?? threadId);
-    } catch {
+    } catch (caughtError) {
+      if (caughtError instanceof Error && caughtError.name === "AbortError") {
+        return;
+      }
       const message = "No se pudo contactar al asistente.";
       setError(message);
       setMessages((prev) => [
@@ -435,9 +360,19 @@ export default function ChatPanel({
         { id: buildChatId(), role: "assistant", content: message, displayed: message }
       ]);
     } finally {
+      if (requestAbortRef.current === controller) {
+        requestAbortRef.current = null;
+      }
       setIsSending(false);
       setIsThinking(false);
     }
+  };
+
+  const cancelSend = () => {
+    requestAbortRef.current?.abort();
+    requestAbortRef.current = null;
+    setIsSending(false);
+    setIsThinking(false);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -472,74 +407,74 @@ export default function ChatPanel({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="h-[90svh] w-[96vw] max-w-[900px] overflow-hidden rounded-2xl border border-white/10 bg-[#08090f] p-0 text-slate-100 shadow-2xl sm:h-[84svh] sm:w-[92vw]">
+      <DialogContent
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          window.setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 0);
+        }}
+        className="h-[88svh] w-[95vw] max-w-[880px] overflow-hidden rounded-[1.35rem] border border-border/80 bg-surface/95 p-0 text-text shadow-2xl shadow-shadow/20 backdrop-blur-xl sm:h-[80svh] sm:w-[90vw]"
+      >
         <div className="flex h-full flex-col">
-          <DialogHeader className="border-b border-white/10 px-4 py-3 sm:px-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] text-accent">
-                    <Sparkles className="h-3.5 w-3.5" />
-                  </span>
-                  <div className="min-w-0">
-                    <DialogTitle className="truncate text-base font-semibold leading-tight text-white">
+          <DialogHeader className="border-b border-border/70 px-4 py-3 sm:px-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-accent/25 bg-accent/10 text-accent">
+                  <Sparkles className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                    <DialogTitle className="truncate text-base font-semibold leading-tight text-text">
                       Synapse IA
                     </DialogTitle>
-                    <DialogDescription className="text-xs text-slate-400">
-                      Asistente académico para agenda, cursada y decisiones rápidas.
-                    </DialogDescription>
+                    <Select
+                      hideChevron
+                      value={activeSessionId ?? ""}
+                      onChange={(event) => selectSession(event.target.value)}
+                      disabled={!historyReady || sessions.length === 0}
+                      className="h-6 w-[170px] rounded-md border-transparent bg-transparent bg-none px-0 py-0 text-[11px] font-medium text-muted shadow-none hover:text-text focus:border-transparent focus:ring-transparent"
+                    >
+                      {sessions.length === 0 ? (
+                        <option value="">Chat sin título</option>
+                      ) : (
+                        sessions.map((session) => (
+                          <option key={session.id} value={session.id}>
+                            {buildSessionLabel(session)}
+                          </option>
+                        ))
+                      )}
+                    </Select>
                   </div>
+                  <DialogDescription className="max-w-[38rem] text-xs leading-5 text-muted">
+                    Asistente académico para agenda, cursada y decisiones rápidas.
+                  </DialogDescription>
                 </div>
               </div>
 
-              <div className="flex min-w-0 flex-wrap items-center gap-2 sm:justify-end">
-                <Select
-                  hideChevron
-                  value={activeSessionId ?? ""}
-                  onChange={(event) => selectSession(event.target.value)}
-                  disabled={!historyReady || sessions.length === 0}
-                  className="h-8 w-[min(100%,190px)] rounded-lg border-white/10 bg-white/[0.06] px-2 py-0 text-[11px] text-slate-300 shadow-none hover:border-white/20 focus:border-accent/60 sm:w-[170px]"
-                >
-                  {sessions.length === 0 ? (
-                    <option value="">Sin chats</option>
-                  ) : (
-                    sessions.map((session) => (
-                      <option key={session.id} value={session.id}>
-                        {buildSessionLabel(session)}
-                      </option>
-                    ))
-                  )}
-                </Select>
-                <button
-                  type="button"
-                  onClick={createNewSession}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] text-slate-300 transition hover:border-white/20 hover:text-white"
-                  aria-label="Nuevo chat"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
+              <div className="flex min-w-0 items-center justify-end gap-2">
                 {canEditWithAI ? (
                   <button
                     type="button"
                     onClick={() => setAllowActions((current) => !current)}
-                    className={`h-8 shrink-0 rounded-lg border px-2.5 text-[11px] font-medium transition ${allowActions
-                      ? "border-accent/55 bg-accent/15 text-accent"
-                      : "border-white/10 bg-white/[0.06] text-slate-400 hover:border-white/20 hover:text-slate-100"
+                    className={`h-8 shrink-0 rounded-full border px-3 text-[11px] font-medium transition ${allowActions
+                      ? "border-accent/45 bg-accent/12 text-accent"
+                      : "border-border/70 bg-surface-2/65 text-muted hover:border-accent/30 hover:text-text"
                       }`}
                   >
                     {allowActions ? "Acciones permitidas" : "Permitir acciones"}
                   </button>
                 ) : null}
-                {isThinking || hasLiveReasoning ? (
-                  <div className="flex h-8 items-center gap-1.5 rounded-lg border border-accent/35 bg-accent/10 px-2 text-[11px] text-accent">
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
-                    {hasLiveReasoning ? "Razonando" : "Pensando"}
-                  </div>
-                ) : null}
+                <button
+                  type="button"
+                  onClick={createNewSession}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-surface-2 hover:text-text"
+                  aria-label="Nuevo chat"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
                 <DialogClose asChild>
                   <button
                     type="button"
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] text-slate-400 transition hover:border-white/20 hover:text-white"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-surface-2 hover:text-text"
                     aria-label="Cerrar Synapse"
                   >
                     <X className="h-4 w-4" />
@@ -549,15 +484,15 @@ export default function ChatPanel({
             </div>
           </DialogHeader>
 
-          <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-4 text-sm sm:px-5">
+          <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-5 text-sm sm:px-5">
             {messages.length === 0 ? (
-              <div className="mx-auto flex min-h-full w-full max-w-2xl flex-col justify-center gap-5 py-6">
+              <div className="mx-auto flex min-h-full w-full max-w-[620px] flex-col justify-center gap-5 py-4">
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-white">
+                  <p className="text-lg font-semibold leading-tight text-text">
                     Preguntá por tu semana, parciales o prioridades.
                   </p>
-                  <p className="max-w-lg text-xs leading-5 text-slate-400">
-                    Synapse puede leer el contexto académico disponible y responder con pasos concretos.
+                  <p className="max-w-lg text-sm leading-6 text-muted">
+                    Synapse lee tu contexto académico disponible y responde con pasos concretos.
                   </p>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-3">
@@ -566,7 +501,7 @@ export default function ChatPanel({
                       key={prompt}
                       type="button"
                       onClick={() => setInput(prompt)}
-                      className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-xs text-slate-300 transition hover:border-accent/45 hover:bg-accent/10 hover:text-white"
+                      className="rounded-xl border border-border/75 bg-surface-2/70 px-3 py-2.5 text-left text-xs leading-5 text-text transition hover:border-accent/40 hover:bg-accent/10"
                     >
                       {prompt}
                     </button>
@@ -577,12 +512,6 @@ export default function ChatPanel({
               <div className="space-y-3">
                 {messages.map((message, index) => {
                   const isUser = message.role === "user";
-                  const content = message.isStreaming ? message.displayed : message.content;
-                  const visibleReasoning =
-                    message.streamStage === "reasoning"
-                      ? message.displayedReasoning ?? ""
-                      : message.reasoning ?? "";
-
                   return (
                     <div
                       key={message.id}
@@ -592,36 +521,17 @@ export default function ChatPanel({
                       <div
                         className={
                           isUser
-                            ? "ml-auto max-w-[85%] animate-message-in rounded-2xl border border-accent/40 bg-accent/15 px-4 py-3 text-slate-100"
-                            : "mr-auto max-w-[85%] animate-message-in rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-slate-100"
+                            ? "ml-auto max-w-[78%] animate-message-in rounded-2xl border border-accent/35 bg-accent/12 px-4 py-3 text-text"
+                            : "mr-auto max-w-[82%] animate-message-in rounded-2xl border border-border/70 bg-surface-2/75 px-4 py-3 text-text"
                         }
                       >
-                        {!isUser && message.reasoning ? (
-                          <div className="mb-3 rounded-xl border border-white/10 bg-black/20 p-2 text-[11px] text-slate-400">
-                            <button
-                              type="button"
-                              className="w-full text-left text-[10px] uppercase tracking-[0.18em] text-slate-500"
-                              onClick={() => toggleReasoning(message.id)}
-                            >
-                              {message.streamStage === "reasoning"
-                                ? "Razonamiento en vivo"
-                                : message.reasoningOpen
-                                  ? "Ocultar razonamiento"
-                                  : "Ver razonamiento"}
-                            </button>
-                            {message.reasoningOpen ? (
-                              <p className="mt-2 whitespace-pre-wrap">{visibleReasoning}</p>
-                            ) : null}
-                          </div>
-                        ) : null}
-
-                        <p className="whitespace-pre-wrap">
-                          {content || (message.streamStage === "reasoning" ? "Preparando respuesta..." : "")}
+                        <p className="whitespace-pre-wrap leading-6">
+                          {message.content || "Preparando respuesta..."}
                         </p>
 
                         {!isUser && message.actionResults?.length ? (
-                          <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-2 text-xs text-slate-400">
-                            <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">
+                          <div className="mt-3 rounded-xl border border-border/70 bg-surface/75 p-2 text-xs text-muted">
+                            <p className="text-[10px] font-semibold uppercase text-muted">
                               Cambios aplicados
                             </p>
                             <div className="mt-1 space-y-1">
@@ -641,89 +551,91 @@ export default function ChatPanel({
             )}
 
             {isThinking ? (
-              <div className="mr-auto max-w-[85%] rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-xs text-slate-400">
+              <div className="mr-auto mt-3 max-w-[82%] rounded-2xl border border-border/70 bg-surface-2/75 px-4 py-3 text-xs text-muted">
                 <div className="flex items-center gap-2">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:0ms]" />
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:120ms]" />
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:240ms]" />
-                  Synapse está preparando el contexto...
+                  Esperando respuesta del modelo...
                 </div>
               </div>
             ) : null}
 
             {error ? (
-              <div className="rounded-xl border border-warning/50 bg-warning/10 px-3 py-2 text-xs text-warning">
+              <div className="mt-3 rounded-xl border border-warning/50 bg-warning/10 px-3 py-2 text-xs text-warning">
                 {error}
               </div>
             ) : null}
           </div>
 
-          <div className="border-t border-white/10 px-4 py-3 sm:px-5">
-            <div className="flex flex-col gap-2">
+          <div className="border-t border-border/70 bg-surface/98 px-3 py-3 sm:px-4">
+            <div className="rounded-2xl border border-border/75 bg-surface-2/65 px-3 py-2 shadow-[inset_0_1px_0_rgb(var(--color-surface)/0.65)] focus-within:border-accent/45">
               <div className="flex items-end gap-2">
                 <button
                   type="button"
                   onClick={() => inputRef.current?.focus()}
-                  className="mb-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-transparent text-slate-400 transition hover:border-white/20 hover:text-white"
+                  className="mb-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-surface hover:text-text"
                   aria-label="Agregar contexto"
                 >
                   <Plus className="h-4 w-4" />
                 </button>
-                <Textarea
+                <textarea
                   ref={inputRef}
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Preguntá sobre parciales, horarios, correlativas..."
                   rows={2}
-                  className="min-h-[64px] resize-none rounded-xl border-white/10 bg-transparent px-0 py-2 text-sm text-slate-100 shadow-none placeholder:text-slate-500 focus:border-transparent focus:ring-transparent sm:min-h-[74px]"
+                  style={{ borderColor: "transparent", boxShadow: "none" }}
+                  className="min-h-[52px] w-full resize-none border-0 bg-transparent px-0 py-2 text-sm font-medium text-text shadow-none outline-none placeholder:text-muted focus:border-0 focus:outline-none focus:ring-0 focus-visible:outline-none sm:min-h-[58px]"
                 />
                 <button
                   type="button"
-                  onClick={handleSend}
-                  disabled={isSending || !input.trim()}
-                  className="mb-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45"
-                  aria-label="Enviar mensaje"
+                  onClick={isSending ? cancelSend : handleSend}
+                  disabled={!isSending && !input.trim()}
+                  className={`mb-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-45 ${isSending
+                    ? "border border-border/80 bg-surface text-muted hover:text-text"
+                    : "bg-accent text-accent-contrast hover:brightness-105"
+                    }`}
+                  aria-label={isSending ? "Cancelar respuesta" : "Enviar mensaje"}
                 >
-                  <SendHorizontal className="h-4 w-4" />
+                  {isSending ? <X className="h-4 w-4" /> : <SendHorizontal className="h-4 w-4" />}
                 </button>
               </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-2 border-t border-border/50 pt-2">
+                <Select
+                  hideChevron
+                  value={selectedModelId}
+                  onChange={(event) => selectModelOption(event.target.value)}
+                  className="h-7 w-[min(100%,210px)] rounded-md border-0 bg-transparent bg-none px-0 py-0 text-[11px] font-medium text-muted shadow-none [color-scheme:dark] hover:text-text focus:border-transparent focus:ring-transparent"
+                >
+                  {modelOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.providerLabel} · {option.label}
+                    </option>
+                  ))}
+                </Select>
+                {!reasoningSelectorDisabled ? (
                   <Select
                     hideChevron
-                    value={selectedModelId}
-                    onChange={(event) => selectModelOption(event.target.value)}
-                    className="h-7 w-[min(100%,210px)] rounded-lg border-white/10 bg-white/[0.05] px-2 py-0 text-[11px] text-slate-300 shadow-none hover:border-white/20 focus:border-accent/60 sm:w-[210px]"
+                    value={reasoningLevel}
+                    onChange={(event) =>
+                      setReasoningLevel(event.target.value as ReasoningLevel)
+                    }
+                    className="h-7 w-[108px] rounded-md border-0 bg-transparent bg-none px-0 py-0 text-[11px] font-medium text-muted shadow-none [color-scheme:dark] hover:text-text focus:border-transparent focus:ring-transparent"
                   >
-                    {modelOptions.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.providerLabel} · {option.label}
-                      </option>
-                    ))}
+                    {reasoningByIndex
+                      .filter((level) => availableReasoningLevels.includes(level))
+                      .map((level) => (
+                        <option key={level} value={level}>
+                          {reasoningLabelByLevel[level]}
+                        </option>
+                      ))}
                   </Select>
-                  {!reasoningSelectorDisabled ? (
-                    <Select
-                      hideChevron
-                      value={reasoningLevel}
-                      onChange={(event) =>
-                        setReasoningLevel(event.target.value as ReasoningLevel)
-                      }
-                      className="h-7 w-[118px] rounded-lg border-white/10 bg-white/[0.05] px-2 py-0 text-[11px] text-slate-300 shadow-none hover:border-white/20 focus:border-accent/60"
-                    >
-                      {reasoningByIndex
-                        .filter((level) => availableReasoningLevels.includes(level))
-                        .map((level) => (
-                          <option key={level} value={level}>
-                            Nivel {reasoningLabelByLevel[level]}
-                          </option>
-                        ))}
-                    </Select>
-                  ) : null}
-                </div>
-                <p className="text-[11px] text-slate-500">
+                ) : null}
+                <span className="ml-auto text-[11px] text-muted">
                   {isSending ? "Enviando..." : currentModelOption.providerLabel}
-                </p>
+                </span>
               </div>
             </div>
           </div>
