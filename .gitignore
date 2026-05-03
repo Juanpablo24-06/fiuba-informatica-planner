@@ -22,3 +22,4 @@ pnpm-debug.log*
 # source PDFs (kept local, not versioned)
 Datos/*.pdf
 Datos/*.PDF
+.vercel

@@ -71,7 +71,7 @@ const buildFallbackRows = (
     needs_review: true,
     explanation_short: reason,
     model:
-      process.env.CEREBRAS_MODEL ??
+      process.env.OPENROUTER_MODEL ??
       process.env.NVIDIA_MODEL ??
       process.env.GEMINI_MODEL ??
       "unknown"
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
       {
         error: "AI no configurada.",
         instructions:
-          "Define CEREBRAS_API_KEY, NVIDIA_API_KEY o GEMINI_API_KEY en .env.local y reinicia el server."
+          "Define OPENROUTER_API_KEY, NVIDIA_API_KEY o GEMINI_API_KEY en .env.local y reinicia el server."
       },
       { status: 501 }
     );

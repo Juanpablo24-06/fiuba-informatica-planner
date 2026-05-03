@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Sparkles, X } from "lucide-react";
+import { Plus, SendHorizontal, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -39,27 +39,75 @@ import type {
 } from "@/lib/chat/types";
 
 const persistenceEnabled = process.env.NEXT_PUBLIC_CHAT_PERSISTENCE === "true";
-const CUSTOM_MODEL_VALUE = "__custom__";
-
-const modelOptions: Record<
-  Exclude<AIProvider, "auto">,
-  Array<{ value: string; label: string }>
-> = {
-  cerebras: [
-    { value: "openai/gpt-oss-120b", label: "gpt-oss-120b" },
-    { value: "openai/gpt-oss-20b", label: "gpt-oss-20b" }
-  ],
-  nvidia: [
-    { value: "z-ai/glm4.7", label: "GLM 4.7" },
-    { value: "z-ai/glm5", label: "GLM 5" },
-    { value: "minimaxai/minimax-m2.5", label: "MiniMax M2.5" }
-  ],
-  gemini: [
-    { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
-    { value: "gemini-2.0-flash-lite", label: "Gemini 2.0 Flash Lite" },
-    { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro" }
-  ]
+type ChatModelOption = {
+  id: string;
+  provider: Exclude<AIProvider, "auto">;
+  providerLabel: string;
+  value: string;
+  label: string;
+  reasoningLevels: ReasoningLevel[];
 };
+
+const modelOptions: ChatModelOption[] = [
+  {
+    id: "openrouter-gpt-oss-120b-free",
+    provider: "openrouter",
+    providerLabel: "OpenRouter",
+    value: "openai/gpt-oss-120b:free",
+    label: "GPT-OSS 120B Free",
+    reasoningLevels: ["bajo", "medio", "alto"]
+  },
+  {
+    id: "nvidia-glm47",
+    provider: "nvidia",
+    providerLabel: "NVIDIA",
+    value: "z-ai/glm4.7",
+    label: "GLM 4.7",
+    reasoningLevels: ["bajo", "medio", "alto"]
+  },
+  {
+    id: "nvidia-glm5",
+    provider: "nvidia",
+    providerLabel: "NVIDIA",
+    value: "z-ai/glm5",
+    label: "GLM 5",
+    reasoningLevels: ["medio", "alto"]
+  },
+  {
+    id: "nvidia-minimax-m25",
+    provider: "nvidia",
+    providerLabel: "NVIDIA",
+    value: "minimaxai/minimax-m2.5",
+    label: "MiniMax M2.5",
+    reasoningLevels: ["bajo", "medio"]
+  },
+  {
+    id: "gemini-20-flash",
+    provider: "gemini",
+    providerLabel: "Gemini",
+    value: "gemini-2.0-flash",
+    label: "2.0 Flash",
+    reasoningLevels: ["bajo", "medio"]
+  },
+  {
+    id: "gemini-20-flash-lite",
+    provider: "gemini",
+    providerLabel: "Gemini",
+    value: "gemini-2.0-flash-lite",
+    label: "2.0 Flash Lite",
+    reasoningLevels: ["bajo"]
+  },
+  {
+    id: "gemini-15-pro",
+    provider: "gemini",
+    providerLabel: "Gemini",
+    value: "gemini-1.5-pro",
+    label: "1.5 Pro",
+    reasoningLevels: ["medio", "alto"]
+  }
+];
+
+const defaultModelOption = modelOptions[0];
 
 const reasoningByIndex: ReasoningLevel[] = ["bajo", "medio", "alto"];
 
@@ -68,6 +116,12 @@ const reasoningLabelByLevel: Record<ReasoningLevel, string> = {
   medio: "Medio",
   alto: "Alto"
 };
+
+const quickPrompts = [
+  "Qué tengo importante esta semana?",
+  "Ordená mis prioridades de estudio",
+  "Qué materias conviene revisar hoy?"
+];
 
 export default function ChatPanel({
   trigger,
@@ -83,23 +137,26 @@ export default function ChatPanel({
   const [isThinking, setIsThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
-  const [storeHistory, setStoreHistory] = useState(persistenceEnabled);
+  const [storeHistory] = useState(persistenceEnabled);
   const [reasoningLevel, setReasoningLevel] = useState<ReasoningLevel>("medio");
   const [allowActions, setAllowActions] = useState(false);
-  const [provider, setProvider] = useState<AIProvider>("cerebras");
-  const [selectedModel, setSelectedModel] = useState("openai/gpt-oss-120b");
-  const [customModel, setCustomModel] = useState("");
+  const [selectedModelId, setSelectedModelId] = useState(defaultModelOption.id);
+  const [provider, setProvider] = useState<AIProvider>(defaultModelOption.provider);
+  const [selectedModel, setSelectedModel] = useState(defaultModelOption.value);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [historyReady, setHistoryReady] = useState(false);
   const streamRef = useRef<number | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const canEditWithAI = role === "admin";
-  const selectedModelOverride =
-    selectedModel === CUSTOM_MODEL_VALUE
-      ? customModel.trim()
-      : selectedModel.trim();
+  const currentModelOption =
+    modelOptions.find((option) => option.id === selectedModelId) ??
+    defaultModelOption;
+  const selectedModelOverride = selectedModel.trim();
+  const availableReasoningLevels = currentModelOption.reasoningLevels;
+  const reasoningSelectorDisabled = availableReasoningLevels.length === 0;
   const hasLiveReasoning = messages.some(
     (message) =>
       message.role === "assistant" &&
@@ -125,9 +182,13 @@ export default function ChatPanel({
   }, [messages, isThinking]);
 
   useEffect(() => {
-    setSelectedModel("");
-    setCustomModel("");
-  }, [provider]);
+    if (
+      availableReasoningLevels.length > 0 &&
+      !availableReasoningLevels.includes(reasoningLevel)
+    ) {
+      setReasoningLevel(availableReasoningLevels[0]);
+    }
+  }, [availableReasoningLevels, reasoningLevel]);
 
   const persistSessions = (nextSessions: ChatSession[]) => {
     try {
@@ -386,6 +447,21 @@ export default function ChatPanel({
     }
   };
 
+  const selectModelOption = (modelId: string) => {
+    const option =
+      modelOptions.find((candidate) => candidate.id === modelId) ??
+      defaultModelOption;
+    setSelectedModelId(option.id);
+    setProvider(option.provider);
+    setSelectedModel(option.value);
+    if (
+      option.reasoningLevels.length > 0 &&
+      !option.reasoningLevels.includes(reasoningLevel)
+    ) {
+      setReasoningLevel(option.reasoningLevels[0]);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -396,22 +472,33 @@ export default function ChatPanel({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="h-[88svh] w-[96vw] max-w-[920px] overflow-hidden rounded-[1.75rem] border border-border/75 bg-surface p-0 sm:h-[84svh] sm:w-[94vw] sm:rounded-[2.1rem]">
+      <DialogContent className="h-[90svh] w-[96vw] max-w-[900px] overflow-hidden rounded-2xl border border-white/10 bg-[#08090f] p-0 text-slate-100 shadow-2xl sm:h-[84svh] sm:w-[92vw]">
         <div className="flex h-full flex-col">
-          <DialogHeader className="space-y-0 border-b border-border/60 px-4 py-3 sm:px-5">
+          <DialogHeader className="border-b border-white/10 px-4 py-3 sm:px-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-                <DialogTitle className="text-base font-semibold leading-tight whitespace-nowrap">Synapse IA</DialogTitle>
-                <DialogDescription className="sr-only">
-                  Chat académico para consultar semana, parciales, correlativas y prioridades desde el celular o escritorio.
-                </DialogDescription>
+              <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] text-accent">
+                    <Sparkles className="h-3.5 w-3.5" />
+                  </span>
+                  <div className="min-w-0">
+                    <DialogTitle className="truncate text-base font-semibold leading-tight text-white">
+                      Synapse IA
+                    </DialogTitle>
+                    <DialogDescription className="text-xs text-slate-400">
+                      Asistente académico para agenda, cursada y decisiones rápidas.
+                    </DialogDescription>
+                  </div>
+                </div>
+              </div>
 
+              <div className="flex min-w-0 flex-wrap items-center gap-2 sm:justify-end">
                 <Select
                   hideChevron
                   value={activeSessionId ?? ""}
                   onChange={(event) => selectSession(event.target.value)}
                   disabled={!historyReady || sessions.length === 0}
-                  className="h-7 min-w-0 flex-1 rounded-lg border-border/40 bg-surface-2/80 px-2 py-0 text-[10px] text-muted transition sm:w-[130px] sm:flex-none"
+                  className="h-8 w-[min(100%,190px)] rounded-lg border-white/10 bg-white/[0.06] px-2 py-0 text-[11px] text-slate-300 shadow-none hover:border-white/20 focus:border-accent/60 sm:w-[170px]"
                 >
                   {sessions.length === 0 ? (
                     <option value="">Sin chats</option>
@@ -426,53 +513,36 @@ export default function ChatPanel({
                 <button
                   type="button"
                   onClick={createNewSession}
-                  className="shrink-0 rounded-lg border border-border/40 bg-surface-2/80 px-1.5 py-0.5 text-[10px] text-muted transition hover:text-text"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] text-slate-300 transition hover:border-white/20 hover:text-white"
+                  aria-label="Nuevo chat"
                 >
-                  +
+                  <Plus className="h-4 w-4" />
                 </button>
-
+                {canEditWithAI ? (
+                  <button
+                    type="button"
+                    onClick={() => setAllowActions((current) => !current)}
+                    className={`h-8 shrink-0 rounded-lg border px-2.5 text-[11px] font-medium transition ${allowActions
+                      ? "border-accent/55 bg-accent/15 text-accent"
+                      : "border-white/10 bg-white/[0.06] text-slate-400 hover:border-white/20 hover:text-slate-100"
+                      }`}
+                  >
+                    {allowActions ? "Acciones permitidas" : "Permitir acciones"}
+                  </button>
+                ) : null}
                 {isThinking || hasLiveReasoning ? (
-                  <div className="flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-[10px] text-accent">
+                  <div className="flex h-8 items-center gap-1.5 rounded-lg border border-accent/35 bg-accent/10 px-2 text-[11px] text-accent">
                     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
                     {hasLiveReasoning ? "Razonando" : "Pensando"}
                   </div>
                 ) : null}
-              </div>
-
-              <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:justify-end">
-                <Select
-                  hideChevron
-                  value={`${provider}:${selectedModel}`}
-                  onChange={(event) => {
-                    const [newProvider, newModel] = event.target.value.split(":") as [AIProvider, string];
-                    setProvider(newProvider);
-                    setSelectedModel(newModel);
-                  }}
-                  className="h-7 min-w-0 flex-1 rounded-lg border-border/40 bg-surface-2/80 px-2 py-0 text-[10px] text-muted transition hover:text-text sm:flex-none"
-                >
-                  <optgroup label="Cerebras">
-                    {modelOptions.cerebras.map((option) => (
-                      <option key={`cerebras:${option.value}`} value={`cerebras:${option.value}`}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="NVIDIA">
-                    {modelOptions.nvidia.map((option) => (
-                      <option key={`nvidia:${option.value}`} value={`nvidia:${option.value}`}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                </Select>
-
                 <DialogClose asChild>
                   <button
                     type="button"
-                    className="shrink-0 rounded-lg border border-border/40 bg-surface-2/80 p-1.5 text-muted transition hover:text-text"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] text-slate-400 transition hover:border-white/20 hover:text-white"
                     aria-label="Cerrar Synapse"
                   >
-                    <X className="h-3.5 w-3.5" />
+                    <X className="h-4 w-4" />
                   </button>
                 </DialogClose>
               </div>
@@ -481,8 +551,27 @@ export default function ChatPanel({
 
           <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-4 text-sm sm:px-5">
             {messages.length === 0 ? (
-              <div className="rounded-3xl border border-border/70 bg-surface-2 p-4 text-xs text-muted">
-                Preguntá por tu semana, parciales o prioridades. Si sos admin, podés habilitar acciones para que Synapse aplique cambios.
+              <div className="mx-auto flex min-h-full w-full max-w-2xl flex-col justify-center gap-5 py-6">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-white">
+                    Preguntá por tu semana, parciales o prioridades.
+                  </p>
+                  <p className="max-w-lg text-xs leading-5 text-slate-400">
+                    Synapse puede leer el contexto académico disponible y responder con pasos concretos.
+                  </p>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {quickPrompts.map((prompt) => (
+                    <button
+                      key={prompt}
+                      type="button"
+                      onClick={() => setInput(prompt)}
+                      className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-xs text-slate-300 transition hover:border-accent/45 hover:bg-accent/10 hover:text-white"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
               </div>
             ) : (
               <div className="space-y-3">
@@ -503,15 +592,15 @@ export default function ChatPanel({
                       <div
                         className={
                           isUser
-                            ? "ml-auto max-w-[85%] animate-message-in rounded-3xl border border-accent/45 bg-accent/18 px-4 py-3 text-text"
-                            : "mr-auto max-w-[85%] animate-message-in rounded-3xl border border-border/70 bg-surface-2 px-4 py-3 text-text"
+                            ? "ml-auto max-w-[85%] animate-message-in rounded-2xl border border-accent/40 bg-accent/15 px-4 py-3 text-slate-100"
+                            : "mr-auto max-w-[85%] animate-message-in rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-slate-100"
                         }
                       >
                         {!isUser && message.reasoning ? (
-                          <div className="mb-3 rounded-2xl border border-border/60 bg-surface/80 p-2 text-[11px] text-muted">
+                          <div className="mb-3 rounded-xl border border-white/10 bg-black/20 p-2 text-[11px] text-slate-400">
                             <button
                               type="button"
-                              className="w-full text-left text-[10px] uppercase tracking-[0.28em] text-muted"
+                              className="w-full text-left text-[10px] uppercase tracking-[0.18em] text-slate-500"
                               onClick={() => toggleReasoning(message.id)}
                             >
                               {message.streamStage === "reasoning"
@@ -531,8 +620,8 @@ export default function ChatPanel({
                         </p>
 
                         {!isUser && message.actionResults?.length ? (
-                          <div className="mt-3 rounded-2xl border border-border/60 bg-surface/70 p-2 text-xs text-muted">
-                            <p className="text-[10px] uppercase tracking-[0.26em] text-muted">
+                          <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-2 text-xs text-slate-400">
+                            <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">
                               Cambios aplicados
                             </p>
                             <div className="mt-1 space-y-1">
@@ -552,7 +641,7 @@ export default function ChatPanel({
             )}
 
             {isThinking ? (
-              <div className="mr-auto max-w-[85%] rounded-3xl border border-border/70 bg-surface-2 px-4 py-3 text-xs text-muted">
+              <div className="mr-auto max-w-[85%] rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-xs text-slate-400">
                 <div className="flex items-center gap-2">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:0ms]" />
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:120ms]" />
@@ -563,59 +652,79 @@ export default function ChatPanel({
             ) : null}
 
             {error ? (
-              <div className="rounded-2xl border border-warning/50 bg-warning/10 px-3 py-2 text-xs text-warning">
+              <div className="rounded-xl border border-warning/50 bg-warning/10 px-3 py-2 text-xs text-warning">
                 {error}
               </div>
             ) : null}
           </div>
 
-          <div className="border-t border-border/60 px-4 py-3 sm:px-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-              <div className="flex flex-wrap gap-1.5 sm:flex-col">
-                {reasoningByIndex.map((level) => (
-                  <button
-                    key={level}
-                    type="button"
-                    onClick={() => setReasoningLevel(level)}
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-all duration-200 border whitespace-nowrap ${reasoningLevel === level
-                      ? "bg-accent/15 text-accent border-accent/40"
-                      : "text-muted hover:text-text border-transparent hover:border-border/50"
-                      }`}
-                  >
-                    {reasoningLabelByLevel[level]}
-                  </button>
-                ))}
-                {canEditWithAI ? (
-                  <button
-                    type="button"
-                    onClick={() => setAllowActions((current) => !current)}
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-all duration-200 border whitespace-nowrap ${allowActions
-                      ? "bg-accent/15 text-accent border-accent/40"
-                      : "text-muted hover:text-text border-border/40"
-                      }`}
-                  >
-                    {allowActions ? "Acciones activas" : "Acciones apagadas"}
-                  </button>
-                ) : null}
-              </div>
-              <div className="flex flex-1 flex-col gap-2">
+          <div className="border-t border-white/10 px-4 py-3 sm:px-5">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => inputRef.current?.focus()}
+                  className="mb-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-transparent text-slate-400 transition hover:border-white/20 hover:text-white"
+                  aria-label="Agregar contexto"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
                 <Textarea
+                  ref={inputRef}
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Preguntá sobre parciales, horarios, correlativas..."
                   rows={2}
-                  className="min-h-[88px] sm:min-h-[100px]"
+                  className="min-h-[64px] resize-none rounded-xl border-white/10 bg-transparent px-0 py-2 text-sm text-slate-100 shadow-none placeholder:text-slate-500 focus:border-transparent focus:ring-transparent sm:min-h-[74px]"
                 />
+                <button
+                  type="button"
+                  onClick={handleSend}
+                  disabled={isSending || !input.trim()}
+                  className="mb-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45"
+                  aria-label="Enviar mensaje"
+                >
+                  <SendHorizontal className="h-4 w-4" />
+                </button>
               </div>
-              <Button
-                size="sm"
-                onClick={handleSend}
-                disabled={isSending || !input.trim()}
-                className="w-full sm:w-auto shrink-0"
-              >
-                {isSending ? "..." : "Enviar"}
-              </Button>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <Select
+                    hideChevron
+                    value={selectedModelId}
+                    onChange={(event) => selectModelOption(event.target.value)}
+                    className="h-7 w-[min(100%,210px)] rounded-lg border-white/10 bg-white/[0.05] px-2 py-0 text-[11px] text-slate-300 shadow-none hover:border-white/20 focus:border-accent/60 sm:w-[210px]"
+                  >
+                    {modelOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.providerLabel} · {option.label}
+                      </option>
+                    ))}
+                  </Select>
+                  {!reasoningSelectorDisabled ? (
+                    <Select
+                      hideChevron
+                      value={reasoningLevel}
+                      onChange={(event) =>
+                        setReasoningLevel(event.target.value as ReasoningLevel)
+                      }
+                      className="h-7 w-[118px] rounded-lg border-white/10 bg-white/[0.05] px-2 py-0 text-[11px] text-slate-300 shadow-none hover:border-white/20 focus:border-accent/60"
+                    >
+                      {reasoningByIndex
+                        .filter((level) => availableReasoningLevels.includes(level))
+                        .map((level) => (
+                          <option key={level} value={level}>
+                            Nivel {reasoningLabelByLevel[level]}
+                          </option>
+                        ))}
+                    </Select>
+                  ) : null}
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  {isSending ? "Enviando..." : currentModelOption.providerLabel}
+                </p>
+              </div>
             </div>
           </div>
         </div>

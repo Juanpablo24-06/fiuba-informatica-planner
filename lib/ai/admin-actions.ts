@@ -123,6 +123,15 @@ const hasInvalidDateRange = (startDate: string | null, endDate: string | null) =
   return new Date(startDate).getTime() > new Date(endDate).getTime();
 };
 
+const toEventDate = (value: string | null | undefined) => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+};
+
 const clearCurrentTerm = async (targetTermId: string) => {
   const { error } = await supabaseAdmin
     .from("terms")
@@ -167,6 +176,39 @@ const loadSubjects = async () => {
     throw new Error(error.message);
   }
   return (data ?? []) as SubjectLite[];
+};
+
+const findEnrollment = async (termId: string, subjectId: string) => {
+  const { data, error } = await supabaseAdmin
+    .from("enrollments")
+    .select("id")
+    .eq("term_id", termId)
+    .eq("subject_id", subjectId)
+    .maybeSingle();
+  if (error) {
+    throw new Error(error.message);
+  }
+  return data?.id ? String(data.id) : null;
+};
+
+const findEventByQuery = async (enrollmentId: string, query: string) => {
+  const { data, error } = await supabaseAdmin
+    .from("events")
+    .select("id,title,type,starts_at")
+    .eq("enrollment_id", enrollmentId)
+    .order("starts_at", { ascending: true });
+  if (error) {
+    throw new Error(error.message);
+  }
+  const normalizedQuery = normalizeText(query);
+  return (
+    (data ?? []).find((event) => {
+      const haystack = normalizeText(
+        [event.title, event.type, event.starts_at].filter(Boolean).join(" ")
+      );
+      return haystack.includes(normalizedQuery);
+    }) ?? null
+  );
 };
 
 export const executeAdminActions = async (
@@ -398,6 +440,112 @@ export const executeAdminActions = async (
         continue;
       }
 
+      if (action.type === "create_subject") {
+        const payload = {
+          code: action.code ?? null,
+          name: action.name,
+          credits: action.credits ?? null,
+          weekly_hours: action.weekly_hours ?? null,
+          total_hours: action.total_hours ?? null,
+          term_suggested: action.term_suggested ?? null,
+          cycle: action.cycle ?? null,
+          type: action.subject_type ?? null,
+          requirements: action.requirements ?? []
+        };
+        const { data, error } = await supabaseAdmin
+          .from("subjects")
+          .insert(payload)
+          .select("id,code,name")
+          .single();
+        if (error || !data) {
+          results.push({
+            type: action.type,
+            ok: false,
+            summary: `No se pudo crear la materia '${action.name}': ${error?.message ?? "sin detalle"}`
+          });
+          continue;
+        }
+        subjects.push({ id: data.id, code: data.code, name: data.name });
+        results.push({
+          type: action.type,
+          ok: true,
+          summary: `Materia ${data.name} creada correctamente.`
+        });
+        continue;
+      }
+
+      if (action.type === "update_subject" || action.type === "remove_subject") {
+        const subjectResult = resolveSubjectByQuery(subjectIndex, action.subject_query);
+        if ("error" in subjectResult) {
+          results.push({
+            type: action.type,
+            ok: false,
+            summary: subjectResult.error ?? "No se pudo resolver la materia solicitada."
+          });
+          continue;
+        }
+
+        if (action.type === "remove_subject") {
+          const { error } = await supabaseAdmin
+            .from("subjects")
+            .delete()
+            .eq("id", subjectResult.subject.id);
+          if (error) {
+            results.push({
+              type: action.type,
+              ok: false,
+              summary: `No se pudo eliminar ${subjectResult.subject.name}: ${error.message}`
+            });
+            continue;
+          }
+          results.push({
+            type: action.type,
+            ok: true,
+            summary: `Materia ${subjectResult.subject.name} eliminada correctamente.`
+          });
+          continue;
+        }
+
+        const patch: Record<string, unknown> = {};
+        if (action.code !== undefined) patch.code = action.code;
+        if (action.name !== undefined) patch.name = action.name;
+        if (action.credits !== undefined) patch.credits = action.credits;
+        if (action.weekly_hours !== undefined) patch.weekly_hours = action.weekly_hours;
+        if (action.total_hours !== undefined) patch.total_hours = action.total_hours;
+        if (action.term_suggested !== undefined) patch.term_suggested = action.term_suggested;
+        if (action.cycle !== undefined) patch.cycle = action.cycle;
+        if (action.subject_type !== undefined) patch.type = action.subject_type;
+        if (action.requirements !== undefined) patch.requirements = action.requirements;
+
+        if (Object.keys(patch).length === 0) {
+          results.push({
+            type: action.type,
+            ok: false,
+            summary: `No llegaron cambios para ${subjectResult.subject.name}.`
+          });
+          continue;
+        }
+
+        const { error } = await supabaseAdmin
+          .from("subjects")
+          .update(patch)
+          .eq("id", subjectResult.subject.id);
+        if (error) {
+          results.push({
+            type: action.type,
+            ok: false,
+            summary: `No se pudo actualizar ${subjectResult.subject.name}: ${error.message}`
+          });
+          continue;
+        }
+        results.push({
+          type: action.type,
+          ok: true,
+          summary: `Materia ${subjectResult.subject.name} actualizada correctamente.`
+        });
+        continue;
+      }
+
       const term = findTermByLabel(terms, action.term_label);
       if (!term) {
         results.push({
@@ -436,6 +584,141 @@ export const executeAdminActions = async (
           continue;
         }
         subject = subjectResult.subject;
+      }
+
+      if (
+        action.type === "create_event" ||
+        action.type === "update_event" ||
+        action.type === "remove_event"
+      ) {
+        const enrollmentId = await findEnrollment(term.id, subject.id);
+        if (!enrollmentId) {
+          results.push({
+            type: action.type,
+            ok: false,
+            summary: `${subject.name} no está cargada en ${term.label}; agregá la cursada antes de crear eventos.`
+          });
+          continue;
+        }
+
+        if (action.type === "create_event") {
+          const startsAt = toEventDate(action.starts_at);
+          const endsAt = toEventDate(action.ends_at);
+          if (!startsAt) {
+            results.push({
+              type: action.type,
+              ok: false,
+              summary: `La fecha del evento '${action.starts_at}' no es válida.`
+            });
+            continue;
+          }
+
+          const { error } = await supabaseAdmin.from("events").insert({
+            enrollment_id: enrollmentId,
+            type: action.event_type,
+            title: action.title ?? null,
+            description: action.description ?? null,
+            starts_at: startsAt,
+            ends_at: endsAt ?? null,
+            status: action.status ?? null,
+            grade: action.grade ?? null,
+            attempt: action.attempt ?? 1
+          });
+          if (error) {
+            results.push({
+              type: action.type,
+              ok: false,
+              summary: `No se pudo crear el evento para ${subject.name}: ${error.message}`
+            });
+            continue;
+          }
+          results.push({
+            type: action.type,
+            ok: true,
+            summary: `Evento ${action.title ?? action.event_type} creado para ${subject.name}.`
+          });
+          continue;
+        }
+
+        const event = await findEventByQuery(enrollmentId, action.event_query);
+        if (!event) {
+          results.push({
+            type: action.type,
+            ok: false,
+            summary: `No encontré un evento de ${subject.name} que coincida con '${action.event_query}'.`
+          });
+          continue;
+        }
+
+        if (action.type === "remove_event") {
+          const { error } = await supabaseAdmin
+            .from("events")
+            .delete()
+            .eq("id", event.id);
+          if (error) {
+            results.push({
+              type: action.type,
+              ok: false,
+              summary: `No se pudo eliminar el evento: ${error.message}`
+            });
+            continue;
+          }
+          results.push({
+            type: action.type,
+            ok: true,
+            summary: `Evento ${event.title ?? event.type} eliminado correctamente.`
+          });
+          continue;
+        }
+
+        const patch: Record<string, unknown> = {};
+        if (action.event_type !== undefined) patch.type = action.event_type;
+        if (action.title !== undefined) patch.title = action.title;
+        if (action.description !== undefined) patch.description = action.description;
+        if (action.starts_at !== undefined) {
+          const startsAt = toEventDate(action.starts_at);
+          if (!startsAt) {
+            results.push({
+              type: action.type,
+              ok: false,
+              summary: `La fecha del evento '${action.starts_at}' no es válida.`
+            });
+            continue;
+          }
+          patch.starts_at = startsAt;
+        }
+        if (action.ends_at !== undefined) patch.ends_at = toEventDate(action.ends_at) ?? null;
+        if (action.status !== undefined) patch.status = action.status;
+        if (action.grade !== undefined) patch.grade = action.grade;
+        if (action.attempt !== undefined) patch.attempt = action.attempt;
+
+        if (Object.keys(patch).length === 0) {
+          results.push({
+            type: action.type,
+            ok: false,
+            summary: `No llegaron cambios para el evento ${event.title ?? event.type}.`
+          });
+          continue;
+        }
+
+        const { error } = await supabaseAdmin
+          .from("events")
+          .update(patch)
+          .eq("id", event.id);
+        if (error) {
+          results.push({
+            type: action.type,
+            ok: false,
+            summary: `No se pudo actualizar el evento: ${error.message}`
+          });
+          continue;
+        }
+        results.push({
+          type: action.type,
+          ok: true,
+          summary: `Evento ${event.title ?? event.type} actualizado correctamente.`
+        });
+        continue;
       }
 
       if (action.type === "add_enrollment") {

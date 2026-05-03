@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
       {
         error: "AI no configurada.",
         instructions:
-          "Define CEREBRAS_API_KEY, NVIDIA_API_KEY o GEMINI_API_KEY en .env.local y reinicia el server."
+          "Define OPENROUTER_API_KEY, NVIDIA_API_KEY o GEMINI_API_KEY en .env.local y reinicia el server."
       },
       { status: 501 }
     );

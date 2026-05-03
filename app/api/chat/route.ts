@@ -20,7 +20,7 @@ const payloadSchema = z.object({
   storeHistory: z.boolean().optional(),
   allowActions: z.boolean().optional(),
   reasoningLevel: reasoningLevelSchema.optional(),
-  provider: z.enum(["auto", "cerebras", "nvidia", "gemini"]).optional(),
+  provider: z.enum(["auto", "openrouter", "nvidia", "gemini"]).optional(),
   model: z.string().trim().max(120).optional(),
   history: z
     .array(
@@ -167,6 +167,9 @@ const buildPrompt = ({
     `Nivel de razonamiento solicitado: ${reasoningLevel} (${reasoningHintByLevel[reasoningLevel]}).`,
     `Formato exigido para el campo reasoning en este nivel: ${reasoningFormatByLevel[reasoningLevel]}`,
     `Modo de acciones admin: ${allowActions ? "HABILITADO" : "DESHABILITADO"}.`,
+    "Capacidades de datos en tiempo real: conoces cuatrimestres, materias, cursadas, eventos de agenda y enriquecimientos de calendario incluidos en Contexto.",
+    "Capacidades de escritura admin cuando acciones está habilitado: puedes crear/editar cuatrimestres, marcar cuatrimestre actual, agregar/quitar cursadas, cambiar estado de cursadas, crear/editar/eliminar materias y crear/editar/eliminar eventos académicos.",
+    "Nunca devuelvas acciones si el modo de acciones está deshabilitado o faltan datos mínimos; pedí confirmación o datos faltantes.",
     "Si el usuario pide editar datos y el modo de acciones está habilitado, devuelve acciones en el campo `actions`.",
     "Si no corresponde editar, devuelve `actions: []`.",
     "Responde SOLO JSON valido con este schema:",
@@ -178,7 +181,7 @@ const buildPrompt = ({
       actions: [
         {
           type:
-            "create_term | update_term | set_current_term | add_enrollment | update_enrollment_status | remove_enrollment"
+            "create_term | update_term | set_current_term | add_enrollment | update_enrollment_status | remove_enrollment | create_subject | update_subject | remove_subject | create_event | update_event | remove_event"
         }
       ],
       confidence: 0.0,
@@ -242,7 +245,7 @@ export async function POST(request: NextRequest) {
       {
         error: "Chat AI deshabilitado.",
         instructions:
-          "Definí CEREBRAS_API_KEY, NVIDIA_API_KEY o GEMINI_API_KEY en el entorno activo (.env.local en local o Variables de Entorno en Vercel) y redeploy/reiniciá la app."
+          "Definí OPENROUTER_API_KEY, NVIDIA_API_KEY o GEMINI_API_KEY en el entorno activo (.env.local en local o Variables de Entorno en Vercel) y redeploy/reiniciá la app."
       },
       { status: 501 }
     );
@@ -378,6 +381,12 @@ export async function POST(request: NextRequest) {
     enrollments_by_term: enrollmentsByTerm,
     week_events: includeCalendarContext ? weekEvents : [],
     week_enrichments: includeCalendarContext ? enrichments : [],
+    writable_surfaces_when_admin_actions_enabled: [
+      "terms",
+      "subjects",
+      "enrollments",
+      "events"
+    ],
     role_capabilities:
       (assistantRules.roles as Record<string, unknown>)[session.role] ?? null
   };
@@ -395,7 +404,8 @@ export async function POST(request: NextRequest) {
   });
   let result = await callAIJSON(prompt, chatResponseSchema, {
     provider: effectiveProvider,
-    model: selectedModel
+    model: selectedModel,
+    reasoningLevel
   });
   if (!result.ok && shouldRetryWithRepairPrompt(result.error)) {
     const repairPrompt = [
@@ -406,7 +416,8 @@ export async function POST(request: NextRequest) {
     ].join("\n");
     result = await callAIJSON(repairPrompt, chatResponseSchema, {
       provider: effectiveProvider,
-      model: selectedModel
+      model: selectedModel,
+      reasoningLevel
     });
   }
 

@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { callGeminiJSON } from "@/lib/ai/gemini";
-import { callCerebrasJSON } from "@/lib/ai/cerebras";
 import { callNvidiaJSON } from "@/lib/ai/nvidia";
+import { callOpenRouterJSON } from "@/lib/ai/openrouter";
+import type { ReasoningLevel } from "@/lib/ai/schemas";
 
-type ResolvedProvider = "cerebras" | "nvidia" | "gemini";
+type ResolvedProvider = "openrouter" | "nvidia" | "gemini";
 export type AIProvider = "auto" | ResolvedProvider;
 
 type ProviderResult<T> =
@@ -20,11 +21,12 @@ type ProviderResult<T> =
 type AIRequestOptions = {
   provider?: AIProvider;
   model?: string;
+  reasoningLevel?: ReasoningLevel;
 };
 
 const getProviderOrder = (): ResolvedProvider[] => {
   const order: ResolvedProvider[] = [];
-  if (process.env.CEREBRAS_API_KEY) order.push("cerebras");
+  if (process.env.OPENROUTER_API_KEY) order.push("openrouter");
   if (process.env.NVIDIA_API_KEY) order.push("nvidia");
   if (process.env.GEMINI_API_KEY) order.push("gemini");
   return order;
@@ -32,7 +34,9 @@ const getProviderOrder = (): ResolvedProvider[] => {
 
 const getFallbackModel = (provider: ResolvedProvider, modelOverride?: string) => {
   if (modelOverride?.trim()) return modelOverride.trim();
-  if (provider === "cerebras") return process.env.CEREBRAS_MODEL ?? "llama3.1-70b";
+  if (provider === "openrouter") {
+    return process.env.OPENROUTER_MODEL ?? "openai/gpt-oss-120b:free";
+  }
   if (provider === "nvidia") return process.env.NVIDIA_MODEL ?? "z-ai/glm4.7";
   return process.env.GEMINI_MODEL ?? "gemini-1.5-pro";
 };
@@ -52,15 +56,17 @@ const callProvider = async <T>({
   provider,
   prompt,
   schema,
-  model
+  model,
+  reasoningLevel
 }: {
   provider: ResolvedProvider;
   prompt: string;
   schema: z.ZodSchema<T>;
   model?: string;
+  reasoningLevel?: ReasoningLevel;
 }): Promise<ProviderResult<T>> => {
-  if (provider === "cerebras") {
-    const result = await callCerebrasJSON(prompt, schema, { model });
+  if (provider === "openrouter") {
+    const result = await callOpenRouterJSON(prompt, schema, { model, reasoningLevel });
     if (result.ok) {
       return {
         ok: true,
@@ -72,7 +78,7 @@ const callProvider = async <T>({
     }
 
     if (model?.trim() && shouldRetryWithDefaultModel(result.error)) {
-      const fallbackResult = await callCerebrasJSON(prompt, schema);
+      const fallbackResult = await callOpenRouterJSON(prompt, schema, { reasoningLevel });
       if (fallbackResult.ok) {
         return {
           ok: true,
@@ -191,7 +197,7 @@ export const hasAnyAIProviderConfigured = () => getProviderOrder().length > 0;
 
 export const isAIProviderConfigured = (provider: AIProvider = "auto") => {
   if (provider === "auto") return hasAnyAIProviderConfigured();
-  if (provider === "cerebras") return Boolean(process.env.CEREBRAS_API_KEY);
+  if (provider === "openrouter") return Boolean(process.env.OPENROUTER_API_KEY);
   if (provider === "nvidia") return Boolean(process.env.NVIDIA_API_KEY);
   return Boolean(process.env.GEMINI_API_KEY);
 };
@@ -207,7 +213,8 @@ export const callAIJSON = async <T>(
       provider: selectedProvider,
       prompt,
       schema,
-      model: options?.model
+      model: options?.model,
+      reasoningLevel: options?.reasoningLevel
     });
   }
 
@@ -222,7 +229,8 @@ export const callAIJSON = async <T>(
       provider,
       prompt,
       schema,
-      model: options?.model
+      model: options?.model,
+      reasoningLevel: options?.reasoningLevel
     });
     if (result.ok) return result;
     lastError = result;

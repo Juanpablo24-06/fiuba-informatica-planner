@@ -1,5 +1,5 @@
 export type ReasoningLevel = "bajo" | "medio" | "alto";
-export type AIProvider = "auto" | "cerebras" | "nvidia" | "gemini";
+export type AIProvider = "auto" | "openrouter" | "nvidia" | "gemini";
 
 export type AssistantActionResult = {
   type: string;

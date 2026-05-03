@@ -63,6 +63,15 @@ const enrollmentStatusSchema = z.enum([
   "aprobado",
   "recursar"
 ]);
+const eventTypeSchema = z.enum([
+  "parcial",
+  "recuperatorio",
+  "tp",
+  "defensa",
+  "final",
+  "clase",
+  "otro"
+]);
 
 const termDateSchema = z.string().trim().min(1);
 
@@ -104,6 +113,69 @@ export const chatAdminActionSchema = z.discriminatedUnion("type", [
     type: z.literal("remove_enrollment"),
     term_label: z.string().trim().min(3),
     subject_query: z.string().trim().min(2)
+  }),
+  z.object({
+    type: z.literal("create_subject"),
+    subject_query: z.string().trim().min(2).optional(),
+    code: z.string().trim().max(32).nullable().optional(),
+    name: z.string().trim().min(2),
+    credits: z.number().int().min(0).nullable().optional(),
+    weekly_hours: z.number().int().min(0).nullable().optional(),
+    total_hours: z.number().int().min(0).nullable().optional(),
+    term_suggested: z.number().int().min(1).max(10).nullable().optional(),
+    cycle: z.string().trim().nullable().optional(),
+    subject_type: z.string().trim().nullable().optional(),
+    requirements: z.array(z.string().trim()).nullable().optional()
+  }),
+  z.object({
+    type: z.literal("update_subject"),
+    subject_query: z.string().trim().min(2),
+    code: z.string().trim().max(32).nullable().optional(),
+    name: z.string().trim().min(2).optional(),
+    credits: z.number().int().min(0).nullable().optional(),
+    weekly_hours: z.number().int().min(0).nullable().optional(),
+    total_hours: z.number().int().min(0).nullable().optional(),
+    term_suggested: z.number().int().min(1).max(10).nullable().optional(),
+    cycle: z.string().trim().nullable().optional(),
+    subject_type: z.string().trim().nullable().optional(),
+    requirements: z.array(z.string().trim()).nullable().optional()
+  }),
+  z.object({
+    type: z.literal("remove_subject"),
+    subject_query: z.string().trim().min(2)
+  }),
+  z.object({
+    type: z.literal("create_event"),
+    term_label: z.string().trim().min(3),
+    subject_query: z.string().trim().min(2),
+    event_type: eventTypeSchema.default("otro"),
+    title: z.string().trim().max(120).nullable().optional(),
+    description: z.string().trim().max(2000).nullable().optional(),
+    starts_at: z.string().trim().min(1),
+    ends_at: z.string().trim().nullable().optional(),
+    status: z.string().trim().nullable().optional(),
+    grade: z.number().min(0).max(10).nullable().optional(),
+    attempt: z.number().int().min(1).nullable().optional()
+  }),
+  z.object({
+    type: z.literal("update_event"),
+    term_label: z.string().trim().min(3),
+    subject_query: z.string().trim().min(2),
+    event_query: z.string().trim().min(2),
+    event_type: eventTypeSchema.optional(),
+    title: z.string().trim().max(120).nullable().optional(),
+    description: z.string().trim().max(2000).nullable().optional(),
+    starts_at: z.string().trim().min(1).optional(),
+    ends_at: z.string().trim().nullable().optional(),
+    status: z.string().trim().nullable().optional(),
+    grade: z.number().min(0).max(10).nullable().optional(),
+    attempt: z.number().int().min(1).nullable().optional()
+  }),
+  z.object({
+    type: z.literal("remove_event"),
+    term_label: z.string().trim().min(3),
+    subject_query: z.string().trim().min(2),
+    event_query: z.string().trim().min(2)
   })
 ]);
 

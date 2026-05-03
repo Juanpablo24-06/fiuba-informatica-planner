@@ -28,6 +28,18 @@ const parseActionsFromRaw = (rawActions: unknown): ChatAdminAction[] => {
                 ? "update_enrollment_status"
                 : type === "remove_enrollment"
                   ? "remove_enrollment"
+                  : type === "create_subject" || type === "add_subject" || type === "crear_materia"
+                    ? "create_subject"
+                    : type === "update_subject" || type === "editar_materia"
+                      ? "update_subject"
+                      : type === "remove_subject" || type === "delete_subject" || type === "eliminar_materia"
+                        ? "remove_subject"
+                        : type === "create_event" || type === "add_event" || type === "crear_evento"
+                          ? "create_event"
+                          : type === "update_event" || type === "editar_evento"
+                            ? "update_event"
+                            : type === "remove_event" || type === "delete_event" || type === "eliminar_evento"
+                              ? "remove_event"
                   : rawType;
 
     const randomHint =
@@ -51,9 +63,19 @@ const parseActionsFromRaw = (rawActions: unknown): ChatAdminAction[] => {
       subject_query: String(
         record.subject_query ??
           record.subject ??
+          record.subject_name ??
           record.materia ??
+          record.name ??
           (randomHint ? "aleatorio" : "")
       ),
+      name: record.name ?? record.subject_name ?? record.materia,
+      code: record.code ?? record.codigo,
+      event_query: String(record.event_query ?? record.event ?? record.title ?? record.titulo ?? ""),
+      event_type: record.event_type ?? record.type_event ?? record.tipo_evento ?? record.tipo,
+      title: record.title ?? record.titulo,
+      description: record.description ?? record.descripcion,
+      starts_at: record.starts_at ?? record.start_at ?? record.start ?? record.inicio,
+      ends_at: record.ends_at ?? record.end_at ?? record.end ?? record.fin,
       start_date:
         record.start_date ??
         record.start ??
