@@ -54,36 +54,38 @@
 }
 
 [data-palette="grafito"] {
-  --color-canvas: 243 246 249;
+  --color-canvas: 246 246 246;
   --color-surface: 255 255 255;
-  --color-surface-2: 236 241 246;
-  --color-border: 211 219 228;
-  --color-text: 23 29 36;
-  --color-muted: 95 107 122;
-  --color-accent: 61 74 92;
-  --color-accent-contrast: 250 251 253;
-  --color-accent-2: 84 104 134;
-  --color-accent-3: 148 158 171;
-  --color-accent-4: 103 113 127;
-  --color-prereq: 50 133 111;
-  --color-unlock: 86 114 151;
-  --color-elective: 132 95 58;
-  --shadow-color: 26 34 44;
+  --color-surface-2: 238 238 238;
+  --color-border: 210 210 210;
+  --color-text: 24 24 24;
+  --color-muted: 103 103 103;
+  --color-accent: 38 38 38;
+  --color-accent-contrast: 255 255 255;
+  --color-accent-2: 82 82 82;
+  --color-accent-3: 138 138 138;
+  --color-accent-4: 64 64 64;
+  --color-prereq: 55 55 55;
+  --color-unlock: 115 115 115;
+  --color-elective: 92 92 92;
+  --shadow-color: 24 24 24;
 }
 
 [data-theme="dark"][data-palette="grafito"] {
-  --color-canvas: 15 18 22;
-  --color-surface: 24 28 34;
-  --color-surface-2: 33 38 46;
-  --color-border: 57 65 77;
-  --color-text: 236 240 245;
-  --color-muted: 146 156 170;
-  --color-accent: 151 163 181;
-  --color-accent-contrast: 18 23 30;
-  --color-accent-2: 104 136 171;
-  --color-accent-3: 196 173 122;
-  --color-accent-4: 143 151 164;
-  --color-elective: 214 162 99;
+  --color-canvas: 14 14 14;
+  --color-surface: 24 24 24;
+  --color-surface-2: 34 34 34;
+  --color-border: 64 64 64;
+  --color-text: 238 238 238;
+  --color-muted: 163 163 163;
+  --color-accent: 229 229 229;
+  --color-accent-contrast: 18 18 18;
+  --color-accent-2: 186 186 186;
+  --color-accent-3: 132 132 132;
+  --color-accent-4: 212 212 212;
+  --color-prereq: 214 214 214;
+  --color-unlock: 156 156 156;
+  --color-elective: 184 184 184;
 }
 
 [data-palette="coral"] {

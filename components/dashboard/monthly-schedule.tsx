@@ -140,9 +140,9 @@ export default function MonthlySchedule({
           </Link>
         </div>
       </div>
-      <div className="grid gap-3 md:hidden">
+      <div className="md:hidden">
         {agendaGroups.length === 0 ? (
-          <div className="rounded-[1.7rem] border border-border/50 bg-surface/65 px-5 py-8 text-center text-sm text-muted">
+          <div className="border-y border-border/35 px-1 py-8 text-center text-sm text-muted">
             No hay actividades registradas para este mes.
           </div>
         ) : (
@@ -150,11 +150,11 @@ export default function MonthlySchedule({
             <section
               key={group.key}
               className={cn(
-                "overflow-hidden rounded-[1.7rem] border border-border/55 bg-surface/75 shadow-soft",
-                group.isToday && "border-accent/35 ring-1 ring-accent/15"
+                "border-t border-border/35 pt-3",
+                group.isToday && "border-accent/45"
               )}
             >
-              <header className="flex items-center justify-between gap-3 border-b border-border/45 bg-surface-2/45 px-4 py-3">
+              <header className="mb-2 flex items-center justify-between gap-3">
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.18em] text-muted">{group.label}</p>
                   <p className="mt-1 text-sm font-semibold text-text">
@@ -163,20 +163,20 @@ export default function MonthlySchedule({
                 </div>
                 <span
                   className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold",
+                    "flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold",
                     group.isToday
                       ? "bg-accent text-accent-content"
-                      : "border border-border/55 bg-surface/85 text-text"
+                      : "border border-border/45 text-text"
                   )}
                 >
                   {group.dayNumber}
                 </span>
               </header>
-              <div className="divide-y divide-border/45">
+              <div className="divide-y divide-border/30">
                 {group.events.map((event, index) => (
                   <article
                     key={getEventRenderKey(event, index)}
-                    className="flex items-start gap-3 px-4 py-3"
+                    className="flex items-start gap-3 py-3"
                   >
                     <span
                       className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
@@ -206,7 +206,8 @@ export default function MonthlySchedule({
           ))
         )}
       </div>
-      <div className="hidden grid-cols-7 gap-2 text-xs md:grid">
+      <div className="hidden overflow-x-auto pb-1 md:block">
+        <div className="grid min-w-[840px] grid-cols-7 gap-2 text-xs">
           {WEEKDAYS.map((day) => (
             <div key={day} className="text-center text-[11px] font-medium tracking-wide text-muted uppercase">
               {day}
@@ -217,7 +218,7 @@ export default function MonthlySchedule({
               return (
                 <div
                   key={`empty-${index}`}
-                  className="min-h-[115px] rounded-2xl border border-dashed border-border/30 bg-surface/20"
+                  className="min-h-[112px] rounded-xl border border-dashed border-border/25 bg-surface/20"
                 />
               );
             }
@@ -229,7 +230,7 @@ export default function MonthlySchedule({
               <div
                 key={key}
                 className={cn(
-                  "min-h-[115px] rounded-2xl border border-border/50 bg-surface/70 p-2 transition-colors hover:border-border",
+                  "min-h-[112px] rounded-xl border border-border/35 bg-surface/55 p-2 transition-colors hover:border-border/70",
                   isToday && "border-accent/40 bg-accent/5 ring-1 ring-inset ring-accent/20"
                 )}
               >
@@ -243,7 +244,7 @@ export default function MonthlySchedule({
                 </div>
                 <div className="mt-2 space-y-1.5 text-[11px]">
                   {dayEvents.slice(0, 3).map((event, index) => (
-                    <div key={getEventRenderKey(event, index)} className="flex items-center gap-1.5 rounded-md px-1 py-0.5 hover:bg-surface-2/60 transition-colors">
+                    <div key={getEventRenderKey(event, index)} className="flex items-center gap-1.5 rounded-md px-1 py-0.5 transition-colors hover:bg-surface-2/60">
                       <span
                         className="h-2 w-2 shrink-0 rounded-full"
                         style={{
@@ -268,6 +269,7 @@ export default function MonthlySchedule({
               </div>
             );
           })}
+        </div>
       </div>
     </div>
   );

@@ -27,18 +27,23 @@ const resolveBucket = (value: string): EvaluationBucket | null => {
   if (hasAnyToken(value, ["parcial", "recuperatorio", "recup"])) return "parciales";
   if (hasAnyToken(value, ["tp", "entrega", "entregable", "trabajo practico"])) return "entregas";
   if (hasAnyToken(value, ["final", "defensa", "coloquio"])) return "finales";
+  if (hasAnyToken(value, ["exam", "examen"])) return "parciales";
   return null;
 };
 
 export const classifyEvaluationEvent = (event: Pick<CalendarEvent, "title" | "type">) => {
   const typeToken = normalizeToken(event.type);
+  const titleToken = normalizeToken(event.title);
   if (typeToken) {
     if (isClassToken(typeToken)) return null;
+    if (hasAnyToken(typeToken, ["exam", "examen"])) {
+      return resolveBucket(titleToken) ?? "parciales";
+    }
     const bucket = resolveBucket(typeToken);
     if (bucket) return bucket;
   }
 
-  return resolveBucket(normalizeToken(event.title));
+  return resolveBucket(titleToken);
 };
 
 const SECTION_LABELS: Record<EvaluationBucket, string> = {

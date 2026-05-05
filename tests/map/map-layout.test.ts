@@ -9,6 +9,7 @@ import {
   ELECTIVE_COLUMN_GAP,
   NODE_WIDTH,
   OFFICIAL_ELECTIVE_ORDER,
+  SECTION_GAP,
   SLOT_GAP
 } from "@/lib/map/map-constants";
 import type { MapEdge, MapNode } from "@/lib/map/types";
@@ -80,7 +81,7 @@ describe("map layout helpers", () => {
     expect(paths.every((path) => path.d.startsWith("M "))).toBe(true);
   });
 
-  it("keeps elective blocks to the right with a wider, ordered arrangement", () => {
+  it("keeps elective blocks to the right without over-stretching the final map", () => {
     const electiveNodes = [
       { id: "elective-8", name: OFFICIAL_ELECTIVE_ORDER[7] },
       { id: "elective-2", name: OFFICIAL_ELECTIVE_ORDER[1] },
@@ -121,6 +122,24 @@ describe("map layout helpers", () => {
     expect(firstElectiveX).toBeGreaterThan(requiredX);
     expect(secondColumnElectiveX).toBe(firstElectiveX + NODE_WIDTH + ELECTIVE_COLUMN_GAP);
     expect(genericElectiveX).toBeGreaterThan(secondColumnElectiveX);
-    expect(secondColumnElectiveX - firstElectiveX).toBeGreaterThan(NODE_WIDTH + SLOT_GAP);
+    expect(ELECTIVE_COLUMN_GAP).toBeLessThan(SLOT_GAP);
+    expect(genericElectiveX - firstElectiveX).toBeLessThan(NODE_WIDTH * 3 + SLOT_GAP * 3);
+  });
+
+  it("keeps the mandatory final stretch compact when electives are hidden", () => {
+    const nodes: MapNode[] = [
+      node({ id: "security", name: "Taller de Seguridad Informática", code: "TSI", term: 9 }),
+      node({ id: "business", name: "Empresas de Base Tecnológica II", code: "EBT2", term: 9 }),
+      node({ id: "final", name: "Trabajo Integrador Final", code: "TIF", term: 10 })
+    ];
+
+    const layout = computeHorizontalLayout(nodes, []);
+    const termNine = layout.sections.find((section) => section.term === 9);
+    const termTen = layout.sections.find((section) => section.term === 10);
+
+    expect(termNine).toBeDefined();
+    expect(termTen).toBeDefined();
+    expect((termTen?.left ?? 0) - ((termNine?.left ?? 0) + (termNine?.width ?? 0))).toBe(SECTION_GAP);
+    expect(SECTION_GAP).toBeLessThan(70);
   });
 });

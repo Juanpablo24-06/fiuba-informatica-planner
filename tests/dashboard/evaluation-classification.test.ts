@@ -30,6 +30,18 @@ describe("classifyEvaluationEvent", () => {
     ).toBe("parciales");
   });
 
+  it("keeps generic exam events in the right bucket based on the available title clues", () => {
+    expect(
+      classifyEvaluationEvent(buildEvent({ id: "exam-final", type: "exam", title: "Final integrador" }))
+    ).toBe("finales");
+    expect(
+      classifyEvaluationEvent(buildEvent({ id: "exam-tp", type: "exam", title: "TP evaluable" }))
+    ).toBe("entregas");
+    expect(classifyEvaluationEvent(buildEvent({ id: "exam-generic", type: "exam", title: "Examen 2" }))).toBe(
+      "parciales"
+    );
+  });
+
   it("falls back to the title when the type does not identify an evaluation", () => {
     expect(classifyEvaluationEvent(buildEvent({ id: "title-tp", title: "TP 2" }))).toBe("entregas");
     expect(classifyEvaluationEvent(buildEvent({ id: "title-recup", title: "Recuperatorio 1" }))).toBe("parciales");

@@ -159,11 +159,11 @@ export default async function EvaluacionesPage({
   const evaluationSections = buildEvaluationSections(allUpcoming);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       <section className="space-y-3">
         <div className="space-y-1">
           <p className="text-xs uppercase tracking-[0.3em] text-muted">Mes actual</p>
-          <h1 className="text-xl font-semibold tracking-tight text-text">Evaluaciones y agenda</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-text">Evaluaciones</h1>
         </div>
         <MonthlySchedule events={monthEvaluationEvents} referenceDate={referenceDate} />
       </section>
@@ -171,12 +171,10 @@ export default async function EvaluacionesPage({
       <section className="space-y-3">
         <div className="space-y-1">
           <p className="text-xs uppercase tracking-[0.3em] text-muted">A futuro</p>
-          <p className="text-sm text-muted">
-            Parciales, recuperatorios, entregas, TPs, finales y defensas. Las clases regulares quedan fuera.
-          </p>
+          <h2 className="text-lg font-semibold tracking-tight text-text">Próximas fechas</h2>
         </div>
         {evaluationSections.length === 0 ? (
-          <div className="rounded-2xl border border-border/45 bg-surface/70 p-8 text-center text-sm text-muted">
+          <div className="border-y border-border/35 py-8 text-center text-sm text-muted">
             No hay evaluaciones ni entregas a la vista.
           </div>
         ) : (

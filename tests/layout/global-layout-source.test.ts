@@ -24,8 +24,10 @@ describe("global layout source", () => {
   });
 
   it("defines graphite as an optional neutral palette", () => {
-    expect(globalsSource).toContain("--color-canvas: 243 246 249;");
+    expect(globalsSource).toContain("--color-canvas: 246 246 246;");
+    expect(globalsSource).toContain("--color-accent: 38 38 38;");
     expect(globalsSource).toContain('[data-palette="grafito"]');
+    expect(globalsSource).not.toContain("--color-accent: 61 74 92;");
   });
 
   it("recognizes graphite while keeping the existing coral default", () => {

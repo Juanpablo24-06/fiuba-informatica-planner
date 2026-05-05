@@ -55,21 +55,19 @@ export default function WeeklySchedule({ events }: { events: CalendarEvent[] }) 
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
-        <span>Horario semanal</span>
-        <span>
-          {`${startHour}:00 - ${endHour}:00`}
-        </span>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/35 pb-3 text-xs text-muted">
+        <span className="font-semibold uppercase tracking-[0.18em]">Horario semanal</span>
+        <span>{`${startHour}:00 - ${endHour}:00`}</span>
       </div>
-      <div className="space-y-3 md:hidden">
+      <div className="md:hidden">
         {mobileDayGroups.length === 0 ? (
-          <div className="rounded-2xl border border-border/50 bg-surface/75 px-4 py-6 text-center text-sm text-muted">
+          <div className="border-b border-border/35 px-1 py-6 text-center text-sm text-muted">
             No hay eventos programados para esta semana.
           </div>
         ) : (
           mobileDayGroups.map((group) => (
-            <section key={group.short} className="overflow-hidden rounded-xl border border-border/45 bg-surface/70">
-              <header className="flex items-center justify-between border-b border-border/35 bg-surface-2/30 px-3 py-2">
+            <section key={group.short} className="border-b border-border/35 py-3">
+              <header className="mb-2 flex items-center justify-between">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">
                   {group.long}
                 </p>
@@ -77,7 +75,7 @@ export default function WeeklySchedule({ events }: { events: CalendarEvent[] }) 
                   {group.events.length} {group.events.length === 1 ? "evento" : "eventos"}
                 </p>
               </header>
-              <div className="divide-y divide-border/35">
+              <div className="divide-y divide-border/30">
                 {group.events.map((event, index) => {
                   const style = {
                     ...(event.color
@@ -86,7 +84,7 @@ export default function WeeklySchedule({ events }: { events: CalendarEvent[] }) 
                   } as CSSProperties;
 
                   return (
-                    <article key={getEventRenderKey(event, index)} className="flex items-start gap-3 px-3 py-2.5">
+                    <article key={getEventRenderKey(event, index)} className="flex items-start gap-3 py-2.5">
                       <span
                         className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full border border-transparent"
                         style={{
@@ -136,7 +134,7 @@ export default function WeeklySchedule({ events }: { events: CalendarEvent[] }) 
       </div>
       <div className="hidden md:block">
         <div className="overflow-x-auto pb-1">
-          <div className="grid min-w-[820px] grid-cols-[76px_repeat(7,minmax(0,1fr))] gap-3 text-xs">
+          <div className="grid min-w-[820px] grid-cols-[64px_repeat(7,minmax(0,1fr))] gap-2 text-xs">
             <div />
             {dayGroups.map((day) => (
               <div
@@ -160,13 +158,13 @@ export default function WeeklySchedule({ events }: { events: CalendarEvent[] }) 
             {dayGroups.map((day) => (
               <div
                 key={`col-${day.short}`}
-                className="relative border-l border-border/25 px-2.5 py-2"
+                className="relative border-l border-border/25 px-2 py-2"
                 style={timelineStyle}
               >
                 {Array.from({ length: hourCount + 1 }).map((_, index) => (
                   <div
                     key={`${day.short}-slot-${index}`}
-                    className="absolute left-2.5 right-2.5 border-b border-border/15"
+                    className="absolute left-2 right-2 border-b border-border/15"
                     style={{ top: index * 72 }}
                   />
                 ))}
@@ -196,8 +194,8 @@ export default function WeeklySchedule({ events }: { events: CalendarEvent[] }) 
                       top: `${top}%`,
                       minHeight: 56,
                       height: `${Math.max(6, height)}%`,
-                      left: "0.625rem",
-                      right: "0.625rem",
+                      left: "0.5rem",
+                      right: "0.5rem",
                       ...(event.color
                         ? { borderColor: event.color, boxShadow: `0 0 0 1px ${event.color}33` }
                         : {})
@@ -207,7 +205,7 @@ export default function WeeklySchedule({ events }: { events: CalendarEvent[] }) 
                         key={getEventRenderKey(event, index)}
                         style={style}
                         className={cn(
-                          "absolute z-10 overflow-hidden rounded-xl border border-border/55 bg-surface/90 p-3 text-[11px] text-text shadow-sm",
+                          "absolute z-10 overflow-hidden rounded-md border-l-2 border-border/55 bg-surface/95 px-3 py-2 text-[11px] text-text shadow-sm",
                           event.source === "calendar" ? "border-accent/40" : "border-accent-2/40"
                         )}
                       >
