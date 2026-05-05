@@ -1,5 +1,5 @@
 export type ThemePreference = "light" | "dark" | "system";
-export type PalettePreset = "coral" | "esmeralda" | "indigo";
+export type PalettePreset = "grafito" | "coral" | "esmeralda" | "indigo";
 export type DensityMode = "compacta" | "media" | "amplia";
 
 export type AppearancePreferences = {
@@ -25,10 +25,7 @@ const isThemePreference = (value: string | null): value is ThemePreference =>
   value === "light" || value === "dark" || value === "system";
 
 const isPalettePreset = (value: string | null): value is PalettePreset =>
-  value === "coral" || value === "esmeralda" || value === "indigo";
-
-const isDensityMode = (value: string | null): value is DensityMode =>
-  value === "compacta" || value === "media" || value === "amplia";
+  value === "grafito" || value === "coral" || value === "esmeralda" || value === "indigo";
 
 export const resolveTheme = (theme: ThemePreference) => {
   if (theme !== "system") return theme;
@@ -44,12 +41,10 @@ export const readAppearancePreferences = (): AppearancePreferences => {
 
   const storedTheme = localStorage.getItem(THEME_KEY);
   const storedPalette = localStorage.getItem(PALETTE_KEY);
-  const storedDensity = localStorage.getItem(DENSITY_KEY);
-
   return {
     theme: isThemePreference(storedTheme) ? storedTheme : DEFAULT_APPEARANCE.theme,
     palette: isPalettePreset(storedPalette) ? storedPalette : DEFAULT_APPEARANCE.palette,
-    density: isDensityMode(storedDensity) ? storedDensity : DEFAULT_APPEARANCE.density
+    density: DEFAULT_APPEARANCE.density
   };
 };
 
@@ -60,7 +55,7 @@ export const applyAppearancePreferences = (preferences: AppearancePreferences) =
   root.setAttribute(THEME_TRANSITION_LOCK, "true");
   root.dataset.theme = resolved;
   root.dataset.palette = preferences.palette;
-  root.dataset.density = preferences.density;
+  root.dataset.density = DEFAULT_APPEARANCE.density;
   root.style.colorScheme = resolved;
 
   window.requestAnimationFrame(() => {
@@ -74,20 +69,25 @@ export const commitAppearancePreferences = (preferences: AppearancePreferences) 
   if (typeof window !== "undefined") {
     localStorage.setItem(THEME_KEY, preferences.theme);
     localStorage.setItem(PALETTE_KEY, preferences.palette);
-    localStorage.setItem(DENSITY_KEY, preferences.density);
+    localStorage.setItem(DENSITY_KEY, DEFAULT_APPEARANCE.density);
   }
 
-  applyAppearancePreferences(preferences);
+  const normalizedPreferences = {
+    ...preferences,
+    density: DEFAULT_APPEARANCE.density
+  };
+
+  applyAppearancePreferences(normalizedPreferences);
 
   if (typeof window !== "undefined") {
     window.dispatchEvent(
       new CustomEvent<AppearancePreferences>(APPEARANCE_EVENT, {
-        detail: preferences
+        detail: normalizedPreferences
       })
     );
   }
 
-  return preferences;
+  return normalizedPreferences;
 };
 
 export const subscribeToAppearancePreferences = (

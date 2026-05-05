@@ -12,6 +12,8 @@ import {
   SECTION_GAP,
   SECTION_SIDE_PADDING,
   SLOT_GAP,
+  ELECTIVE_COLUMN_GAP,
+  ELECTIVE_GROUP_GAP,
   WORLD_PADDING_X,
   WORLD_PADDING_Y
 } from "@/lib/map/map-constants";
@@ -221,15 +223,26 @@ export const computeHorizontalLayout = (nodes: MapNode[], edges: MapEdge[]): Lay
     const sectionLeft = currentLeft;
     let cursorX = sectionLeft + SECTION_SIDE_PADDING;
     let fixedContentWidth = 0;
+    let lastColumnGap = SLOT_GAP;
 
     const fixedNodes = termNodes.filter((node) => getFixedNodePosition(node));
     const floatingNodes = termNodes.filter((node) => !getFixedNodePosition(node));
 
     if (fixedNodes.length) {
+      const fixedRequiredColumns = fixedNodes
+        .filter((node) => node.type !== "electiva")
+        .map((node) => getFixedNodePosition(node)?.column ?? 0);
+      const electiveColumnOffset = fixedRequiredColumns.length
+        ? Math.max(...fixedRequiredColumns) + 1
+        : 0;
+
       fixedNodes.forEach((node) => {
         const position = getFixedNodePosition(node);
         if (!position) return;
-        const x = sectionLeft + SECTION_SIDE_PADDING + position.column * (NODE_WIDTH + SLOT_GAP);
+        const fixedGap = node.type === "electiva" ? ELECTIVE_COLUMN_GAP : SLOT_GAP;
+        const resolvedColumn =
+          node.type === "electiva" ? position.column + electiveColumnOffset : position.column;
+        const x = sectionLeft + SECTION_SIDE_PADDING + resolvedColumn * (NODE_WIDTH + fixedGap);
         const y = laneToY(position.lane);
         placements[node.id] = {
           x,
@@ -240,13 +253,13 @@ export const computeHorizontalLayout = (nodes: MapNode[], edges: MapEdge[]): Lay
         };
         fixedContentWidth = Math.max(
           fixedContentWidth,
-          (position.column + 1) * NODE_WIDTH + position.column * SLOT_GAP
+          (resolvedColumn + 1) * NODE_WIDTH + resolvedColumn * fixedGap
         );
       });
       cursorX = sectionLeft + SECTION_SIDE_PADDING + fixedContentWidth + (fixedContentWidth ? SLOT_GAP : 0);
     }
 
-    const placeColumn = (columnNodes: MapNode[]) => {
+    const placeColumn = (columnNodes: MapNode[], columnGap: number = SLOT_GAP) => {
       const sorted = sortByAnchor(columnNodes, incomingByNode, placements, nodesById);
       const columns = chunk(sorted, LANE_COUNT);
 
@@ -261,7 +274,8 @@ export const computeHorizontalLayout = (nodes: MapNode[], edges: MapEdge[]): Lay
             lane: lanes[index]
           };
         });
-        cursorX += NODE_WIDTH + SLOT_GAP;
+        cursorX += NODE_WIDTH + columnGap;
+        lastColumnGap = columnGap;
       });
     };
 
@@ -316,18 +330,21 @@ export const computeHorizontalLayout = (nodes: MapNode[], edges: MapEdge[]): Lay
         Array.from(levels.keys())
           .sort((a, b) => a - b)
           .forEach((level) => {
-            placeColumn(levels.get(level) ?? []);
+            placeColumn(levels.get(level) ?? [], ELECTIVE_COLUMN_GAP);
           });
       }
 
       if (genericElectives.length) {
-        placeColumn(genericElectives);
+        placeColumn(genericElectives, ELECTIVE_GROUP_GAP);
       }
     }
 
     const computedFlowWidth = Math.max(
       0,
-      cursorX - sectionLeft - SECTION_SIDE_PADDING - (cursorX > sectionLeft + SECTION_SIDE_PADDING ? SLOT_GAP : 0)
+      cursorX -
+        sectionLeft -
+        SECTION_SIDE_PADDING -
+        (cursorX > sectionLeft + SECTION_SIDE_PADDING ? lastColumnGap : 0)
     );
     const contentWidth = Math.max(NODE_WIDTH, fixedContentWidth, computedFlowWidth);
     const sectionWidth = contentWidth + SECTION_SIDE_PADDING * 2;

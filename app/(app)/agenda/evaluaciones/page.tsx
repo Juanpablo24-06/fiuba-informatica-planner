@@ -1,15 +1,14 @@
 import MonthlySchedule from "@/components/dashboard/monthly-schedule";
 import UpcomingEvents from "@/components/dashboard/upcoming-events";
-import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { getCalendarEvents } from "@/lib/google-calendar";
 import {
   getCurrentTerm,
   getEnrollmentsForTerm,
   getEventsForTerm,
-  getSubjects,
-  getUpcomingEvents
+  getSubjects
 } from "@/lib/queries";
 import type { CalendarEvent, Enrollment, EnrollmentScheduleDay, Event } from "@/lib/types";
+import { buildEvaluationSections } from "@/lib/dashboard/evaluation-classification";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SCHEDULE_DAY_TO_WEEKDAY: Record<EnrollmentScheduleDay, number> = {
@@ -87,6 +86,12 @@ const attachSubjectHint = (
     return match ? { ...event, subject: match.name } : event;
   });
 
+const filterFutureEvents = (events: CalendarEvent[], start: Date, endExclusive: Date) =>
+  events.filter((event) => {
+    const date = new Date(event.startsAt).getTime();
+    return date >= start.getTime() && date < endExclusive.getTime();
+  });
+
 export default async function EvaluacionesPage({
   searchParams
 }: {
@@ -117,13 +122,12 @@ export default async function EvaluacionesPage({
     getCalendarEvents(now.toISOString(), upcomingEnd.toISOString())
   ]);
 
-  const [enrollments, termEvents, upcomingInternal] = currentTerm
+  const [enrollments, termEvents] = currentTerm
     ? await Promise.all([
         getEnrollmentsForTerm(currentTerm.id),
-        getEventsForTerm(currentTerm.id),
-        getUpcomingEvents(currentTerm.id)
+        getEventsForTerm(currentTerm.id)
       ])
-    : [[], [], []];
+    : [[], []];
 
   // Eventos para el calendario mensual
   const internalMonthEvents = buildInternalEvents(termEvents).filter((event) => {
@@ -137,11 +141,14 @@ export default async function EvaluacionesPage({
     monthEventsRaw,
     subjects.map((subject) => ({ name: subject.name, code: subject.code }))
   );
+  const monthEvaluationEvents = buildEvaluationSections(monthEvents).flatMap(
+    (section) => section.events
+  );
 
-  // Eventos para la lista de fechas importantes (solo TPs, Parciales, etc.)
-  // We filter out classes from the upcoming list so it's only deliverables/exams
+  // Eventos para la lista de evaluaciones futuras
+  const upcomingInternalEvents = filterFutureEvents(buildInternalEvents(termEvents), now, upcomingEnd);
   const scheduleUpcomingEvents = buildScheduleClassEvents(enrollments, now, upcomingEnd);
-  const allUpcomingRaw = [...upcomingCalendarRange, ...buildInternalEvents(upcomingInternal), ...scheduleUpcomingEvents];
+  const allUpcomingRaw = [...upcomingCalendarRange, ...upcomingInternalEvents, ...scheduleUpcomingEvents];
 
   // Attach hints
   const allUpcoming = attachSubjectHint(
@@ -149,71 +156,33 @@ export default async function EvaluacionesPage({
     subjects.map((subject) => ({ name: subject.name, code: subject.code }))
   );
 
-  // Filter for important events
-  const importantUpcoming = allUpcoming.filter(ev => {
-    const title = ev.title.toLowerCase();
-    const isImportant = title.includes('parcial') ||
-                        title.includes('tp') ||
-                        title.includes('entrega') ||
-                        title.includes('final') ||
-                        title.includes('recuperatorio') ||
-                        ev.type === 'exam' ||
-                        ev.type === 'tp';
-    // Exclude regular classes
-    if (ev.type === 'clase' && !isImportant) return false;
-    return isImportant;
-  });
-
-  const subjectOptions = Array.from(
-    new Set(allUpcoming.map((event) => event.subject).filter(Boolean))
-  ) as string[];
+  const evaluationSections = buildEvaluationSections(allUpcoming);
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-        <div className="flex flex-col gap-6">
-          <Card>
-            <CardHeader>
-              <p className="text-xs uppercase tracking-[0.3em] text-muted">Mes actual</p>
-            </CardHeader>
-            <CardBody>
-              <MonthlySchedule events={monthEvents} referenceDate={referenceDate} />
-            </CardBody>
-          </Card>
+      <section className="space-y-3">
+        <div className="space-y-1">
+          <p className="text-xs uppercase tracking-[0.3em] text-muted">Mes actual</p>
+          <h1 className="text-xl font-semibold tracking-tight text-text">Evaluaciones y agenda</h1>
         </div>
+        <MonthlySchedule events={monthEvaluationEvents} referenceDate={referenceDate} />
+      </section>
 
-        <div className="flex flex-col gap-6">
-          <Card>
-            <CardHeader>
-              <p className="text-xs uppercase tracking-[0.3em] text-muted">A futuro</p>
-            </CardHeader>
-            <CardBody>
-              <div className="lg:hidden">
-                {importantUpcoming.length === 0 ? (
-                  <div className="rounded-xl border border-border/40 bg-surface-2/30 p-8 text-center">
-                    <p className="text-sm text-muted">No hay exámenes ni entregas a la vista.</p>
-                  </div>
-                ) : (
-                  <UpcomingEvents
-                    events={importantUpcoming}
-                    subjectOptions={subjectOptions}
-                    compactByDay
-                  />
-                )}
-              </div>
-              <div className="hidden lg:block">
-                {importantUpcoming.length === 0 ? (
-                  <div className="rounded-xl border border-border/40 bg-surface-2/30 p-8 text-center">
-                    <p className="text-sm text-muted">No hay exámenes ni entregas a la vista.</p>
-                  </div>
-                ) : (
-                  <UpcomingEvents events={importantUpcoming} subjectOptions={subjectOptions} />
-                )}
-              </div>
-            </CardBody>
-          </Card>
+      <section className="space-y-3">
+        <div className="space-y-1">
+          <p className="text-xs uppercase tracking-[0.3em] text-muted">A futuro</p>
+          <p className="text-sm text-muted">
+            Parciales, recuperatorios, entregas, TPs, finales y defensas. Las clases regulares quedan fuera.
+          </p>
         </div>
-      </div>
+        {evaluationSections.length === 0 ? (
+          <div className="rounded-2xl border border-border/45 bg-surface/70 p-8 text-center text-sm text-muted">
+            No hay evaluaciones ni entregas a la vista.
+          </div>
+        ) : (
+          <UpcomingEvents events={allUpcoming} subjectOptions={[]} sections={evaluationSections} />
+        )}
+      </section>
     </div>
   );
 }

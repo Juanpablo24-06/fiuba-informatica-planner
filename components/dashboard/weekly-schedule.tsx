@@ -40,10 +40,9 @@ const getEventRenderKey = (event: CalendarEvent, index: number) =>
 
 export default function WeeklySchedule({ events }: { events: CalendarEvent[] }) {
   const { startHour, endHour } = getWeeklyScheduleHourBounds(events);
-  const gridRows = Math.max(1, endHour - startHour);
-  const gridStyle: CSSProperties = {
-    gridTemplateRows: `repeat(${gridRows}, minmax(72px, 1fr))`
-  };
+  const hourCount = Math.max(1, endHour - startHour);
+  const timelineHeight = hourCount * 72;
+  const timelineStyle: CSSProperties = { height: timelineHeight };
   const dayGroups = DAYS.map((day) => {
     const dayEvents = events
       .filter((event) => getDayLabel(event.startsAt) === day.short)
@@ -69,8 +68,8 @@ export default function WeeklySchedule({ events }: { events: CalendarEvent[] }) 
           </div>
         ) : (
           mobileDayGroups.map((group) => (
-            <section key={group.short} className="overflow-hidden rounded-2xl border border-border/55 bg-surface/80 shadow-sm">
-              <header className="flex items-center justify-between border-b border-border/45 bg-surface-2/40 px-3 py-2">
+            <section key={group.short} className="overflow-hidden rounded-xl border border-border/45 bg-surface/70">
+              <header className="flex items-center justify-between border-b border-border/35 bg-surface-2/30 px-3 py-2">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">
                   {group.long}
                 </p>
@@ -78,7 +77,7 @@ export default function WeeklySchedule({ events }: { events: CalendarEvent[] }) 
                   {group.events.length} {group.events.length === 1 ? "evento" : "eventos"}
                 </p>
               </header>
-              <div className="divide-y divide-border/45">
+              <div className="divide-y divide-border/35">
                 {group.events.map((event, index) => {
                   const style = {
                     ...(event.color
@@ -147,11 +146,12 @@ export default function WeeklySchedule({ events }: { events: CalendarEvent[] }) 
                 {day.short}
               </div>
             ))}
-            <div className="grid gap-3 pt-2" style={gridStyle}>
-              {Array.from({ length: gridRows }).map((_, index) => (
+            <div className="relative pt-2" style={timelineStyle}>
+              {Array.from({ length: hourCount }).map((_, index) => (
                 <div
                   key={`hour-${index}`}
-                  className="flex items-start justify-end pr-2 text-[10px] font-medium text-muted"
+                  className="absolute right-2 text-[10px] font-medium text-muted"
+                  style={{ top: index * 72 }}
                 >
                   {`${startHour + index}:00`}
                 </div>
@@ -160,13 +160,14 @@ export default function WeeklySchedule({ events }: { events: CalendarEvent[] }) 
             {dayGroups.map((day) => (
               <div
                 key={`col-${day.short}`}
-                className="relative grid gap-3 rounded-[1.7rem] border border-border/40 bg-surface/40 p-2.5"
-                style={gridStyle}
+                className="relative border-l border-border/25 px-2.5 py-2"
+                style={timelineStyle}
               >
-                {Array.from({ length: gridRows }).map((_, index) => (
+                {Array.from({ length: hourCount + 1 }).map((_, index) => (
                   <div
                     key={`${day.short}-slot-${index}`}
-                    className="rounded-[1.05rem] border border-border/15 bg-surface/15"
+                    className="absolute left-2.5 right-2.5 border-b border-border/15"
+                    style={{ top: index * 72 }}
                   />
                 ))}
                 {day.events.map((event, index) => {
@@ -183,16 +184,20 @@ export default function WeeklySchedule({ events }: { events: CalendarEvent[] }) 
                       : undefined;
                     const end = event.endsAt
                       ? Math.max(
-                          start + 1,
+                          start + 0.5,
                           (endEventHour?.hour ?? startEventHour) +
                             (endEventHour?.minute ?? startEventMinute) / 60 -
                             startHour
                         )
                       : start + 1;
-                    const rowSpan = Math.max(1, Math.ceil(end - start));
+                    const top = (start / hourCount) * 100;
+                    const height = (Math.min(hourCount, end) - start) / hourCount * 100;
                     const style = {
-                      gridColumn: "1",
-                      gridRow: `${Math.floor(start) + 1} / span ${rowSpan}`,
+                      top: `${top}%`,
+                      minHeight: 56,
+                      height: `${Math.max(6, height)}%`,
+                      left: "0.625rem",
+                      right: "0.625rem",
                       ...(event.color
                         ? { borderColor: event.color, boxShadow: `0 0 0 1px ${event.color}33` }
                         : {})
@@ -202,7 +207,7 @@ export default function WeeklySchedule({ events }: { events: CalendarEvent[] }) 
                         key={getEventRenderKey(event, index)}
                         style={style}
                         className={cn(
-                          "relative z-10 rounded-2xl border border-border/60 bg-surface/88 p-3 text-[11px] text-text shadow-soft",
+                          "absolute z-10 overflow-hidden rounded-xl border border-border/55 bg-surface/90 p-3 text-[11px] text-text shadow-sm",
                           event.source === "calendar" ? "border-accent/40" : "border-accent-2/40"
                         )}
                       >

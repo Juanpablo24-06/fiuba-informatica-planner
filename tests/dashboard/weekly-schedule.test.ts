@@ -18,14 +18,14 @@ const buildEvent = (overrides: Partial<CalendarEvent>): CalendarEvent => ({
 });
 
 describe("getWeeklyScheduleHourBounds", () => {
-  it("falls back to the full default range when the week has no events yet", () => {
+  it("falls back to the stable 7 to 22 range when the week has no events yet", () => {
     expect(getWeeklyScheduleHourBounds([])).toEqual({
-      startHour: 8,
+      startHour: 7,
       endHour: 22
     });
   });
 
-  it("tightens the desktop grid to the hours that actually contain activity", () => {
+  it("keeps the desktop grid stable when the visible events already fit inside the range", () => {
     const bounds = getWeeklyScheduleHourBounds([
       buildEvent({
         id: "monday",
@@ -40,8 +40,28 @@ describe("getWeeklyScheduleHourBounds", () => {
     ]);
 
     expect(bounds).toEqual({
-      startHour: 8,
-      endHour: 11
+      startHour: 7,
+      endHour: 22
+    });
+  });
+
+  it("expands the range when an event starts before 7 or ends after 22", () => {
+    const bounds = getWeeklyScheduleHourBounds([
+      buildEvent({
+        id: "early",
+        startsAt: "2026-03-23T06:30:00.000-03:00",
+        endsAt: "2026-03-23T07:30:00.000-03:00"
+      }),
+      buildEvent({
+        id: "late",
+        startsAt: "2026-03-23T21:30:00.000-03:00",
+        endsAt: "2026-03-23T22:45:00.000-03:00"
+      })
+    ]);
+
+    expect(bounds).toEqual({
+      startHour: 6,
+      endHour: 23
     });
   });
 });

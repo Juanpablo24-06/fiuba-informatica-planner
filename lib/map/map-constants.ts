@@ -31,6 +31,8 @@ export const LANE_COUNT = 7;
 export const NODE_WIDTH = 208;
 export const NODE_MIN_HEIGHT = 108;
 export const SLOT_GAP = 58;
+export const ELECTIVE_COLUMN_GAP = 76;
+export const ELECTIVE_GROUP_GAP = 96;
 export const DRAG_THRESHOLD = 8;
 export const MAP_VIEW_STORAGE_KEY = "fiuba-map-view-v2";
 export const MAP_FINAL_TRACK_STORAGE_KEY = "fiuba-map-final-track-v1";
@@ -149,26 +151,26 @@ export const FIXED_NODE_POSITIONS = new Map<string, { column: number; lane: numb
   ["Taller de Seguridad Informática", { column: 0, lane: 4.1 }],
   ["Empresas de Base Tecnológica II", { column: 0, lane: 2.1 }],
   ["Trabajo Integrador Final", { column: 0, lane: 4.1 }],
-  ["Lenguajes y Compiladores I", { column: 0, lane: 0.1 }],
-  ["Fundamentos Matemáticos de la Criptografía", { column: 0, lane: 1.15 }],
-  ["Criptografía I", { column: 0, lane: 2.2 }],
-  ["Sistemas Distribuidos II", { column: 0, lane: 3.25 }],
-  ["Ingeniería de Datos", { column: 0, lane: 4.3 }],
-  ["Optimización Convexa", { column: 0, lane: 5.35 }],
-  ["Aprendizaje Automático", { column: 0, lane: 6 }],
-  ["Criptografía II", { column: 1, lane: 1.3 }],
-  ["Sistemas Complejos", { column: 1, lane: 3.15 }],
-  ["Teoría Algorítmica de Juegos", { column: 1, lane: 4.95 }],
-  ["Análisis Matemático III", { column: 1, lane: 6 }],
-  ["Arquitectura de Software", { column: 1, lane: 5.95 }],
-  ["Simulación", { column: 1, lane: 2.05 }],
-  ["Técnicas de Ingeniería Inversa", { column: 2, lane: 3.35 }],
-  ["Criptoanálisis", { column: 2, lane: 5.2 }],
-  ["Aprendizaje Profundo", { column: 0, lane: 0.15 }],
-  ["Aprendizaje por Refuerzo", { column: 0, lane: 1.25 }],
-  ["Redes Complejas", { column: 0, lane: 2.45 }],
-  ["Teoría de Computabilidad", { column: 0, lane: 3.6 }],
-  ["Teoría de la Información", { column: 0, lane: 4.75 }],
-  ["Computación Cuántica", { column: 0, lane: 5.9 }],
-  ["Lenguajes y Compiladores II", { column: 0, lane: 6 }]
+  ["Lenguajes y Compiladores I", { column: 0, lane: 0.25 }],
+  ["Sistemas Distribuidos II", { column: 0, lane: 2.05 }],
+  ["Arquitectura de Software", { column: 0, lane: 3.85 }],
+  ["Fundamentos Matemáticos de la Criptografía", { column: 1, lane: 0.55 }],
+  ["Criptografía I", { column: 1, lane: 1.95 }],
+  ["Criptografía II", { column: 1, lane: 3.25 }],
+  ["Técnicas de Ingeniería Inversa", { column: 1, lane: 4.55 }],
+  ["Criptoanálisis", { column: 1, lane: 5.85 }],
+  ["Ingeniería de Datos", { column: 2, lane: 0.75 }],
+  ["Optimización Convexa", { column: 2, lane: 2.25 }],
+  ["Aprendizaje Automático", { column: 2, lane: 3.75 }],
+  ["Simulación", { column: 3, lane: 0.55 }],
+  ["Sistemas Complejos", { column: 3, lane: 1.95 }],
+  ["Teoría Algorítmica de Juegos", { column: 3, lane: 3.35 }],
+  ["Análisis Matemático III", { column: 3, lane: 4.75 }],
+  ["Aprendizaje Profundo", { column: 1, lane: 0.55 }],
+  ["Aprendizaje por Refuerzo", { column: 1, lane: 1.95 }],
+  ["Lenguajes y Compiladores II", { column: 2, lane: 0.55 }],
+  ["Redes Complejas", { column: 2, lane: 2.1 }],
+  ["Teoría de Computabilidad", { column: 2, lane: 3.5 }],
+  ["Teoría de la Información", { column: 2, lane: 4.85 }],
+  ["Computación Cuántica", { column: 2, lane: 6 }]
 ]);

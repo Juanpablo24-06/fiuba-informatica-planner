@@ -1,5 +1,4 @@
 import WeeklySchedule from "@/components/dashboard/weekly-schedule";
-import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { getCalendarEventEnrichments } from "@/lib/ai/queries";
 import { dedupeWeeklyScheduleEvents } from "@/lib/dashboard/weekly-schedule";
 import { getWeekRange } from "@/lib/date";
@@ -138,14 +137,16 @@ export default async function SemanaPage() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <p className="text-xs uppercase tracking-[0.3em] text-muted">Semana actual</p>
-        </CardHeader>
-        <CardBody>
-          <WeeklySchedule events={dedupedScheduleEvents} />
-        </CardBody>
-      </Card>
+      <section className="space-y-2">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="space-y-1">
+            <p className="text-xs uppercase tracking-[0.3em] text-muted">Semana actual</p>
+            <h1 className="text-xl font-semibold tracking-tight text-text">Mi semana</h1>
+          </div>
+          <p className="text-sm text-muted">Horario abierto de 07:00 a 22:00, con expansión automática si aparece algo fuera de rango.</p>
+        </div>
+        <WeeklySchedule events={dedupedScheduleEvents} />
+      </section>
     </div>
   );
 }

@@ -30,7 +30,6 @@ const THEME_BOOTSTRAP_SCRIPT = `
   try {
     const themeKey = "fiuba-theme";
     const paletteKey = "fiuba-palette";
-    const densityKey = "fiuba-density";
     const root = document.documentElement;
     const storedTheme = localStorage.getItem(themeKey);
     const themePreference =
@@ -42,13 +41,14 @@ const THEME_BOOTSTRAP_SCRIPT = `
         ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
         : themePreference;
     const storedPalette = localStorage.getItem(paletteKey);
-    const palette = storedPalette === "coral" || storedPalette === "esmeralda" || storedPalette === "indigo"
-      ? storedPalette
-      : "coral";
-    const storedDensity = localStorage.getItem(densityKey);
-    const density = storedDensity === "compacta" || storedDensity === "media" || storedDensity === "amplia"
-      ? storedDensity
-      : "media";
+    const palette =
+      storedPalette === "grafito" ||
+      storedPalette === "coral" ||
+      storedPalette === "esmeralda" ||
+      storedPalette === "indigo"
+        ? storedPalette
+        : "coral";
+    const density = "media";
     root.dataset.theme = resolved;
     root.dataset.palette = palette;
     root.dataset.density = density;

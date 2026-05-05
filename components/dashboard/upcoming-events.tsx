@@ -5,6 +5,7 @@ import type { CalendarEvent } from "@/lib/types";
 import { DEFAULT_TIMEZONE, formatDateTime, formatTime } from "@/lib/date";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
+import type { EvaluationSection } from "@/lib/dashboard/evaluation-classification";
 
 const getEventRenderKey = (event: CalendarEvent, index: number) =>
   `${event.id}-${event.startsAt}-${event.endsAt ?? "open"}-${index}`;
@@ -12,15 +13,16 @@ const getEventRenderKey = (event: CalendarEvent, index: number) =>
 export default function UpcomingEvents({
   events,
   subjectOptions,
-  compactByDay = false
+  compactByDay = false,
+  sections
 }: {
   events: CalendarEvent[];
   subjectOptions: string[];
   compactByDay?: boolean;
+  sections?: EvaluationSection[];
 }) {
   const [subjectFilter, setSubjectFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
-
   const filtered = useMemo(() => {
     return events
       .filter((event) => {
@@ -62,13 +64,54 @@ export default function UpcomingEvents({
     return [...map.entries()];
   }, [filtered]);
 
+  if (sections?.length) {
+    return (
+      <div className="space-y-4">
+        {sections.map((section) => (
+          <section key={section.key} className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
+                {section.label}
+              </p>
+              <p className="text-[11px] text-muted">
+                {section.events.length} {section.events.length === 1 ? "evento" : "eventos"}
+              </p>
+            </div>
+            <div className="overflow-hidden rounded-2xl border border-border/45 bg-surface/70">
+              {section.events.map((event, index) => (
+                <article
+                  key={getEventRenderKey(event, index)}
+                  className="flex items-start justify-between gap-4 border-b border-border/35 px-4 py-3 last:border-b-0"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-text">{event.title}</p>
+                    <p className="truncate text-[11px] text-muted">
+                      {event.subject ? `${event.subject} · ` : ""}
+                      {event.type ? `${event.type} · ` : ""}
+                      {event.source === "calendar" ? "Google Calendar" : "Plan interno"}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-[11px] font-semibold text-muted">
+                      {formatDateTime(event.startsAt)}
+                    </p>
+                    {event.tags?.[0] ? (
+                      <p className="mt-1 text-[10px] text-muted">{event.tags[0]}</p>
+                    ) : null}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
-        <Select
-          value={subjectFilter}
-          onChange={(event) => setSubjectFilter(event.target.value)}
-        >
+        <Select value={subjectFilter} onChange={(event) => setSubjectFilter(event.target.value)}>
           <option value="all">Todas las materias</option>
           {subjectOptions.map((subject) => (
             <option key={subject} value={subject}>
@@ -76,10 +119,7 @@ export default function UpcomingEvents({
             </option>
           ))}
         </Select>
-        <Select
-          value={typeFilter}
-          onChange={(event) => setTypeFilter(event.target.value)}
-        >
+        <Select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
           <option value="all">Todos los tipos</option>
           {types.map((type) => (
             <option key={type} value={type}>

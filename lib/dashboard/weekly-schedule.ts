@@ -1,7 +1,7 @@
 import { DEFAULT_TIMEZONE, getZonedHour } from "@/lib/date";
 import type { CalendarEvent } from "@/lib/types";
 
-const DEFAULT_START_HOUR = 8;
+const DEFAULT_START_HOUR = 7;
 const DEFAULT_END_HOUR = 22;
 const DEDUPE_OVERLAP_MS = 45 * 60 * 1000;
 const DEDUPE_START_TOLERANCE_MS = 75 * 60 * 1000;
@@ -119,7 +119,7 @@ export const getWeeklyScheduleHourBounds = (events: CalendarEvent[]) => {
   }
 
   return {
-    startHour: Math.max(7, Math.floor(earliestHour)),
-    endHour: Math.min(22, Math.ceil(latestHour))
+    startHour: Math.min(DEFAULT_START_HOUR, Math.floor(earliestHour)),
+    endHour: Math.max(22, Math.ceil(latestHour))
   };
 };

@@ -5,6 +5,12 @@ import {
   getDisplayNodeMeta,
   getDisplayNodeName
 } from "@/lib/map/map-layout";
+import {
+  ELECTIVE_COLUMN_GAP,
+  NODE_WIDTH,
+  OFFICIAL_ELECTIVE_ORDER,
+  SLOT_GAP
+} from "@/lib/map/map-constants";
 import type { MapEdge, MapNode } from "@/lib/map/types";
 
 const node = (overrides: Partial<MapNode>): MapNode => ({
@@ -72,5 +78,49 @@ describe("map layout helpers", () => {
     });
     expect(paths).toHaveLength(2);
     expect(paths.every((path) => path.d.startsWith("M "))).toBe(true);
+  });
+
+  it("keeps elective blocks to the right with a wider, ordered arrangement", () => {
+    const electiveNodes = [
+      { id: "elective-8", name: OFFICIAL_ELECTIVE_ORDER[7] },
+      { id: "elective-2", name: OFFICIAL_ELECTIVE_ORDER[1] },
+      { id: "elective-6", name: OFFICIAL_ELECTIVE_ORDER[5] },
+      { id: "elective-1", name: OFFICIAL_ELECTIVE_ORDER[0] },
+      { id: "elective-7", name: OFFICIAL_ELECTIVE_ORDER[6] },
+      { id: "elective-4", name: OFFICIAL_ELECTIVE_ORDER[3] },
+      { id: "elective-3", name: OFFICIAL_ELECTIVE_ORDER[2] },
+      { id: "elective-5", name: OFFICIAL_ELECTIVE_ORDER[4] }
+    ];
+    const nodes: MapNode[] = [
+      node({ id: "required", name: "Algoritmos y Estructuras de Datos", code: "AED", term: 6 }),
+      ...electiveNodes.map((entry, index) =>
+        node({
+          id: entry.id,
+          name: entry.name,
+          code: `EL${index + 1}`,
+          term: 6,
+          type: "electiva"
+        })
+      ),
+      node({
+        id: "generic",
+        name: "Electivas/Optativas I",
+        code: "OPT1",
+        term: 6,
+        type: "electiva"
+      })
+    ];
+
+    const layout = computeHorizontalLayout(nodes, []);
+
+    const requiredX = layout.nodeLayouts.required.x;
+    const firstElectiveX = layout.nodeLayouts["elective-1"].x;
+    const secondColumnElectiveX = layout.nodeLayouts["elective-4"].x;
+    const genericElectiveX = layout.nodeLayouts.generic.x;
+
+    expect(firstElectiveX).toBeGreaterThan(requiredX);
+    expect(secondColumnElectiveX).toBe(firstElectiveX + NODE_WIDTH + ELECTIVE_COLUMN_GAP);
+    expect(genericElectiveX).toBeGreaterThan(secondColumnElectiveX);
+    expect(secondColumnElectiveX - firstElectiveX).toBeGreaterThan(NODE_WIDTH + SLOT_GAP);
   });
 });

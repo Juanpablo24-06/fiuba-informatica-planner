@@ -53,6 +53,55 @@
   --shadow-color: 0 0 0;
 }
 
+[data-palette="grafito"] {
+  --color-canvas: 243 246 249;
+  --color-surface: 255 255 255;
+  --color-surface-2: 236 241 246;
+  --color-border: 211 219 228;
+  --color-text: 23 29 36;
+  --color-muted: 95 107 122;
+  --color-accent: 61 74 92;
+  --color-accent-contrast: 250 251 253;
+  --color-accent-2: 84 104 134;
+  --color-accent-3: 148 158 171;
+  --color-accent-4: 103 113 127;
+  --color-prereq: 50 133 111;
+  --color-unlock: 86 114 151;
+  --color-elective: 132 95 58;
+  --shadow-color: 26 34 44;
+}
+
+[data-theme="dark"][data-palette="grafito"] {
+  --color-canvas: 15 18 22;
+  --color-surface: 24 28 34;
+  --color-surface-2: 33 38 46;
+  --color-border: 57 65 77;
+  --color-text: 236 240 245;
+  --color-muted: 146 156 170;
+  --color-accent: 151 163 181;
+  --color-accent-contrast: 18 23 30;
+  --color-accent-2: 104 136 171;
+  --color-accent-3: 196 173 122;
+  --color-accent-4: 143 151 164;
+  --color-elective: 214 162 99;
+}
+
+[data-palette="coral"] {
+  --color-accent: 216 84 48;
+  --color-accent-contrast: 255 247 241;
+  --color-accent-2: 45 121 160;
+  --color-accent-3: 206 151 77;
+  --color-accent-4: 78 103 136;
+}
+
+[data-theme="dark"][data-palette="coral"] {
+  --color-accent: 240 130 80;
+  --color-accent-contrast: 255 248 242;
+  --color-accent-2: 110 175 210;
+  --color-accent-3: 225 180 115;
+  --color-accent-4: 145 152 164;
+}
+
 [data-palette="esmeralda"] {
   --color-accent: 32 132 94;
   --color-accent-contrast: 243 255 248;

@@ -7,6 +7,10 @@ describe("global layout source", () => {
     path.join(process.cwd(), "app/globals.css"),
     "utf8"
   );
+  const layoutSource = fs.readFileSync(
+    path.join(process.cwd(), "app/layout.tsx"),
+    "utf8"
+  );
 
   it("defines a shared scrollbar compensation variable instead of reserving a visible root gutter", () => {
     expect(globalsSource).toContain("--layout-scrollbar-compensation");
@@ -17,5 +21,17 @@ describe("global layout source", () => {
   it("still disables root scrolling for the map section without relying on a permanent gutter reservation", () => {
     expect(globalsSource).toContain('html[data-app-section="mapa"]');
     expect(globalsSource).toContain("overflow-y: hidden;");
+  });
+
+  it("defines graphite as an optional neutral palette", () => {
+    expect(globalsSource).toContain("--color-canvas: 243 246 249;");
+    expect(globalsSource).toContain('[data-palette="grafito"]');
+  });
+
+  it("recognizes graphite while keeping the existing coral default", () => {
+    expect(layoutSource).toContain('storedPalette === "grafito"');
+    expect(layoutSource).toContain('storedPalette === "coral"');
+    expect(layoutSource).toContain(': "coral"');
+    expect(layoutSource).toContain('document.documentElement.dataset.palette = "coral";');
   });
 });

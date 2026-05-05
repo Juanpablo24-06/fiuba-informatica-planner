@@ -8,8 +8,10 @@ describe("weekly schedule source", () => {
     "utf8"
   );
 
-  it("pins desktop event cards to the day column instead of letting CSS grid create implicit extra columns", () => {
-    expect(componentSource).toContain('gridColumn: "1"');
+  it("positions desktop event cards absolutely inside the day column", () => {
+    expect(componentSource).toContain('"absolute z-10 overflow-hidden');
+    expect(componentSource).toContain('left: "0.625rem"');
+    expect(componentSource).toContain('right: "0.625rem"');
   });
 
   it("keeps the desktop week grid horizontally scrollable on tighter widths", () => {
