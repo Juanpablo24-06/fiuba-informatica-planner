@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
-import { parseJsonBody } from "@/app/api/gpt-actions/_shared";
+import type { NextRequest } from "next/server";
+import { parseJsonBody, requireGptActionAuth } from "@/app/api/gpt-actions/_shared";
 import { createTerm, listTerms, termCreateSchema } from "@/lib/admin/terms";
 
-export async function GET(_request: Request) {
+export async function GET(request: NextRequest) {
+  const unauthorized = requireGptActionAuth(request);
+  if (unauthorized) return unauthorized;
+
   try {
     const terms = await listTerms();
     return NextResponse.json({ ok: true, terms });
@@ -14,7 +18,10 @@ export async function GET(_request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const unauthorized = requireGptActionAuth(request);
+  if (unauthorized) return unauthorized;
+
   const parsed = await parseJsonBody(request, termCreateSchema);
   if (!parsed.success) {
     return parsed.response;

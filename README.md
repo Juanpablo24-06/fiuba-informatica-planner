@@ -1,6 +1,23 @@
 # Planificador FIUBA Informática (Plan 2023)
 
-Aplicación web privada para seguir la carrera de Ingeniería en Informática de FIUBA. El proyecto hoy ya no es solo un dashboard: incluye resumen académico, mapa interactivo de correlatividades, agenda integrada, panel admin y un asistente interno para consultar o editar información académica.
+Aplicación web open-source para seguir la carrera de Ingeniería en Informática de FIUBA. El proyecto hoy ya no es solo un dashboard: incluye resumen académico, mapa interactivo de correlatividades, agenda integrada, panel admin y un asistente interno para consultar o editar información académica.
+
+Esta publicación es una copia saneada del proyecto de trabajo original: conserva el historial Git útil del desarrollo, pero no incluye `.env.local`, credenciales, estado local de Supabase, artefactos generados, capturas temporales ni PDFs fuente usados durante la investigación.
+
+## Licencia y uso
+
+El código se publica bajo licencia MIT. Si querés monetizar este proyecto directamente, empaquetarlo como producto comercial o incluirlo dentro de un servicio pago, por favor contactá primero al mantenedor para charlar colaboración, atribución, soporte o un acuerdo comercial separado.
+
+Más detalles:
+- [LICENSE](LICENSE)
+- [NOTICE](NOTICE.md)
+- [AI disclosure](AI_DISCLOSURE.md)
+
+## Desarrollo asistido por IA
+
+Este proyecto fue desarrollado con asistencia intensiva de IA. GPT fue la familia de modelos más usada para ingeniería, corrección, refactor, seguridad, documentación y agregado de funciones. Claude Opus 4.5 desde Antigravity, Gemini 3 Flash, Gemini 3.1 Pro y Stitch también aportaron análisis, prototipado visual, diseño y variantes de producto.
+
+Ninguna herramienta fue la única autora del diseño o del código; el resultado salió de dirección humana, revisión e integración con apoyo de varios modelos. Ver [AI_DISCLOSURE.md](AI_DISCLOSURE.md).
 
 ## Qué tiene hoy
 
@@ -56,6 +73,9 @@ Copiar `.env.example` a `.env.local` y completar lo que corresponda.
 - `GOOGLE_CALENDAR_TIMEZONE`
 - `CHAT_PERSISTENCE_ENABLED`
 - `NEXT_PUBLIC_CHAT_PERSISTENCE`
+- `EXTERNAL_ADMIN_BEARER_TOKEN`
+- `GPT_ACTIONS_BEARER_TOKEN`
+- `MCP_BEARER_TOKEN`
 - `CRON_SECRET`
 - `MCP_ENABLED` (`false` para apagar el endpoint MCP remoto)
 
@@ -238,11 +258,11 @@ Notas importantes:
 
 - No necesitás otro proyecto de Vercel para esta primera versión.
 - Si `MCP_ENABLED=false`, el endpoint queda apagado.
-- Esta primera iteración está abierta para pruebas y no exige login/OAuth.
+- El endpoint MCP ejecuta herramientas admin sobre datos reales: usá `MCP_BEARER_TOKEN` o `EXTERNAL_ADMIN_BEARER_TOKEN` para conexiones remotas.
 
 Guía operativa completa:
 
-- [docs/runbooks/mcp-chatgpt.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/runbooks/mcp-chatgpt.md)
+- [docs/runbooks/mcp-chatgpt.md](docs/runbooks/mcp-chatgpt.md)
 
 ## Inspiración
 El mapa de correlatividades toma inspiración de FIUBA-Map:

@@ -108,7 +108,11 @@ const request = (path: string, init?: RequestOptions) => {
     }
   }
   const { query: _query, ...requestInit } = init ?? {};
-  return new NextRequest(url, requestInit);
+  const headers = new Headers(requestInit.headers);
+  if (!headers.has("authorization")) {
+    headers.set("authorization", "Bearer test-gpt-token");
+  }
+  return new NextRequest(url, { ...requestInit, headers });
 };
 
 const parseJson = async <T>(response: Response): Promise<T> => response.json() as Promise<T>;
@@ -125,9 +129,29 @@ describe("custom gpt actions routes", () => {
   afterEach(() => {
     resetMocks();
     vi.resetModules();
+    delete process.env.GPT_ACTIONS_BEARER_TOKEN;
   });
 
-  it("lists, creates, updates and deletes terms without auth", async () => {
+  it("rejects requests without the configured bearer token", async () => {
+    process.env.GPT_ACTIONS_BEARER_TOKEN = "test-gpt-token";
+    const route = await import("@/app/api/gpt-actions/terms/route");
+
+    const response = await route.GET(
+      request("/api/gpt-actions/terms", {
+        headers: { authorization: "Bearer wrong-token" }
+      })
+    );
+
+    expect(response.status).toBe(401);
+    expect(await parseJson(response)).toEqual({
+      ok: false,
+      error: "No autorizado."
+    });
+    expect(mocks.terms.listTerms).not.toHaveBeenCalled();
+  });
+
+  it("lists, creates, updates and deletes terms with bearer auth", async () => {
+    process.env.GPT_ACTIONS_BEARER_TOKEN = "test-gpt-token";
     mocks.terms.listTerms.mockResolvedValue([{ id: "term-1", label: "2026-1" }]);
     mocks.terms.createTerm.mockResolvedValue({ id: "term-2", label: "2026-2" });
     mocks.terms.updateTerm.mockResolvedValue({ id: "term-2", label: "2026-2" });
@@ -196,7 +220,8 @@ describe("custom gpt actions routes", () => {
     ).toEqual({ ok: true, deleted: true });
   });
 
-  it("handles subjects, enrollments and events through the same no-auth surface", async () => {
+  it("handles subjects, enrollments and events through the same bearer-protected surface", async () => {
+    process.env.GPT_ACTIONS_BEARER_TOKEN = "test-gpt-token";
     mocks.subjects.listSubjects.mockResolvedValue([{ id: "subject-1", name: "Algebra" }]);
     mocks.subjects.createSubject.mockResolvedValue({
       id: "subject-2",
@@ -387,7 +412,8 @@ describe("custom gpt actions routes", () => {
     ).toEqual({ ok: true, deleted: true });
   });
 
-  it("exposes a full admin snapshot and bootstrap controls without auth", async () => {
+  it("exposes a full admin snapshot and bootstrap controls with bearer auth", async () => {
+    process.env.GPT_ACTIONS_BEARER_TOKEN = "test-gpt-token";
     mocks.terms.listTerms.mockResolvedValue([
       { id: "term-1", label: "2026-1", is_current: true }
     ]);
@@ -410,7 +436,7 @@ describe("custom gpt actions routes", () => {
     const snapshotRoute = await import("@/app/api/gpt-actions/admin/snapshot/route");
     const bootstrapRoute = await import("@/app/api/gpt-actions/admin/bootstrap-cbc/route");
 
-    expect(await parseJson(await snapshotRoute.GET())).toEqual({
+    expect(await parseJson(await snapshotRoute.GET(request("/api/gpt-actions/admin/snapshot")))).toEqual({
       ok: true,
       snapshot: {
         current_term: { id: "term-1", label: "2026-1", is_current: true },
@@ -436,7 +462,11 @@ describe("custom gpt actions routes", () => {
     expect(mocks.enrollments.listEnrollments).toHaveBeenCalledWith("term-1");
     expect(mocks.events.listEvents).toHaveBeenCalledWith({ termId: "term-1" });
 
-    expect(await parseJson(await bootstrapRoute.GET())).toEqual({
+    expect(
+      await parseJson(
+        await bootstrapRoute.GET(request("/api/gpt-actions/admin/bootstrap-cbc"))
+      )
+    ).toEqual({
       ok: true,
       status: {
         loaded: false,
@@ -448,7 +478,13 @@ describe("custom gpt actions routes", () => {
         subjects: [{ id: "subject-1", name: "Algebra", code: null, cycle: null, type: null }]
       }
     });
-    expect(await parseJson(await bootstrapRoute.POST())).toEqual({
+    expect(
+      await parseJson(
+        await bootstrapRoute.POST(
+          request("/api/gpt-actions/admin/bootstrap-cbc", { method: "POST" })
+        )
+      )
+    ).toEqual({
       ok: true,
       result: { ok: true, created: 1 }
     });

@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
-import { parseJsonBody } from "@/app/api/gpt-actions/_shared";
+import type { NextRequest } from "next/server";
+import { parseJsonBody, requireGptActionAuth } from "@/app/api/gpt-actions/_shared";
 import { createEvent, eventCreateSchema, listEvents } from "@/lib/admin/events";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const unauthorized = requireGptActionAuth(request);
+  if (unauthorized) return unauthorized;
+
   const { searchParams } = new URL(request.url);
   const termId = searchParams.get("termId");
   const enrollmentId = searchParams.get("enrollmentId");
@@ -18,7 +22,10 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const unauthorized = requireGptActionAuth(request);
+  if (unauthorized) return unauthorized;
+
   const parsed = await parseJsonBody(request, eventCreateSchema);
   if (!parsed.success) {
     return parsed.response;

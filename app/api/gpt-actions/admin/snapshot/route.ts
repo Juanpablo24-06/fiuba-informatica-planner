@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
-import { buildAdminSnapshot } from "@/app/api/gpt-actions/_shared";
+import type { NextRequest } from "next/server";
+import {
+  buildAdminSnapshot,
+  requireGptActionAuth
+} from "@/app/api/gpt-actions/_shared";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const unauthorized = requireGptActionAuth(request);
+  if (unauthorized) return unauthorized;
+
   try {
     const snapshot = await buildAdminSnapshot();
     return NextResponse.json({ ok: true, snapshot });

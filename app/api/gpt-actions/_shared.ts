@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import type { z } from "zod";
 import {
   getBootstrapStatus
@@ -7,9 +8,15 @@ import { listEnrollments } from "@/lib/admin/enrollments";
 import { listEvents } from "@/lib/admin/events";
 import { listSubjects } from "@/lib/admin/subjects";
 import { listTerms } from "@/lib/admin/terms";
+import { requireExternalAdminRequest } from "@/lib/external-admin-auth";
 
 export const jsonError = (status: number, error: string) =>
   NextResponse.json({ ok: false, error }, { status });
+
+export const requireGptActionAuth = (request: NextRequest) =>
+  requireExternalAdminRequest(request, {
+    tokenEnvNames: ["GPT_ACTIONS_BEARER_TOKEN"]
+  });
 
 export const parseJsonBody = async <T>(
   request: Request,

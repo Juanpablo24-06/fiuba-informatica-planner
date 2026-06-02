@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { requireRoleFromRequest } from "@/lib/auth";
+import { requireRoleFromRequest, requireSessionFromRequest } from "@/lib/auth";
 import {
   createEnrollment,
   enrollmentCreateSchema,
@@ -19,6 +19,11 @@ const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "Error desconocido.";
 
 export async function GET(request: NextRequest) {
+  const session = requireSessionFromRequest(request);
+  if (!session) {
+    return NextResponse.json({ error: "No autorizado." }, { status: 403 });
+  }
+
   const termId = request.nextUrl.searchParams.get("termId");
 
   try {

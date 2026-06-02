@@ -1,4 +1,6 @@
 import { createMcpHandler } from "mcp-handler";
+import type { NextRequest } from "next/server";
+import { requireExternalAdminRequest } from "@/lib/external-admin-auth";
 import { registerMcpServer } from "@/lib/mcp/server";
 
 export const runtime = "nodejs";
@@ -35,6 +37,16 @@ const activeHandler = createMcpHandler(
   }
 );
 
-const handler = process.env.MCP_ENABLED === "false" ? disabledHandler : activeHandler;
+const guardedActiveHandler = async (request: NextRequest) => {
+  const unauthorized = requireExternalAdminRequest(request, {
+    tokenEnvNames: ["MCP_BEARER_TOKEN"]
+  });
+  if (unauthorized) return unauthorized;
+
+  return activeHandler(request);
+};
+
+const handler =
+  process.env.MCP_ENABLED === "false" ? disabledHandler : guardedActiveHandler;
 
 export { handler as GET, handler as POST };

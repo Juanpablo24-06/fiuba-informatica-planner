@@ -134,15 +134,16 @@ Write tools should return:
 
 This keeps the connector usable both for agent planning and for natural language follow-up inside ChatGPT.
 
-## First-Iteration Access Model
+## Access Model
 
-The user explicitly requested a low-friction, broadly open setup for testing. The MCP route will therefore allow direct access without the normal web admin cookie flow.
+The MCP route exposes admin-capable tools over HTTP, so the current implementation requires either a valid web admin session or bearer auth through `MCP_BEARER_TOKEN` / `EXTERNAL_ADMIN_BEARER_TOKEN`.
 
 ### Guardrails still worth keeping
 
-Even in the open first iteration, the implementation should include:
+The implementation should include:
 
 - an environment flag to disable MCP entirely
+- bearer-token protection for remote clients
 - explicit tool registration only for intended capabilities
 - no arbitrary SQL or raw Supabase access
 - no terminal or infrastructure actions
@@ -151,7 +152,6 @@ Even in the open first iteration, the implementation should include:
 
 The design should make room for later additions:
 
-- bearer token or shared secret
 - OAuth
 - per-user identity propagation
 - audit logging

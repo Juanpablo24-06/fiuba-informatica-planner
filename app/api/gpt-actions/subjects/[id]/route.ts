@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { jsonError, parseJsonBody } from "@/app/api/gpt-actions/_shared";
+import type { NextRequest } from "next/server";
+import {
+  jsonError,
+  parseJsonBody,
+  requireGptActionAuth
+} from "@/app/api/gpt-actions/_shared";
 import {
   deleteSubject,
   subjectUpdateSchema,
@@ -7,9 +12,12 @@ import {
 } from "@/lib/admin/subjects";
 
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const unauthorized = requireGptActionAuth(request);
+  if (unauthorized) return unauthorized;
+
   const parsed = await parseJsonBody(request, subjectUpdateSchema);
   if (!parsed.success) {
     return parsed.response;
@@ -31,9 +39,12 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const unauthorized = requireGptActionAuth(request);
+  if (unauthorized) return unauthorized;
+
   try {
     await deleteSubject(params.id);
     return NextResponse.json({ ok: true, deleted: true });

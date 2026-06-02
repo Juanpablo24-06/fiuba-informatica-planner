@@ -10,6 +10,8 @@ const roles = [
   { id: "viewer", label: "Visualización", detail: "Solo lectura" }
 ] as const;
 
+const demoLoginEnabled = process.env.NODE_ENV !== "production";
+
 export default function LoginForm() {
   const router = useRouter();
   const [role, setRole] = useState<(typeof roles)[number]["id"]>("viewer");
@@ -58,24 +60,26 @@ export default function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 rounded-[2rem] border border-border/70 bg-surface-2/70 p-6">
-      <div className="rounded-[1.65rem] border border-accent/30 bg-accent/10 p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <p className="text-xs uppercase tracking-[0.28em] text-accent">Día de prueba</p>
-            <p className="text-sm text-text">
-              Entrá directo en modo admin para recorrer la app sin contraseña.
-            </p>
+      {demoLoginEnabled ? (
+        <div className="rounded-[1.65rem] border border-accent/30 bg-accent/10 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <p className="text-xs uppercase tracking-[0.28em] text-accent">Día de prueba</p>
+              <p className="text-sm text-text">
+                Entrá directo en modo admin para recorrer la app sin contraseña.
+              </p>
+            </div>
+            <Button
+              type="button"
+              onClick={handleDemoAccess}
+              className="min-w-[11rem] shrink-0"
+              disabled={pendingMode !== null}
+            >
+              {pendingMode === "demo" ? "Abriendo demo..." : "Entrar al día de prueba"}
+            </Button>
           </div>
-          <Button
-            type="button"
-            onClick={handleDemoAccess}
-            className="min-w-[11rem] shrink-0"
-            disabled={pendingMode !== null}
-          >
-            {pendingMode === "demo" ? "Abriendo demo..." : "Entrar al día de prueba"}
-          </Button>
         </div>
-      </div>
+      ) : null}
       <div className="space-y-2">
         <label className="text-xs uppercase tracking-[0.28em] text-muted">Rol</label>
         <div className="grid gap-2 sm:grid-cols-2">

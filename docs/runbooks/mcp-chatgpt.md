@@ -20,15 +20,16 @@ La superficie MCP actual expone tools para:
 - consultar y ejecutar el bootstrap histórico del CBC
 - obtener un snapshot admin compacto para planificación en ChatGPT
 
-## Seguridad Del MVP
+## Seguridad
 
-Esta primera versión está intencionalmente abierta para pruebas rápidas:
+El endpoint MCP ejecuta tools admin sobre datos reales, así que debe quedar protegido por token bearer o por una sesión web admin válida.
 
-- no usa OAuth
-- no exige login web ni cookie admin
-- cualquier cliente MCP que conozca la URL puede invocar tools admin
+Variables soportadas:
 
-Eso sirve para validar el flujo con ChatGPT custom, pero no debe considerarse un modo seguro de exposición pública prolongada.
+- `MCP_BEARER_TOKEN`: token específico para `/api/mcp`.
+- `EXTERNAL_ADMIN_BEARER_TOKEN`: token compartido usable por MCP y GPT Actions.
+
+Si no configurás un token, solo funciona una sesión web admin con cookie. Para ChatGPT custom remoto, configurá un bearer token.
 
 ## Variables De Entorno Relevantes
 
@@ -42,6 +43,12 @@ Eso sirve para validar el flujo con ChatGPT custom, pero no debe considerarse un
 - `MCP_ENABLED`
   - si vale `"false"`, el endpoint responde `503`
   - si no está definido, el MCP queda habilitado
+
+### Auth del conector remoto
+
+- `MCP_BEARER_TOKEN` o `EXTERNAL_ADMIN_BEARER_TOKEN`
+  - enviar como `Authorization: Bearer <token>`
+  - usar un valor largo, aleatorio y distinto de las contraseñas web
 
 ## Cómo Probar Localmente
 
@@ -60,8 +67,9 @@ npm run dev
 2. Confirmar que la URL `https://tu-dominio/api/mcp` responde.
 3. Abrir ChatGPT y entrar al constructor/configuración del GPT custom.
 4. Añadir un conector MCP remoto apuntando a esa URL.
-5. Guardar la configuración del GPT.
-6. Probar instrucciones simples:
+5. Configurar auth bearer con el valor de `MCP_BEARER_TOKEN` o `EXTERNAL_ADMIN_BEARER_TOKEN`.
+6. Guardar la configuración del GPT.
+7. Probar instrucciones simples:
    - “lista los cuatrimestres”
    - “muéstrame el snapshot admin”
    - “crea una materia de prueba”
@@ -69,6 +77,7 @@ npm run dev
 ## Qué Revisar Si No Conecta
 
 - `MCP_ENABLED` no debe ser `"false"`
+- el conector debe enviar `Authorization: Bearer <token>`
 - la app debe estar deployada con HTTPS público
 - `NEXT_PUBLIC_SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` deben existir en Vercel
 - `npm run build` debe pasar localmente antes del deploy
@@ -82,7 +91,7 @@ npm run dev
 
 ## Siguiente Endurecimiento Recomendado
 
-Cuando el flujo básico con ChatGPT ya esté validado, el siguiente paso natural es agregar una capa mínima de seguridad:
+Cuando el flujo básico con ChatGPT ya esté validado, el siguiente paso natural es subir de token compartido a identidad por usuario:
 
-- token bearer compartido o firma simple
-- luego OAuth/per-user auth si querés que varias personas se conecten con identidad propia
+- OAuth/per-user auth si querés que varias personas se conecten con identidad propia
+- auditoría de invocaciones y confirmación para acciones destructivas

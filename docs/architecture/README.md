@@ -2,7 +2,7 @@
 
 ## Superficie Del Producto
 
-La app es un planificador privado para Ingeniería en Informática FIUBA con cuatro dominios principales:
+La app es un planificador académico para Ingeniería en Informática FIUBA con cuatro dominios principales:
 
 - `dashboard/agenda`: resumen académico, agenda, vistas semanales y evaluaciones
 - `map`: mapa interactivo de correlatividades y navegación asociada
@@ -32,4 +32,4 @@ La app es un planificador privado para Ingeniería en Informática FIUBA con cua
 
 ## Hotspots
 
-Ver [hotspots.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/architecture/hotspots.md).
+Ver [hotspots.md](hotspots.md).

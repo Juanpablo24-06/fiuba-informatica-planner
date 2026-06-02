@@ -14,4 +14,10 @@ describe("mcp route source", () => {
   it("exports GET and POST handlers for remote clients", () => {
     expect(routeSource).toContain("export { handler as GET, handler as POST }");
   });
+
+  it("requires route-local external admin auth before registering the transport", () => {
+    expect(routeSource).toContain("requireExternalAdminRequest");
+    expect(routeSource).toContain('"MCP_BEARER_TOKEN"');
+    expect(routeSource).toContain("guardedActiveHandler");
+  });
 });

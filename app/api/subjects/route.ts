@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { requireRoleFromRequest } from "@/lib/auth";
+import { requireRoleFromRequest, requireSessionFromRequest } from "@/lib/auth";
 import { createSubject, listSubjects, subjectCreateSchema } from "@/lib/admin/subjects";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const session = requireSessionFromRequest(request);
+  if (!session) {
+    return NextResponse.json({ error: "No autorizado." }, { status: 403 });
+  }
+
   try {
     const subjects = await listSubjects();
     return NextResponse.json({ subjects });

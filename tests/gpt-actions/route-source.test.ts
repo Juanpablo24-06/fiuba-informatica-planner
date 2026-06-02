@@ -11,4 +11,10 @@ describe("custom gpt action routes", () => {
     expect(routeSource).toContain('export const dynamic = "force-dynamic"');
     expect(routeSource).toContain("export async function GET");
   });
+
+  it("advertises bearer authentication for GPT Actions", () => {
+    expect(routeSource).toContain("security: [{ bearerAuth: [] }]");
+    expect(routeSource).toContain("securitySchemes");
+    expect(routeSource).toContain("bearerAuth");
+  });
 });

@@ -20,3 +20,6 @@ export const requireRoleFromRequest = (
   if (!session || session.role !== role) return null;
   return session;
 };
+
+export const requireSessionFromRequest = (request: NextRequest) =>
+  getSessionFromRequest(request);

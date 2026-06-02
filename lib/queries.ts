@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { isSupabaseAdminConfigured, supabaseAdmin } from "@/lib/supabase-admin";
 import type { Enrollment, Event, Subject, Term } from "@/lib/types";
 import { mapEnrollmentRow, mapEventRow } from "@/lib/query-mappers";
 import {
@@ -42,6 +42,10 @@ const queryWithScheduleFallback = async <T>({
   withSchedule: () => any;
   withoutSchedule: () => any;
 }) => {
+  if (!isSupabaseAdminConfigured()) {
+    return { data: [], hasSchedule: true };
+  }
+
   const first = await withSchedule();
   if (!first.error) {
     return { data: first.data ?? [], hasSchedule: true };
@@ -60,6 +64,10 @@ const queryWithScheduleFallback = async <T>({
 };
 
 export const getTerms = cache(async (): Promise<Term[]> => {
+  if (!isSupabaseAdminConfigured()) {
+    return [];
+  }
+
   const { data, error } = await supabaseAdmin
     .from("terms")
     .select("id,label,start_date,end_date,is_current")
@@ -83,6 +91,10 @@ export const getCurrentTerm = cache(async (): Promise<Term | null> => {
 });
 
 export const getSubjects = cache(async (): Promise<Subject[]> => {
+  if (!isSupabaseAdminConfigured()) {
+    return [];
+  }
+
   const { data, error } = await supabaseAdmin
     .from("subjects")
     .select(
@@ -133,6 +145,10 @@ type EnrollmentSummary = {
 export const getEnrollmentSummaryByTermIds = async (
   termIds: string[]
 ): Promise<Map<string, EnrollmentSummary[]>> => {
+  if (!isSupabaseAdminConfigured()) {
+    return new Map();
+  }
+
   const uniqueTermIds = [...new Set(termIds.filter(Boolean))];
   if (uniqueTermIds.length === 0) {
     return new Map();
@@ -262,6 +278,10 @@ export const getUpcomingEvents = async (termId?: string) => {
 };
 
 export const getPrerequisites = cache(async () => {
+  if (!isSupabaseAdminConfigured()) {
+    return [];
+  }
+
   const { data, error } = await supabaseAdmin
     .from("subject_prerequisites")
     .select("subject_id,prerequisite_id");
@@ -272,6 +292,10 @@ export const getPrerequisites = cache(async () => {
 });
 
 export const getLatestEnrollmentStatus = cache(async () => {
+  if (!isSupabaseAdminConfigured()) {
+    return new Map();
+  }
+
   const { data, error } = await supabaseAdmin
     .from("enrollments")
     .select(

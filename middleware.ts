@@ -7,13 +7,24 @@ const PUBLIC_PATHS = new Set([
   "/login",
   "/api/auth/login",
   "/api/auth/logout",
-  "/api/auth/demo"
+  "/api/auth/demo",
+  "/api/openapi"
 ]);
+
+const ROUTE_LOCAL_AUTH_PREFIXES = [
+  "/api/cron",
+  "/api/gpt-actions",
+  "/api/mcp"
+];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (PUBLIC_PATHS.has(pathname)) {
+    return NextResponse.next();
+  }
+
+  if (ROUTE_LOCAL_AUTH_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
     return NextResponse.next();
   }
 

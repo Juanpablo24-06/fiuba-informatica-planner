@@ -4,14 +4,14 @@ Esta carpeta es el sistema de registro del proyecto para trabajo humano y agenti
 
 ## Empezar Según La Tarea
 
-- Arquitectura o refactor: [architecture/README.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/architecture/README.md)
-- Cambios UI o validación en navegador: [runbooks/browser-harness.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/runbooks/browser-harness.md)
-- Cambios en chat o AI: [runbooks/chat-ai.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/runbooks/chat-ai.md)
-- Cambios en mapa: [runbooks/map.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/runbooks/map.md)
-- Cambios en agenda o Calendar: [runbooks/agenda-calendar.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/runbooks/agenda-calendar.md)
-- Cambios en datos/admin: [runbooks/admin-data.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/runbooks/admin-data.md)
-- Cambios en MCP o conexión con ChatGPT custom: [runbooks/mcp-chatgpt.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/runbooks/mcp-chatgpt.md)
-- Cambios en base de datos o Supabase: [runbooks/supabase.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/runbooks/supabase.md)
+- Arquitectura o refactor: [architecture/README.md](architecture/README.md)
+- Cambios UI o validación en navegador: [runbooks/browser-harness.md](runbooks/browser-harness.md)
+- Cambios en chat o AI: [runbooks/chat-ai.md](runbooks/chat-ai.md)
+- Cambios en mapa: [runbooks/map.md](runbooks/map.md)
+- Cambios en agenda o Calendar: [runbooks/agenda-calendar.md](runbooks/agenda-calendar.md)
+- Cambios en datos/admin: [runbooks/admin-data.md](runbooks/admin-data.md)
+- Cambios en MCP o conexión con ChatGPT custom: [runbooks/mcp-chatgpt.md](runbooks/mcp-chatgpt.md)
+- Cambios en base de datos o Supabase: [runbooks/supabase.md](runbooks/supabase.md)
 
 ## Convenciones
 

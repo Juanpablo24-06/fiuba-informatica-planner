@@ -45,6 +45,7 @@ const buildOpenApiSpec = (origin: string) => ({
       "Acciones administrativas completas para cuatrimestres, materias, cursadas, eventos y bootstrap CBC."
   },
   servers: [{ url: origin }],
+  security: [{ bearerAuth: [] }],
   paths: {
     "/api/gpt-actions/admin/snapshot": {
       get: {
@@ -465,6 +466,13 @@ const buildOpenApiSpec = (origin: string) => ({
     }
   },
   components: {
+    securitySchemes: {
+      bearerAuth: {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "shared-token"
+      }
+    },
     schemas: {
       Term: {
         type: "object",

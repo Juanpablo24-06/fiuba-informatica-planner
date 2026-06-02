@@ -1,7 +1,11 @@
 {
   "name": "fiuba-informatica-plan",
   "version": "0.1.0",
-  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Juanpablo24-06/fiuba-informatica-planner.git"
+  },
   "engines": {
     "node": ">=20"
   },

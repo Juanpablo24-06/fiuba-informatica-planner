@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
-import { parseJsonBody } from "@/app/api/gpt-actions/_shared";
+import type { NextRequest } from "next/server";
+import { parseJsonBody, requireGptActionAuth } from "@/app/api/gpt-actions/_shared";
 import {
   createSubject,
   listSubjects,
   subjectCreateSchema
 } from "@/lib/admin/subjects";
 
-export async function GET(_request: Request) {
+export async function GET(request: NextRequest) {
+  const unauthorized = requireGptActionAuth(request);
+  if (unauthorized) return unauthorized;
+
   try {
     const subjects = await listSubjects();
     return NextResponse.json({ ok: true, subjects });
@@ -18,7 +22,10 @@ export async function GET(_request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const unauthorized = requireGptActionAuth(request);
+  if (unauthorized) return unauthorized;
+
   const parsed = await parseJsonBody(request, subjectCreateSchema);
   if (!parsed.success) {
     return parsed.response;

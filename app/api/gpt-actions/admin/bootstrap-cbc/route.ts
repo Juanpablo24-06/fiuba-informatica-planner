@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { requireGptActionAuth } from "@/app/api/gpt-actions/_shared";
 import { bootstrapCbc, getBootstrapStatus } from "@/lib/admin/bootstrap-cbc";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const unauthorized = requireGptActionAuth(request);
+  if (unauthorized) return unauthorized;
+
   try {
     const status = await getBootstrapStatus();
     return NextResponse.json({ ok: true, status });
@@ -13,7 +18,10 @@ export async function GET() {
   }
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const unauthorized = requireGptActionAuth(request);
+  if (unauthorized) return unauthorized;
+
   try {
     const result = await bootstrapCbc();
     return NextResponse.json({ ok: true, result });

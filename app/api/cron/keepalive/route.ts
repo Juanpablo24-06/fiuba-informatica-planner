@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { requireRoleFromRequest } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,8 @@ export async function GET(request: NextRequest) {
     if (authHeader !== `Bearer ${secret}`) {
       return unauthorizedResponse;
     }
+  } else if (!requireRoleFromRequest(request, "admin")) {
+    return unauthorizedResponse;
   }
 
   const startedAt = new Date().toISOString();

@@ -5,7 +5,7 @@ Este repositorio usa `README.md` para onboarding humano y este archivo como índ
 ## Runtime
 
 - Usar `Node.js 20+`
-- Antes de cambios grandes o multiárea, leer [docs/README.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/README.md)
+- Antes de cambios grandes o multiárea, leer [docs/README.md](docs/README.md)
 
 ## Comandos Canónicos
 
@@ -27,11 +27,11 @@ Este repositorio usa `README.md` para onboarding humano y este archivo como índ
 
 ## Dónde Leer Según La Tarea
 
-- Mapa general del repo: [docs/README.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/README.md)
-- Arquitectura e invariantes: [docs/architecture/README.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/architecture/README.md)
-- Hotspots: [docs/architecture/hotspots.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/architecture/hotspots.md)
-- Runbooks: [docs/runbooks/README.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/runbooks/README.md)
-- MCP/ChatGPT custom: [docs/runbooks/mcp-chatgpt.md](/home/juan/Proyectos/web/Pagina%20ing%20informatica/docs/runbooks/mcp-chatgpt.md)
+- Mapa general del repo: [docs/README.md](docs/README.md)
+- Arquitectura e invariantes: [docs/architecture/README.md](docs/architecture/README.md)
+- Hotspots: [docs/architecture/hotspots.md](docs/architecture/hotspots.md)
+- Runbooks: [docs/runbooks/README.md](docs/runbooks/README.md)
+- MCP/ChatGPT custom: [docs/runbooks/mcp-chatgpt.md](docs/runbooks/mcp-chatgpt.md)
 
 ## Dominios Principales
 
