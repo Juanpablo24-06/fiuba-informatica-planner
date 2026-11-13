@@ -10,6 +10,9 @@ describe("dev script cache hygiene", () => {
   };
 
   it("clears the unstable next webpack cache before starting dev", () => {
-    expect(packageJson.scripts?.dev).toContain("clean-next-webpack-cache.mjs");
+    expect(packageJson.scripts?.dev).toBe("node scripts/app-mode.mjs dev");
+    const runner = fs.readFileSync(path.join(process.cwd(), "scripts/app-mode.mjs"), "utf8");
+    expect(runner).toContain('if (!demo && command === "dev")');
+    expect(runner).toContain("clean-next-webpack-cache.mjs");
   });
 });

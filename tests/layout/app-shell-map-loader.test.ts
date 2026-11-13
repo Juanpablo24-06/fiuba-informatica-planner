@@ -10,7 +10,9 @@ describe("app shell map loading source", () => {
 
   it("keeps route content mounted under a stable hidden wrapper while a pending navigation loader is visible", () => {
     expect(componentSource).toContain("aria-hidden={hideRouteContent}");
-    expect(componentSource).toContain("pointer-events-none hidden absolute inset-0 z-10");
+    // Visibility preserves geometry so the incoming map can fit its camera.
+    expect(componentSource).toContain("pointer-events-none invisible absolute inset-0 z-10");
+    expect(componentSource).toContain("inert={hideRouteContent}");
     expect(componentSource).toContain("{children}");
     expect(componentSource).toContain("{pendingNavigationActive ? <div className=\"relative z-20\">{loadingContent}</div> : null}");
   });

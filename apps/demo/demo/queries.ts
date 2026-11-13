@@ -1,0 +1,11 @@
+import { getState, enrollmentsFor, eventsFor, statusMap } from './store';
+export const getSubjects=async()=>getState().subjects.filter(x=>!x.deleted_at);
+export const getDeletedSubjects=async()=>getState().subjects.filter(x=>x.deleted_at);
+export const getTerms=async()=>getState().terms;
+export const getCurrentTerm=async()=>getState().terms.find(x=>x.is_current)??null;
+export const getPrerequisites=async()=>getState().prerequisites;
+export const getLatestEnrollmentStatus=async()=>statusMap();
+export const getEnrollmentsForTerm=async(id:string)=>enrollmentsFor(id);
+export const getEventsForTerm=async(id:string)=>eventsFor(id);
+export const getAllEvents=async()=>eventsFor();
+export const getUpcomingEvents=async(id?:string)=>eventsFor(id).filter(e=>new Date(e.starts_at)>=new Date());

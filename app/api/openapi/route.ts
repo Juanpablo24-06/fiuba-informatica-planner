@@ -34,7 +34,6 @@ const uuid = { type: "string", format: "uuid" } as const;
 const nullableString = { anyOf: [{ type: "string" }, { type: "null" }] } as const;
 const nullableInteger = { anyOf: [{ type: "integer" }, { type: "null" }] } as const;
 const nullableNumber = { anyOf: [{ type: "number" }, { type: "null" }] } as const;
-const nullableBoolean = { anyOf: [{ type: "boolean" }, { type: "null" }] } as const;
 
 const buildOpenApiSpec = (origin: string) => ({
   openapi: "3.1.0",
@@ -254,7 +253,7 @@ const buildOpenApiSpec = (origin: string) => ({
       },
       delete: {
         operationId: "deleteSubject",
-        summary: "Elimina una materia.",
+        summary: "Archiva una materia sin eliminar sus datos.",
         parameters: [idParam],
         responses: {
           "200": {
@@ -262,6 +261,21 @@ const buildOpenApiSpec = (origin: string) => ({
             content: {
               "application/json": {
                 schema: successEnvelope("deleted", { type: "boolean", enum: [true] })
+              }
+            }
+          }
+        }
+      },
+      post: {
+        operationId: "restoreSubject",
+        summary: "Restaura una materia archivada.",
+        parameters: [idParam],
+        responses: {
+          "200": {
+            description: "Materia restaurada.",
+            content: {
+              "application/json": {
+                schema: successEnvelope("subject", { $ref: "#/components/schemas/Subject" })
               }
             }
           }
@@ -508,7 +522,36 @@ const buildOpenApiSpec = (origin: string) => ({
       },
       Subject: {
         type: "object",
-        additionalProperties: true
+        additionalProperties: false,
+        required: ["id", "name"],
+        properties: {
+          id: uuid,
+          code: nullableString,
+          name: { type: "string" },
+          credits: nullableInteger,
+          weekly_hours: nullableInteger,
+          total_hours: nullableInteger,
+          term_suggested: nullableInteger,
+          term_order: nullableInteger,
+          cycle: nullableString,
+          type: nullableString,
+          description: nullableString,
+          requirements: { anyOf: [{ type: "array", items: { type: "string" } }, { type: "null" }] },
+          evaluation_info: nullableString,
+          notes: nullableString,
+          useful_links: { type: "array", items: { $ref: "#/components/schemas/EventLink" } },
+          custom_fields: {
+            type: "array",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["label", "value"],
+              properties: { label: { type: "string" }, value: { type: "string" } }
+            }
+          },
+          template: { anyOf: [{ type: "object", additionalProperties: true }, { type: "null" }] },
+          deleted_at: nullableString
+        }
       },
       SubjectCreateInput: {
         type: "object",
@@ -521,13 +564,27 @@ const buildOpenApiSpec = (origin: string) => ({
           weekly_hours: nullableInteger,
           total_hours: nullableInteger,
           term_suggested: nullableInteger,
+          term_order: nullableInteger,
           cycle: nullableString,
           type: nullableString,
+          description: nullableString,
           requirements: {
             anyOf: [
               { type: "array", items: { type: "string" } },
               { type: "null" }
             ]
+          },
+          evaluation_info: nullableString,
+          notes: nullableString,
+          useful_links: { type: "array", items: { $ref: "#/components/schemas/EventLink" } },
+          custom_fields: {
+            type: "array",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["label", "value"],
+              properties: { label: { type: "string" }, value: { type: "string" } }
+            }
           },
           template: {
             anyOf: [{ type: "object", additionalProperties: true }, { type: "null" }]
@@ -544,13 +601,28 @@ const buildOpenApiSpec = (origin: string) => ({
           weekly_hours: nullableInteger,
           total_hours: nullableInteger,
           term_suggested: nullableInteger,
+          term_order: nullableInteger,
           cycle: nullableString,
           type: nullableString,
+          description: nullableString,
           requirements: {
             anyOf: [
               { type: "array", items: { type: "string" } },
               { type: "null" }
             ]
+          },
+          evaluation_info: nullableString,
+          notes: nullableString,
+          useful_links: { type: "array", items: { $ref: "#/components/schemas/EventLink" } },
+          custom_fields: {
+            type: "array",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["label", "value"],
+              properties: { label: { type: "string" }, value: { type: "string" }
+              }
+            }
           },
           template: {
             anyOf: [{ type: "object", additionalProperties: true }, { type: "null" }]

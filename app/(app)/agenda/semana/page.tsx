@@ -8,7 +8,7 @@ import type { CalendarEvent, Enrollment, EnrollmentScheduleDay, Event } from "@/
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SCHEDULE_DAY_TO_WEEKDAY: Record<EnrollmentScheduleDay, number> = {
-  lun: 1, mar: 2, mie: 3, jue: 4, vie: 5, sab: 6
+  lun: 1, mar: 2, mie: 3, jue: 4, vie: 5, sab: 6, dom: 7
 };
 
 const buildInternalEvents = (events: Event[]): CalendarEvent[] =>

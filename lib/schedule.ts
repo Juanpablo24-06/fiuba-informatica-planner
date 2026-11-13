@@ -6,7 +6,8 @@ export const SCHEDULE_DAY_ORDER: Record<EnrollmentScheduleDay, number> = {
   mie: 3,
   jue: 4,
   vie: 5,
-  sab: 6
+  sab: 6,
+  dom: 7
 };
 
 export const SCHEDULE_DAY_LABEL: Record<EnrollmentScheduleDay, string> = {
@@ -15,7 +16,8 @@ export const SCHEDULE_DAY_LABEL: Record<EnrollmentScheduleDay, string> = {
   mie: "Mié",
   jue: "Jue",
   vie: "Vie",
-  sab: "Sáb"
+  sab: "Sáb",
+  dom: "Dom"
 };
 
 export const sortScheduleSlots = (slots: EnrollmentScheduleSlot[]) =>

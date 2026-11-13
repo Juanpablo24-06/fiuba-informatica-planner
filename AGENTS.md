@@ -56,3 +56,20 @@ Este repositorio usa `README.md` para onboarding humano y este archivo como índ
 - Si tocás rutas API o flujos admin, verificá tipos, comportamiento y efectos visibles.
 - Si tocás el endpoint MCP, corré al menos `npm test -- tests/mcp tests/admin`, `npm run typecheck` y `npm run build`.
 - Preferí cambios pequeños y archivos enfocados cuando edites hotspots.
+
+## Identidad visual y movimiento
+
+- Respetá la identidad visual actual del proyecto; antes de modificar UI/UX estudiá componentes, tipografía, colores, spacing, radios, sombras, densidad, jerarquía, tokens y patrones de interacción existentes.
+- Reutilizá componentes, variables/tokens y patrones del sistema de diseño cuando tenga sentido. Una mejora visual no debe hacer que la aplicación parezca pertenecer a otro producto.
+- Respetar el sistema de diseño no elimina la creatividad: podés mejorar composiciones, interacciones, feedback, movimiento y detalles cuando la propuesta sea coherente con el producto.
+- Anime.js y cualquier otra herramienta deben reforzar el diseño existente, no imponer una identidad externa. Toda animación debe sentirse intencional y pertenecer al producto.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

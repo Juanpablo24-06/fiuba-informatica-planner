@@ -10,32 +10,26 @@ test("chat can send a second message after the first response", async ({ page })
   let requestCount = 0;
   await page.route("**/api/chat", async (route) => {
     requestCount += 1;
+    const response = {
+      type: "done",
+      response: {
+        answer: `Respuesta ${requestCount}`,
+        reasoning: "Se comprobó el contexto de prueba.",
+        warnings: [],
+        provider: "openrouter",
+        model: "openai/gpt-oss-120b:free",
+        reasoningMode: "effort"
+      },
+      actionResults: [],
+      memoriesStored: 0,
+      memoryProvider: "supabase",
+      threadId: null,
+      stored: false
+    };
     await route.fulfill({
       status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        ok: true,
-        response: {
-          answer: `Respuesta ${requestCount}`,
-          reasoning: null,
-          follow_up_questions: [],
-          warnings: [],
-          actions: [],
-          confidence: 0.9,
-          model: "openai/gpt-oss-120b:free",
-          provider: "openrouter"
-        },
-        actionResults: [],
-        usedFallback: false,
-        capabilities: {
-          role: "admin",
-          allowActions: false,
-          reasoningLevel: "medio",
-          rulesVersion: "test"
-        },
-        threadId: null,
-        stored: false
-      })
+      contentType: "application/x-ndjson",
+      body: `${JSON.stringify({ type: "status", status: "respondiendo" })}\n${JSON.stringify(response)}\n`
     });
   });
 

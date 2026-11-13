@@ -7,10 +7,8 @@ import {
   updateTerm
 } from "@/lib/admin/terms";
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = requireRoleFromRequest(request, "admin");
   if (!session) {
     return NextResponse.json({ error: "No autorizado." }, { status: 403 });
@@ -42,14 +40,13 @@ export async function PATCH(
 
     return NextResponse.json({ term });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const status = error?.status === 400 ? 400 : 500;
+    return NextResponse.json({ error: error.message }, { status });
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = requireRoleFromRequest(request, "admin");
   if (!session) {
     return NextResponse.json({ error: "No autorizado." }, { status: 403 });

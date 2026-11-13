@@ -8,10 +8,11 @@ describe("dashboard page source", () => {
     "utf8"
   );
 
-  it("adds a weekly schedule CTA next to the current course section title", () => {
+  it("opens the current calendar from the course schedule CTA", () => {
     expect(pageSource).toContain("Cursada actual");
     expect(pageSource).toContain("Ver horario");
-    expect(pageSource).toContain("/agenda/semana");
+    expect(pageSource).toContain('href="/calendario"');
+    expect(pageSource).not.toContain("/agenda/semana");
   });
 
   it("renames the upcoming dates CTA to describe the calendar content more clearly", () => {

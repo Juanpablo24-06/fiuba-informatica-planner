@@ -1,52 +1,30 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { CalendarDays, LayoutGrid, MapPinned, Settings, ChevronDown, CheckSquare, CalendarRange, type LucideIcon } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { CSSProperties } from "react";
 import { useMapTransitionState } from "@/components/layout/map-transition-coordinator";
 import SectionLink from "@/components/layout/section-link";
 import { resolveMobileSectionHref } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import BrandLogo from "@/components/layout/brand-logo";
-import ProfileMenu from "@/components/layout/profile-menu";
+import ProfileMenu, { type ProfileMenuProps } from "@/components/layout/profile-menu";
 import ThemeToggle from "@/components/layout/theme-toggle";
+import NavigationIcon from "@/components/layout/navigation-icon";
 import { getDisplaySection, type AppSection } from "@/components/layout/map-transition-store";
 
 type NavItem = {
   href: AppSection;
   label: string;
-  icon: LucideIcon;
-  subItems?: { href: "/agenda/semana" | "/agenda/evaluaciones"; label: string; icon: LucideIcon; description: string }[];
 };
 
 const baseItems: NavItem[] = [
-  { href: "/", label: "Resumen", icon: LayoutGrid },
-  { href: "/mapa", label: "Mapa", icon: MapPinned },
-  {
-    href: "/agenda", // Primary route acts as active prefix
-    label: "Agenda",
-    icon: CalendarDays,
-    subItems: [
-      { href: "/agenda/semana", label: "Mi Semana", icon: CalendarRange, description: "Horario de cursada semanal" },
-      { href: "/agenda/evaluaciones", label: "Evaluaciones", icon: CheckSquare, description: "Parciales y entregas del mes" }
-    ]
-  }
+  { href: "/", label: "Resumen" },
+  { href: "/mapa", label: "Mapa" },
+  { href: "/cursos", label: "Cursos" },
+  { href: "/planificar", label: "Planificar" },
+  { href: "/calendario", label: "Calendario" }
 ];
-
-const iconMotionClassByHref: Record<string, string> = {
-  "/": "group-hover:animate-nav-summary-hover group-data-[active=true]:animate-nav-summary-active",
-  "/mapa": "group-hover:animate-nav-map-hover group-data-[active=true]:animate-nav-map-active",
-  "/agenda": "group-hover:animate-nav-agenda-hover group-data-[active=true]:animate-nav-agenda-active",
-  "/admin": "group-hover:animate-nav-admin-hover group-data-[active=true]:animate-nav-admin-active"
-};
-
-const iconStyleByHref: Record<string, CSSProperties | undefined> = {
-  "/": undefined,
-  "/mapa": { transformOrigin: "50% 88%" },
-  "/agenda": { transformOrigin: "50% 20%" },
-  "/admin": { transformOrigin: "50% 50%" }
-};
 
 const getNavIndicatorClass = (active: boolean, transitioning: boolean) =>
   cn(
@@ -58,12 +36,12 @@ const getNavIndicatorClass = (active: boolean, transitioning: boolean) =>
       : "scale-x-0 group-hover:scale-x-100"
   );
 
-export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
+export default function TopNav({ role, onRoleChange, onReset }: ProfileMenuProps) {
   const pathname = usePathname();
   const headerRef = useRef<HTMLElement | null>(null);
   const mapTransitionState = useMapTransitionState();
   const navItems: NavItem[] = role === "admin"
-    ? [...baseItems, { href: "/admin", label: "Admin", icon: Settings }]
+    ? [...baseItems, { href: "/admin", label: "Admin" }]
     : baseItems;
 
   const activeHref = useMemo(() => {
@@ -90,12 +68,12 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
   return (
     <header
       ref={headerRef}
-      className="pointer-events-none fixed inset-x-0 top-0 z-50 px-4 pt-2.5"
+      className="pointer-events-none fixed inset-x-0 top-0 z-50 px-3 pt-2.5 sm:px-4 2xl:px-6"
       data-scrollbar-compensate="true"
       style={{ "--scrollbar-compensation-base-padding": "16px" } as CSSProperties}
     >
       <div
-        className="pointer-events-auto relative mx-auto w-full max-w-[1270px] nav-glass rounded-xl px-3 py-2"
+        className="pointer-events-auto relative mx-auto w-full max-w-[1680px] nav-glass rounded-xl px-3 py-2 2xl:px-4"
       >
         <div className="flex items-center gap-3">
           {/* Logo */}
@@ -108,24 +86,12 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
           </div>
 
           {/* Separator */}
-          <div className="hidden h-6 w-px md:block" style={{ background: 'linear-gradient(180deg, rgb(var(--color-accent) / 0.15), rgb(var(--color-accent-2) / 0.25), rgb(var(--color-accent) / 0.15))' }} />
+          <div className="hidden h-6 w-px lg:block" style={{ background: 'linear-gradient(180deg, rgb(var(--color-accent) / 0.15), rgb(var(--color-accent-2) / 0.25), rgb(var(--color-accent) / 0.15))' }} />
 
           {/* Nav links */}
-          <nav className="hidden items-center gap-8 md:flex">
+          <nav className="hidden items-center gap-5 lg:flex 2xl:gap-9">
             {navItems.map((item) => {
-              const Icon = item.icon;
               const active = isActiveSection(item.href);
-
-              if (item.subItems) {
-                return (
-                  <NavDropdown
-                    key={item.href}
-                    item={item}
-                    active={active}
-                    transitioning={mapTransitionState.transitioning}
-                  />
-                );
-              }
 
               return (
                 <SectionLink
@@ -147,6 +113,7 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
                       : undefined
                   }
                   data-active={active ? "true" : "false"}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
                     "group relative inline-flex items-center gap-2 pb-1.5 pt-1 text-sm font-medium transition-colors duration-200",
                     active
@@ -156,17 +123,17 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
                       : "text-muted hover:text-text"
                   )}
                   >
-                  <Icon
+                  <NavigationIcon
+                    href={item.href}
+                    active={active}
                     className={cn(
-                      "h-4 w-4 transition-colors duration-200 motion-reduce:animate-none",
+                      "h-4 w-4 transition-colors duration-200",
                       active
                         ? "text-accent"
                         : mapTransitionState.transitioning
                         ? ""
-                        : "group-hover:text-accent",
-                      mapTransitionState.transitioning ? "" : iconMotionClassByHref[item.href] ?? ""
+                        : "group-hover:text-accent"
                     )}
-                    style={iconStyleByHref[item.href]}
                     strokeWidth={active ? 2 : 1.8}
                   />
                   {item.label}
@@ -185,25 +152,19 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
           {/* Right side */}
           <div className="flex shrink-0 items-center gap-2">
             <ThemeToggle className="text-text/70 hover:text-accent" />
-            <ProfileMenu role={role} />
+            <ProfileMenu role={role} onRoleChange={onRoleChange} onReset={onReset} />
           </div>
         </div>
 
-        <div className="mt-2 border-t border-border/50 pt-2 md:hidden">
-          <nav className={cn("grid gap-2", navItems.length >= 4 ? "grid-cols-4" : "grid-cols-3")}>
+        <div className="mt-2 border-t border-border/50 pt-2 lg:hidden">
+          <nav className={cn("grid gap-1 sm:gap-2", navItems.length > 5 ? "grid-cols-6" : navItems.length >= 5 ? "grid-cols-5" : navItems.length >= 4 ? "grid-cols-4" : "grid-cols-3")}>
             {navItems.map((item) => {
-              const Icon = item.icon;
               const active = isActiveSection(item.href);
 
-              // Mobile treats subItems as a direct link to the section root
-              return (
+                  return (
                 <SectionLink
                   key={item.href}
-                  href={resolveMobileSectionHref({
-                    href: item.href,
-                    pathname,
-                    subItemHrefs: item.subItems?.map((subItem) => subItem.href)
-                  })}
+                  href={resolveMobileSectionHref({ href: item.href, pathname })}
                   prefetch={false}
                   transitionSource={
                     item.href === "/mapa"
@@ -220,8 +181,9 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
                       : undefined
                   }
                   data-active={active ? "true" : "false"}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
-                    "group rounded-full border px-3 py-2 text-center text-xs font-semibold transition-all duration-200",
+                    "group rounded-2xl border px-1 py-2 text-center text-[10px] sm:text-xs font-semibold transition-all duration-200",
                     active
                       ? "border-accent/50 bg-accent/14 text-accent shadow-[inset_0_0_0_1px_rgb(var(--color-accent)/0.18),0_0_10px_rgb(var(--color-accent)/0.1)]"
                       : mapTransitionState.transitioning
@@ -230,13 +192,13 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
                   )}
                 >
                   <span className="inline-flex flex-col items-center gap-1 sm:flex-row">
-                    <Icon
+                    <NavigationIcon
+                      href={item.href}
+                      active={active}
                       className={cn(
-                        "h-3.5 w-3.5 transition-colors duration-200 motion-reduce:animate-none",
-                        active ? "text-accent" : "",
-                        mapTransitionState.transitioning ? "" : iconMotionClassByHref[item.href] ?? ""
+                        "h-3.5 w-3.5 transition-colors duration-200",
+                        active ? "text-accent" : ""
                       )}
-                      style={iconStyleByHref[item.href]}
                     />
                     {item.label}
                   </span>
@@ -247,83 +209,5 @@ export default function TopNav({ role }: { role?: "admin" | "viewer" }) {
         </div>
       </div>
     </header>
-  );
-}
-
-function NavDropdown({ item, active, transitioning }: { item: NavItem; active: boolean; transitioning: boolean }) {
-  const [open, setOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const Icon = item.icon;
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  return (
-    <div className="relative" ref={dropdownRef}>
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        data-active={active ? "true" : "false"}
-        className={cn(
-          "group relative inline-flex items-center gap-1.5 pb-1.5 pt-1 text-sm font-medium transition-colors duration-200 outline-none",
-          active
-            ? "text-accent"
-            : transitioning
-            ? "text-muted"
-            : "text-muted hover:text-text"
-        )}
-      >
-        <Icon
-          className={cn(
-            "h-4 w-4 transition-colors duration-200 motion-reduce:animate-none",
-            active
-              ? "text-accent"
-              : transitioning
-              ? ""
-              : "group-hover:text-accent",
-            transitioning ? "" : iconMotionClassByHref[item.href] ?? ""
-          )}
-          style={iconStyleByHref[item.href]}
-          strokeWidth={active ? 2 : 1.8}
-        />
-        {item.label}
-        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200", open && "rotate-180")} />
-        <span
-          aria-hidden="true"
-          className={getNavIndicatorClass(active, transitioning)}
-        />
-      </button>
-
-      {open && (
-        <div className="absolute left-1/2 mt-3 flex w-[240px] -translate-x-1/2 flex-col rounded-2xl border border-border/50 bg-surface/95 p-2 shadow-lg backdrop-blur-xl animate-in fade-in slide-in-from-top-2">
-          {item.subItems?.map((sub) => {
-            const SubIcon = sub.icon;
-            return (
-              <SectionLink
-                key={sub.href}
-                href={sub.href}
-                onClick={() => setOpen(false)}
-                className="group flex items-start gap-3 rounded-xl p-3 transition-colors hover:bg-surface-2"
-              >
-                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface-2 group-hover:bg-accent/10 group-hover:text-accent transition-colors">
-                  <SubIcon className="h-4 w-4 text-muted group-hover:text-accent" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-text">{sub.label}</p>
-                  <p className="mt-0.5 text-xs text-muted">{sub.description}</p>
-                </div>
-              </SectionLink>
-            )
-          })}
-        </div>
-      )}
-    </div>
   );
 }

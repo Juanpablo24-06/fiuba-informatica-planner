@@ -19,6 +19,7 @@ const baseNode = (overrides: Partial<MapNode>): MapNode => ({
   name: overrides.name ?? "Materia",
   code: overrides.code ?? "MAT",
   term: overrides.term ?? 1,
+  term_order: overrides.term_order ?? null,
   type: overrides.type ?? "obligatoria",
   cycle: overrides.cycle ?? "grado",
   status: overrides.status ?? "cursando",

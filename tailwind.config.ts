@@ -5,6 +5,8 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        background: "rgb(var(--color-canvas) / <alpha-value>)",
+        "accent-content": "rgb(var(--color-accent-contrast) / <alpha-value>)",
         canvas: "rgb(var(--color-canvas) / <alpha-value>)",
         surface: "rgb(var(--color-surface) / <alpha-value>)",
         "surface-2": "rgb(var(--color-surface-2) / <alpha-value>)",
@@ -51,8 +53,7 @@ const config: Config = {
           to: { opacity: "0", backdropFilter: "blur(0px)" }
         },
         "dialog-panel-in": {
-          "0%": { opacity: "0", transform: "translate(-50%, -44%) scale(0.92)" },
-          "60%": { opacity: "1", transform: "translate(-50%, -51%) scale(1.01)" },
+          "0%": { opacity: "0", transform: "translate(-50%, -48%) scale(0.985)" },
           "100%": { opacity: "1", transform: "translate(-50%, -50%) scale(1)" }
         },
         "dialog-panel-out": {
@@ -84,16 +85,16 @@ const config: Config = {
           "100%": { backgroundPosition: "-50% 0" }
         },
         "stagger-fade-in": {
-          from: { opacity: "0", transform: "translateY(12px)" },
+          from: { opacity: "0", transform: "translateY(5px)" },
           to: { opacity: "1", transform: "translateY(0)" }
         }
       },
       animation: {
-        "fade-in": "fade-in 0.5s ease-out forwards",
+        "fade-in": "fade-in 0.28s ease-out forwards",
         "float-slow": "float-slow 6s ease-in-out infinite",
         "dialog-overlay-in": "dialog-overlay-in 220ms ease-out forwards",
         "dialog-overlay-out": "dialog-overlay-out 160ms ease-in forwards",
-        "dialog-panel-in": "dialog-panel-in 420ms cubic-bezier(0.16, 1, 0.3, 1) forwards",
+        "dialog-panel-in": "dialog-panel-in 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards",
         "dialog-panel-out": "dialog-panel-out 200ms ease-in forwards",
         "slide-in-right": "slide-in-right 260ms ease-out forwards",
         "message-in": "message-in 220ms ease-out forwards",
@@ -101,7 +102,7 @@ const config: Config = {
         "caret-blink": "caret-blink 1.1s steps(2, end) infinite",
         "logo-float": "logo-float 3.8s ease-in-out infinite",
         "shimmer": "shimmer-sweep 2.2s ease-in-out infinite",
-        "stagger-in": "stagger-fade-in 0.45s cubic-bezier(.22,1,.36,1) forwards"
+        "stagger-in": "stagger-fade-in 0.28s cubic-bezier(.22,1,.36,1) forwards"
       }
     }
   },

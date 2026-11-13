@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapEnrollmentRow, mapEventRow } from "@/lib/query-mappers";
+import { mapEnrollmentRow, mapEventRow, mapSubjectRow } from "@/lib/query-mappers";
 import type { Subject, Term } from "@/lib/types";
 
 const baseSubject = (overrides: Partial<Subject> = {}): Subject => ({
@@ -25,6 +25,30 @@ const baseTerm = (overrides: Partial<Term> = {}): Term => ({
 });
 
 describe("query mappers", () => {
+  it("normalizes additive subject fields for legacy rows", () => {
+    expect(
+      mapSubjectRow({
+        id: "subject-1",
+        name: "Algoritmos",
+        code: null,
+        credits: null,
+        weekly_hours: null,
+        total_hours: null,
+        term_suggested: null,
+        cycle: null,
+        type: null,
+        requirements: null,
+        template: null
+      })
+    ).toMatchObject({
+      description: null,
+      term_order: null,
+      useful_links: [],
+      custom_fields: [],
+      deleted_at: null
+    });
+  });
+
   it("maps enrollments and falls back to an empty schedule when the column is unavailable", () => {
     const enrollment = mapEnrollmentRow({
       row: {

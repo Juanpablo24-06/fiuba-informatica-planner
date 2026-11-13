@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import {
   createTerm,
   deleteTerm,
@@ -12,6 +12,7 @@ import {
   createSubject,
   deleteSubject,
   listSubjects,
+  restoreSubject,
   subjectCreateSchema,
   subjectUpdateSchema,
   updateSubject
@@ -51,6 +52,7 @@ export const MCP_TOOL_NAMES = [
   "create_subject",
   "update_subject",
   "delete_subject",
+  "restore_subject",
   "create_enrollment",
   "update_enrollment",
   "delete_enrollment",
@@ -429,17 +431,37 @@ const registerWriteTools = (server: McpServer) => {
     "delete_subject",
     {
       title: "Delete Subject",
-      description: "Elimina una materia por id.",
+      description: "Archiva una materia por id sin eliminar sus relaciones ni datos.",
       inputSchema: deleteSchema
     },
     async ({ id }) =>
       withToolResult("delete_subject", async () => {
         await deleteSubject(id);
         return {
-          summary: "Se eliminó la materia.",
+          summary: "Se archivó la materia.",
           payload: {
             ok: true,
             id
+          }
+        };
+      })
+  );
+
+  server.registerTool(
+    "restore_subject",
+    {
+      title: "Restore Subject",
+      description: "Restaura una materia archivada por id.",
+      inputSchema: deleteSchema
+    },
+    async ({ id }) =>
+      withToolResult("restore_subject", async () => {
+        const subject = await restoreSubject(id);
+        return {
+          summary: subject ? `Se restauró la materia ${subject.name}.` : "No se encontró una materia archivada.",
+          payload: {
+            ok: Boolean(subject),
+            subject
           }
         };
       })

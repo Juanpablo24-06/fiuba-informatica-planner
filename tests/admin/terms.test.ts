@@ -33,4 +33,16 @@ describe("admin terms service contract", () => {
 
     expect(clearCurrentTermsUpdate).toEqual({ is_current: false });
   });
+
+  it.each(["not-a-date", "2026-02-30", "2026-13-01"])("rejects an invalid date: %s", (start_date) => {
+    expect(termCreateSchema.safeParse({ label: "2026-1", start_date }).success).toBe(false);
+    expect(termUpdateSchema.safeParse({ end_date: start_date }).success).toBe(false);
+  });
+
+  it("rejects reversed ranges while allowing omitted or cleared dates", () => {
+    expect(termCreateSchema.safeParse({
+      label: "2026-1", start_date: "2026-07-15", end_date: "2026-03-10"
+    }).success).toBe(false);
+    expect(termUpdateSchema.parse({ start_date: null })).toEqual({ start_date: null });
+  });
 });

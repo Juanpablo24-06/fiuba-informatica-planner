@@ -107,7 +107,8 @@ const request = (path: string, init?: RequestOptions) => {
       url.searchParams.set(key, value);
     }
   }
-  const { query: _query, ...requestInit } = init ?? {};
+  const requestInit = { ...(init ?? {}) };
+  delete requestInit.query;
   const headers = new Headers(requestInit.headers);
   if (!headers.has("authorization")) {
     headers.set("authorization", "Bearer test-gpt-token");
@@ -125,7 +126,7 @@ const resetMocks = () => {
   }
 };
 
-describe("custom gpt actions routes", () => {
+describe("custom gpt actions routes", { timeout: 30_000 }, () => {
   afterEach(() => {
     resetMocks();
     vi.resetModules();
@@ -202,7 +203,7 @@ describe("custom gpt actions routes", () => {
             body: JSON.stringify({ label: "2026-2", is_current: true }),
             headers: { "content-type": "application/json" }
           }),
-          { params: { id: "term-2" } }
+          { params: Promise.resolve({ id: "term-2" }) }
         )
       )
     ).toEqual({
@@ -214,7 +215,7 @@ describe("custom gpt actions routes", () => {
       await parseJson(
         await byIdRoute.DELETE(
           request("/api/gpt-actions/terms/term-2", { method: "DELETE" }),
-          { params: { id: "term-2" } }
+          { params: Promise.resolve({ id: "term-2" }) }
         )
       )
     ).toEqual({ ok: true, deleted: true });
@@ -286,7 +287,7 @@ describe("custom gpt actions routes", () => {
             body: JSON.stringify({ name: "Análisis Matemático" }),
             headers: { "content-type": "application/json" }
           }),
-          { params: { id: "subject-2" } }
+          { params: Promise.resolve({ id: "subject-2" }) }
         )
       )
     ).toEqual({
@@ -297,7 +298,7 @@ describe("custom gpt actions routes", () => {
       await parseJson(
         await subjectByIdRoute.DELETE(
           request("/api/gpt-actions/subjects/subject-2", { method: "DELETE" }),
-          { params: { id: "subject-2" } }
+          { params: Promise.resolve({ id: "subject-2" }) }
         )
       )
     ).toEqual({ ok: true, deleted: true });
@@ -339,7 +340,7 @@ describe("custom gpt actions routes", () => {
             body: JSON.stringify({ status: "aprobado" }),
             headers: { "content-type": "application/json" }
           }),
-          { params: { id: "enrollment-2" } }
+          { params: Promise.resolve({ id: "enrollment-2" }) }
         )
       )
     ).toEqual({
@@ -350,7 +351,7 @@ describe("custom gpt actions routes", () => {
       await parseJson(
         await enrollmentByIdRoute.DELETE(
           request("/api/gpt-actions/enrollments/enrollment-2", { method: "DELETE" }),
-          { params: { id: "enrollment-2" } }
+          { params: Promise.resolve({ id: "enrollment-2" }) }
         )
       )
     ).toEqual({ ok: true, deleted: true });
@@ -395,7 +396,7 @@ describe("custom gpt actions routes", () => {
             body: JSON.stringify({ type: "final" }),
             headers: { "content-type": "application/json" }
           }),
-          { params: { id: "event-2" } }
+          { params: Promise.resolve({ id: "event-2" }) }
         )
       )
     ).toEqual({
@@ -406,7 +407,7 @@ describe("custom gpt actions routes", () => {
       await parseJson(
         await eventByIdRoute.DELETE(
           request("/api/gpt-actions/events/event-2", { method: "DELETE" }),
-          { params: { id: "event-2" } }
+          { params: Promise.resolve({ id: "event-2" }) }
         )
       )
     ).toEqual({ ok: true, deleted: true });

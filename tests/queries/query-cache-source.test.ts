@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 describe("queries source", () => {
   const queriesSource = fs.readFileSync(
-    path.join(process.cwd(), "lib/queries.ts"),
+    path.join(process.cwd(), "modules/academic/adapters/read-queries.ts"),
     "utf8"
   );
 

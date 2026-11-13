@@ -1,0 +1,1 @@
+export default function Integrations(){return <div className="rounded-2xl border border-border/60 bg-surface-2/60 p-5 text-sm text-muted"><p className="font-semibold text-text">Demo independiente</p><p className="mt-2">Google Calendar y la inteligencia artificial están deshabilitados. Explorá la agenda con los eventos ficticios incluidos.</p></div>;}

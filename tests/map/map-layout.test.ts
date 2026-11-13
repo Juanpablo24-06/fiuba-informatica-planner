@@ -3,7 +3,8 @@ import {
   buildLinePaths,
   computeHorizontalLayout,
   getDisplayNodeMeta,
-  getDisplayNodeName
+  getDisplayNodeName,
+  sortByAnchor
 } from "@/lib/map/map-layout";
 import {
   ELECTIVE_COLUMN_GAP,
@@ -19,6 +20,7 @@ const node = (overrides: Partial<MapNode>): MapNode => ({
   name: "Materia",
   code: "MAT",
   term: 1,
+  term_order: null,
   type: "obligatoria",
   cycle: "segundo",
   status: null,
@@ -79,6 +81,19 @@ describe("map layout helpers", () => {
     });
     expect(paths).toHaveLength(2);
     expect(paths.every((path) => path.d.startsWith("M "))).toBe(true);
+  });
+
+  it("prioritizes structural order within a period and keeps unordered subjects as fallback", () => {
+    const nodes = [
+      node({ id: "fallback", name: "Análisis Matemático A", term_order: null }),
+      node({ id: "late", name: "Otra materia", term_order: 4 }),
+      node({ id: "early", name: "Materia nueva", term_order: 1 })
+    ];
+    const nodesById = new Map(nodes.map((item) => [item.id, item]));
+
+    const sorted = sortByAnchor(nodes, new Map(), {}, nodesById);
+
+    expect(sorted.map((item) => item.id)).toEqual(["early", "late", "fallback"]);
   });
 
   it("keeps elective blocks to the right without over-stretching the final map", () => {

@@ -6,7 +6,6 @@ import { DEFAULT_TIMEZONE, formatDateTime, formatTime } from "@/lib/date";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import type { EvaluationSection } from "@/lib/dashboard/evaluation-classification";
-import { cn } from "@/lib/utils";
 
 const getEventRenderKey = (event: CalendarEvent, index: number) =>
   `${event.id}-${event.startsAt}-${event.endsAt ?? "open"}-${index}`;

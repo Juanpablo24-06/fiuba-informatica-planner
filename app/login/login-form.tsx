@@ -10,9 +10,7 @@ const roles = [
   { id: "viewer", label: "Visualización", detail: "Solo lectura" }
 ] as const;
 
-const demoLoginEnabled = process.env.NODE_ENV !== "production";
-
-export default function LoginForm() {
+export default function LoginForm({ demoLoginEnabled = false }: { demoLoginEnabled?: boolean }) {
   const router = useRouter();
   const [role, setRole] = useState<(typeof roles)[number]["id"]>("viewer");
   const [password, setPassword] = useState("");

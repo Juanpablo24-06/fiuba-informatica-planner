@@ -52,7 +52,9 @@ describe("OpenRouter provider", () => {
       ok: true,
       data: { answer: "ok", reasoning: "validado" },
       raw: '```json\n{"response":{"answer":"ok","reasoning":"validado"}}\n```',
-      model: "openai/gpt-oss-120b:free"
+      model: "openai/gpt-oss-120b:free",
+      reasoning: null,
+      reasoningMode: "effort"
     });
     expect(fetchMock).toHaveBeenCalledWith(
       "https://openrouter.ai/api/v1/chat/completions",
@@ -85,12 +87,12 @@ describe("OpenRouter provider", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await callOpenRouterJSON("hola", schema, {
-      model: "google/gemini-2.5-flash",
+      model: "meta-llama/llama-3.3-70b-instruct",
       reasoningLevel: "medio"
     });
 
     const body = getRequestBody(fetchMock);
-    expect(body.model).toBe("google/gemini-2.5-flash");
+    expect(body.model).toBe("meta-llama/llama-3.3-70b-instruct");
     expect(body).not.toHaveProperty("reasoning");
   });
 

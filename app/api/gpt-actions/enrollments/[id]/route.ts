@@ -11,10 +11,8 @@ import {
   updateEnrollment
 } from "@/lib/admin/enrollments";
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const unauthorized = requireGptActionAuth(request);
   if (unauthorized) return unauthorized;
 
@@ -39,10 +37,8 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const unauthorized = requireGptActionAuth(request);
   if (unauthorized) return unauthorized;
 

@@ -46,4 +46,10 @@ describe("admin enrollments service contract", () => {
       notes: "Subir acta"
     });
   });
+
+  it.each(["18:00", "19:00"])("rejects a slot ending at %s when it starts at 19:00", (end_time) => {
+    expect(enrollmentUpdateSchema.safeParse({
+      schedule: [{ day: "lun", start_time: "19:00", end_time }]
+    }).success).toBe(false);
+  });
 });

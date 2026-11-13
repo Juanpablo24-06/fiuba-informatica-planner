@@ -66,11 +66,16 @@ export const unsealSession = (token: string): SessionPayload | null => {
       decipher.final()
     ]).toString("utf8");
     const payload = JSON.parse(decrypted) as SessionPayload;
-    if (!payload.exp || payload.exp < Math.floor(Date.now() / 1000)) {
+    if (
+      !payload ||
+      (payload.role !== "admin" && payload.role !== "viewer") ||
+      !Number.isSafeInteger(payload.exp) ||
+      payload.exp <= Math.floor(Date.now() / 1000)
+    ) {
       return null;
     }
     return payload;
-  } catch (error) {
+  } catch {
     return null;
   }
 };

@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { requireRoleFromRequest, requireSessionFromRequest } from "@/lib/auth";
-import { createSubject, listSubjects, subjectCreateSchema } from "@/lib/admin/subjects";
+import {
+  createSubject,
+  listDeletedSubjects,
+  listSubjects,
+  subjectCreateSchema
+} from "@/lib/admin/subjects";
 
 export async function GET(request: NextRequest) {
   const session = requireSessionFromRequest(request);
@@ -10,7 +15,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const subjects = await listSubjects();
+    const trash = request.nextUrl.searchParams.get("trash") === "true";
+    if (trash && session.role !== "admin") {
+      return NextResponse.json({ error: "No autorizado." }, { status: 403 });
+    }
+    const subjects = trash ? await listDeletedSubjects() : await listSubjects();
     return NextResponse.json({ subjects });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 
 export default function AppBackground() {
   return (
-    <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+    <div data-theme-background aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
       {/* Top-left warm orb — slightly smaller, higher and more to the right so the title sits inside it */}
       <div
         className="ambient-orb ambient-orb--accent -left-24 -top-8 z-10 h-[500px] w-[500px]"

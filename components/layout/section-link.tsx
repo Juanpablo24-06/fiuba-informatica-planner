@@ -55,14 +55,16 @@ export default function SectionLink({
       startedAt,
       transitionId
     });
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const shouldCaptureSummaryBar =
-      pendingState.animateMapBar && pendingState.startedFromSection === "/";
+      pendingState.animateMapBar && pendingState.startedFromSection === "/" && !reducedMotion;
 
     const progressSourceRect = shouldCaptureSummaryBar ? getProgressRect("summary") : null;
     const shouldAnimateMapBar = shouldCaptureSummaryBar && Boolean(progressSourceRect);
 
     setMapTransitionState({
       ...pendingState,
+      minimumLoaderMs: reducedMotion ? 0 : pendingState.minimumLoaderMs,
       animateMapBar: shouldAnimateMapBar,
       mapEntryPhase: shouldAnimateMapBar ? pendingState.mapEntryPhase : "loader",
       loaderStartedAt: shouldAnimateMapBar ? pendingState.loaderStartedAt : startedAt,

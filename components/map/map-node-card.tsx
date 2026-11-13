@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { cn } from "@/lib/utils";
 import {
   getDisplayNodeMeta,
@@ -22,7 +23,7 @@ import {
   STATUS_STYLES
 } from "@/lib/map/map-constants";
 
-export function MapNodeCard({
+export const MapNodeCard = memo(function MapNodeCard({
   node,
   layout,
   isActive,
@@ -194,4 +195,4 @@ export function MapNodeCard({
       )}
     </button>
   );
-}
+});

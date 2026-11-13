@@ -24,6 +24,15 @@ export function MapTransitionCoordinator() {
   const state = useMapTransitionState();
 
   useEffect(() => {
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => {
+      if (preference.matches && getCurrentMapTransitionState().transitioning) setMapTransitionState({ minimumLoaderMs: 0 });
+    };
+    preference.addEventListener("change", update);
+    return () => preference.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
     const displaySection = getDisplaySection(pathname, state.pendingSection);
     const launcherMode = getLauncherModeForSection(displaySection);
 

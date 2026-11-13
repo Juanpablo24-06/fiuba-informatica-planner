@@ -36,11 +36,16 @@ export const unsealSessionEdge = async (
     );
     const decoder = new TextDecoder();
     const payload = JSON.parse(decoder.decode(decrypted)) as SessionPayload;
-    if (!payload.exp || payload.exp < Math.floor(Date.now() / 1000)) {
+    if (
+      !payload ||
+      (payload.role !== "admin" && payload.role !== "viewer") ||
+      !Number.isSafeInteger(payload.exp) ||
+      payload.exp <= Math.floor(Date.now() / 1000)
+    ) {
       return null;
     }
     return payload;
-  } catch (error) {
+  } catch {
     return null;
   }
 };

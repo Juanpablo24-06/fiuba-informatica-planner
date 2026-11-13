@@ -12,7 +12,7 @@ import { buildEvaluationSections } from "@/lib/dashboard/evaluation-classificati
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SCHEDULE_DAY_TO_WEEKDAY: Record<EnrollmentScheduleDay, number> = {
-  lun: 1, mar: 2, mie: 3, jue: 4, vie: 5, sab: 6
+  lun: 1, mar: 2, mie: 3, jue: 4, vie: 5, sab: 6, dom: 7
 };
 
 const buildInternalEvents = (events: Event[]): CalendarEvent[] =>
@@ -92,11 +92,12 @@ const filterFutureEvents = (events: CalendarEvent[], start: Date, endExclusive: 
     return date >= start.getTime() && date < endExclusive.getTime();
   });
 
-export default async function EvaluacionesPage({
-  searchParams
-}: {
-  searchParams: { month?: string }
-}) {
+export default async function EvaluacionesPage(
+  props: {
+    searchParams: Promise<{ month?: string }>
+  }
+) {
+  const searchParams = await props.searchParams;
   const now = new Date();
 
   let referenceDate = now;

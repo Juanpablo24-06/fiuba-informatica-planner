@@ -108,7 +108,7 @@ describe("map transition helpers", () => {
       mapEntryPhase: "bar-drop",
       transitionStartedAt: 1_000,
       loaderStartedAt: null,
-      minimumLoaderMs: 560
+      minimumLoaderMs: 720
     });
 
     expect(buildPendingNavigationState("/agenda", "/mapa", 1_000)).toMatchObject({
@@ -122,7 +122,7 @@ describe("map transition helpers", () => {
       mapEntryPhase: "loader",
       transitionStartedAt: 1_000,
       loaderStartedAt: 1_000,
-      minimumLoaderMs: 560
+      minimumLoaderMs: 720
     });
   });
 
@@ -137,11 +137,11 @@ describe("map transition helpers", () => {
       mapEntryPhase: "loader",
       transitionStartedAt: 2_000,
       loaderStartedAt: 2_000,
-      minimumLoaderMs: 560
+      minimumLoaderMs: 720
     });
     expect(buildPendingNavigationState("/", "/agenda/semana", 2_000)).toMatchObject({
-      pendingPath: "/agenda",
-      pendingSection: "/agenda",
+      pendingPath: "/calendario",
+      pendingSection: "/calendario",
       loaderKind: "app",
       mapContentReady: false,
       showMapBar: false,
@@ -149,7 +149,7 @@ describe("map transition helpers", () => {
       mapEntryPhase: "loader",
       transitionStartedAt: 2_000,
       loaderStartedAt: 2_000,
-      minimumLoaderMs: 560
+      minimumLoaderMs: 720
     });
   });
 
@@ -163,8 +163,8 @@ describe("map transition helpers", () => {
         transitionId: 7
       })
     ).toMatchObject({
-      pendingPath: "/agenda",
-      pendingSection: "/agenda",
+      pendingPath: "/calendario",
+      pendingSection: "/calendario",
       loaderKind: "app",
       mapContentReady: false,
       startedFromSection: "/mapa",
@@ -176,16 +176,18 @@ describe("map transition helpers", () => {
     });
   });
 
-  it("keeps the loader visible until the minimum duration is met", () => {
-    expect(getRemainingLoaderDuration(1_000, 1_120)).toBe(440);
-    expect(getRemainingLoaderDuration(1_000, 1_500)).toBe(60);
-    expect(getRemainingLoaderDuration(1_000, 1_600)).toBe(0);
-    expect(getRemainingLoaderDuration(null, 1_500)).toBe(560);
+  it("shows the requested loading sequence without adding time after its minimum", () => {
+    expect(getRemainingLoaderDuration(1_000, 1_120)).toBe(600);
+    expect(getRemainingLoaderDuration(1_000, 1_500)).toBe(220);
+    expect(getRemainingLoaderDuration(1_000, 1_720)).toBe(0);
+    expect(getRemainingLoaderDuration(1_000, 2_000)).toBe(0);
+    expect(getRemainingLoaderDuration(null, 1_500)).toBe(720);
+    expect(getRemainingLoaderDuration(1_000, 1_010, 0)).toBe(0);
   });
 
   it("prefers the pending section while navigation is still unresolved", () => {
     expect(getDisplaySection("/", "/mapa")).toBe("/mapa");
-    expect(getDisplaySection("/agenda/semana", null)).toBe("/agenda");
+    expect(getDisplaySection("/agenda/semana", null)).toBe("/calendario");
     expect(isPendingNavigationResolved("/mapa", "/mapa")).toBe(true);
     expect(isPendingNavigationResolved("/", "/mapa")).toBe(false);
   });
@@ -227,8 +229,8 @@ describe("map transition helpers", () => {
 
   it("normalizes app sections from arbitrary pathnames", () => {
     expect(getSectionForPathname("/mapa")).toBe("/mapa");
-    expect(getSectionForPathname("/agenda/semana")).toBe("/agenda");
-    expect(getSectionForPathname("/horario/semana")).toBe("/agenda");
+    expect(getSectionForPathname("/agenda/semana")).toBe("/calendario");
+    expect(getSectionForPathname("/horario/semana")).toBe("/calendario");
     expect(getSectionForPathname("/admin/config")).toBe("/admin");
     expect(getSectionForPathname("/cualquier-cosa")).toBe("/");
   });

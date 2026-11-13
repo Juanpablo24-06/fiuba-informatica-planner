@@ -5,6 +5,9 @@ export type MapNode = {
   name: string;
   code: string | null;
   term: number | null;
+  suggested_term?: number | null;
+  /** Explicit structural order within the suggested plan period. */
+  term_order: number | null;
   type: string | null;
   cycle?: string | null;
   status?: string | null;

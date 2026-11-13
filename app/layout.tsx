@@ -1,27 +1,30 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Nunito, Nunito_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const nunitoSans = Nunito_Sans({
-  subsets: ["latin"],
+const nunitoSans = localFont({
+  src: "../public/fonts/nunito-sans-latin.woff2",
   variable: "--font-sans",
   display: "swap",
-  weight: ["400", "500", "600", "700"],
+  weight: "400 700",
   adjustFontFallback: false
 });
 
-const nunito = Nunito({
-  subsets: ["latin"],
+const nunito = localFont({
+  src: "../public/fonts/nunito-latin.woff2",
   variable: "--font-display",
   display: "swap",
-  weight: ["400", "500", "600", "700"],
+  weight: "400 700",
   adjustFontFallback: false
 });
 
-const plexMono = IBM_Plex_Mono({
-  subsets: ["latin"],
+const plexMono = localFont({
+  src: [
+    { path: "../public/fonts/ibm-plex-mono-400.woff2", weight: "400" },
+    { path: "../public/fonts/ibm-plex-mono-500.woff2", weight: "500" }
+  ],
   variable: "--font-mono",
-  weight: ["400", "500"],
+  adjustFontFallback: false,
   display: "swap"
 });
 
@@ -35,7 +38,7 @@ const THEME_BOOTSTRAP_SCRIPT = `
     const themePreference =
       storedTheme === "light" || storedTheme === "dark" || storedTheme === "system"
         ? storedTheme
-        : "system";
+        : "light";
     const resolved =
       themePreference === "system"
         ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
@@ -71,7 +74,12 @@ export default function RootLayout({
   children
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es" className="scroll-smooth" suppressHydrationWarning>
+    <html
+      lang="es"
+      className="scroll-smooth"
+      data-scroll-behavior="smooth"
+      suppressHydrationWarning
+    >
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
       </head>

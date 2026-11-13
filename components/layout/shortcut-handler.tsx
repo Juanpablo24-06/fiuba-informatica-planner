@@ -28,7 +28,7 @@ export default function ShortcutHandler() {
       if (!event.shiftKey || isTypingTarget(event.target)) return;
       const key = event.key.toLowerCase();
       const destination =
-        key === "d" ? "/" : key === "m" ? "/mapa" : key === "h" ? "/agenda/semana" : null;
+        key === "d" ? "/" : key === "m" ? "/mapa" : key === "p" ? "/planificar" : key === "c" || key === "h" ? "/calendario" : null;
       if (destination) {
         const currentSection = getDisplaySection(pathname, transitionState.pendingSection);
         const targetSection = getSectionForPathname(destination);

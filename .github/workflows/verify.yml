@@ -3,15 +3,16 @@ name: Verify
 on:
   push:
   pull_request:
+  workflow_dispatch:
+    inputs:
+      browser_checks:
+        description: Run the optional browser harness
+        type: boolean
+        default: false
 
 jobs:
   verify:
     runs-on: ubuntu-latest
-    env:
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -26,10 +27,30 @@ jobs:
         run: npm ci
 
       - name: Install Playwright browser
+        if: github.event_name == 'workflow_dispatch' && inputs.browser_checks
         run: npx playwright install --with-deps chromium
 
       - name: Verify
         run: npm run verify
 
       - name: Browser smoke
+        if: github.event_name == 'workflow_dispatch' && inputs.browser_checks
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          DEMO_LOGIN_ENABLED: "true"
         run: npm run harness:smoke
+
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+          cache-dependency-path: apps/demo/package-lock.json
+      - run: npm run demo:install
+      - run: npm run verify:demo

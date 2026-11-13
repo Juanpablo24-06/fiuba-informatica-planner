@@ -10,7 +10,7 @@ export const verifyPassword = (password: string, storedHash: string) => {
     const hashBuffer = Buffer.from(hash, "hex");
     if (hashBuffer.length !== derived.length) return false;
     return crypto.timingSafeEqual(hashBuffer, derived);
-  } catch (error) {
+  } catch {
     return false;
   }
 };

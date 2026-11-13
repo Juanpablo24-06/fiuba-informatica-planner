@@ -1,8 +1,6 @@
 # Planificador FIUBA Informática (Plan 2023)
 
-Aplicación web open-source para seguir la carrera de Ingeniería en Informática de FIUBA. El proyecto hoy ya no es solo un dashboard: incluye resumen académico, mapa interactivo de correlatividades, agenda integrada, panel admin y un asistente interno para consultar o editar información académica.
-
-Esta publicación es una copia saneada del proyecto de trabajo original: conserva el historial Git útil del desarrollo, pero no incluye `.env.local`, credenciales, estado local de Supabase, artefactos generados, capturas temporales ni PDFs fuente usados durante la investigación.
+Aplicación web con demo pública y modalidad normal con contraseña para seguir la carrera de Ingeniería en Informática de FIUBA. El proyecto hoy ya no es solo un dashboard: incluye resumen académico, mapa interactivo de correlatividades, agenda integrada, panel admin y un asistente interno para consultar o editar información académica.
 
 ## Licencia y uso
 
@@ -19,6 +17,28 @@ Este proyecto fue desarrollado con asistencia intensiva de IA. GPT fue la famili
 
 Ninguna herramienta fue la única autora del diseño o del código; el resultado salió de dirección humana, revisión e integración con apoyo de varios modelos. Ver [AI_DISCLOSURE.md](AI_DISCLOSURE.md).
 
+
+
+
+
+
+
+## Elegir modalidad
+
+El código completo de ambas versiones está incluido. La **demo pública** usa datos ficticios guardados en el navegador; la **modalidad normal** conserva contraseñas, base de datos y APIs. La elección se configura al arrancar, sin un selector de modalidad visible en la página.
+
+```sh
+npm ci
+npm run demo:install
+npm run dev:demo
+```
+
+Para la demo no se necesitan tokens, cuentas, IA ni base de datos. `npm run build:demo` genera `apps/demo/dist`, listo para hosting estático. [Abrir la demo publicada](https://fiuba-plan-demo.stillfudge8.chatgpt.site).
+
+Para uso normal, seguir el setup inferior y configurar `APP_MODE=standard`. El ejemplo de entorno propone `APP_MODE=demo`; los comandos `dev`, `build` y `start` respetan esa preferencia. También hay comandos explícitos `dev:standard`, `build:standard` y `start:standard`. Las instalaciones que no definan `APP_MODE` conservan su funcionamiento normal.
+
+[Configuración, aislamiento y publicación de las dos modalidades](docs/runbooks/app-modes.md).
+
 ## Qué tiene hoy
 
 ### Secciones principales
@@ -31,12 +51,12 @@ Ninguna herramienta fue la única autora del diseño o del código; el resultado
 - Login por roles (`admin` / `viewer`) con sesión server-side y middleware.
 - Gestión de materias, correlativas, cuatrimestres, cursadas y eventos internos.
 - Importación y cacheo de eventos desde Google Calendar vía service account.
-- Chat interno “Synapse” con selección de proveedor/modelo y soporte de persistencia opcional.
+- Chat interno “Synapse” con selección de proveedor/modelo, historial visible y persistencia habilitada por defecto.
 - Navegación entre secciones con loaders y transición dedicada para entrar al mapa.
 - Tests con Vitest y utilidades para seed y hashing de passwords.
 
 ## Stack
-- Next.js 14 (`App Router`) + React 18 + TypeScript
+- Next.js 16 (`App Router`) + React 19 + TypeScript
 - Tailwind CSS
 - Supabase (Postgres)
 - Google Calendar API (`googleapis`)
@@ -44,11 +64,11 @@ Ninguna herramienta fue la única autora del diseño o del código; el resultado
 - Vitest + Testing Library
 
 ## Requisitos
-- Node.js 20+ requerido
+- Node.js 22 requerido
 - npm
-- Un proyecto de Supabase
+- Para la modalidad normal: un proyecto de Supabase
 - Opcional: credenciales de Google Calendar
-- Opcional: credenciales de AI (`OpenRouter`, `NVIDIA` o `Gemini`)
+- Opcional: credenciales de AI (`OpenRouter` o `NVIDIA`)
 
 ## Setup local
 
@@ -71,11 +91,8 @@ Copiar `.env.example` a `.env.local` y completar lo que corresponda.
 #### Recomendadas
 - `SESSION_TTL_DAYS`
 - `GOOGLE_CALENDAR_TIMEZONE`
-- `CHAT_PERSISTENCE_ENABLED`
-- `NEXT_PUBLIC_CHAT_PERSISTENCE`
-- `EXTERNAL_ADMIN_BEARER_TOKEN`
-- `GPT_ACTIONS_BEARER_TOKEN`
-- `MCP_BEARER_TOKEN`
+- `CHAT_PERSISTENCE_ENABLED` (por defecto activo; usar `false` para desactivar)
+- `NEXT_PUBLIC_CHAT_PERSISTENCE` (por defecto activo; usar `false` para desactivar)
 - `CRON_SECRET`
 - `MCP_ENABLED` (`false` para apagar el endpoint MCP remoto)
 
@@ -96,9 +113,6 @@ Copiar `.env.example` a `.env.local` y completar lo que corresponda.
 - `NVIDIA_API_URL`
 - `NVIDIA_REQUEST_TIMEOUT_MS`
 - `NVIDIA_MAX_TOKENS`
-- `GEMINI_API_KEY`
-- `GEMINI_MODEL`
-- `GEMINI_API_URL`
 
 ### 3) Hash de contraseñas
 ```bash
@@ -184,10 +198,11 @@ La app usa esa integración para:
 
 ## AI y chat
 El panel de chat permite:
-- elegir proveedor/modelo (`OpenRouter`, `NVIDIA`, `Gemini`),
-- elegir modelo o escribir uno custom,
-- definir nivel de razonamiento,
-- persistir historial opcionalmente,
+- elegir proveedor/modelo (`OpenRouter` o `NVIDIA`),
+- usar GLM 5.1/5.2 y MiniMax M2.7/M3 desde NVIDIA NIM,
+- definir un esfuerzo real solo cuando el proveedor expone ese control; los modelos nativos se identifican como automáticos,
+- consultar todo el contexto académico disponible,
+- ver y recuperar el historial desde un panel propio del modal,
 - habilitar acciones de edición si el usuario es admin.
 
 Reglas/versionado del asistente:
@@ -258,7 +273,7 @@ Notas importantes:
 
 - No necesitás otro proyecto de Vercel para esta primera versión.
 - Si `MCP_ENABLED=false`, el endpoint queda apagado.
-- El endpoint MCP ejecuta herramientas admin sobre datos reales: usá `MCP_BEARER_TOKEN` o `EXTERNAL_ADMIN_BEARER_TOKEN` para conexiones remotas.
+- Esta primera iteración está abierta para pruebas y no exige login/OAuth.
 
 Guía operativa completa:
 

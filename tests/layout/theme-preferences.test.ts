@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   applyAppearancePreferences,
@@ -26,7 +27,7 @@ describe("theme preferences", () => {
 
   it("defaults to the coral palette and fixed medium density when no preference is stored", () => {
     expect(readAppearancePreferences()).toMatchObject({
-      theme: "system",
+      theme: "light",
       palette: "coral",
       density: "media"
     });

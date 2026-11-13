@@ -26,11 +26,12 @@ export default async function LoginPage() {
             <div className="mt-2 flex flex-wrap gap-2">
               <span className="rounded-full border border-border/70 px-2 py-1">Shift + D · Resumen</span>
               <span className="rounded-full border border-border/70 px-2 py-1">Shift + M · Mapa</span>
-              <span className="rounded-full border border-border/70 px-2 py-1">Shift + H · Agenda</span>
+              <span className="rounded-full border border-border/70 px-2 py-1">Shift + P · Planificar</span>
+              <span className="rounded-full border border-border/70 px-2 py-1">Shift + C · Calendario</span>
             </div>
           </div>
         </div>
-        <LoginForm />
+        <LoginForm demoLoginEnabled={process.env.NODE_ENV !== "production" && process.env.DEMO_LOGIN_ENABLED === "true"} />
       </div>
     </div>
   );

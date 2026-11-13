@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { createCameraScheduler } from "@/lib/map/map-camera-scheduler";
 import MapDetailContent from "@/components/map/map-detail-content";
 import { MapNodeCard } from "@/components/map/map-node-card";
 import MapSceneBackground from "@/components/map/map-scene-background";
@@ -46,8 +47,6 @@ import {
   MAP_CBC_COLLAPSED_STORAGE_KEY,
   MAP_FINAL_TRACK_STORAGE_KEY,
   MAP_VIEW_STORAGE_KEY,
-  MAX_ZOOM,
-  MIN_ZOOM,
   PAN_DRAG_MULTIPLIER,
   STATUS_LABELS,
   ZOOM_FACTOR
@@ -67,7 +66,7 @@ export const getRelaxedInteractiveTopInset = (
 export default function MapView({ nodes, edges, onReady }: MapViewProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const worldRef = useRef<HTMLDivElement | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
+  const cameraSchedulerRef = useRef<ReturnType<typeof createCameraScheduler> | null>(null);
   const cameraAnimationRef = useRef<number | null>(null);
   const initialCameraAppliedRef = useRef(false);
   const persistedTransformRef = useRef<Transform | null>(null);
@@ -92,8 +91,7 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
   const hasUserMovedRef = useRef(false);
   const sheetDragRef = useRef<{ startY: number; startHeight: number } | null>(null);
 
-  const [transform, setTransform] = useState<Transform>(transformRef.current);
-  const [worldSize, setWorldSize] = useState({ width: 0, height: 0 });
+  const [cameraReady, setCameraReady] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [showElectives, setShowElectives] = useState(false);
@@ -101,6 +99,7 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
   const [panelState, setPanelState] = useState<"collapsed" | "half" | "full">("collapsed");
   const [sheetHeight, setSheetHeight] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
+  const [viewportWidth, setViewportWidth] = useState(0);
   const [headerHeight, setHeaderHeight] = useState(96);
   const [isDesktop, setIsDesktop] = useState(false);
   const [viewportModeReady, setViewportModeReady] = useState(false);
@@ -134,7 +133,10 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
     if (typeof window === "undefined") return;
     const viewport = viewportRef.current;
     if (!viewport) return;
-    const update = () => setViewportHeight(viewport.clientHeight);
+    const update = () => {
+      setViewportHeight(viewport.clientHeight);
+      setViewportWidth(viewport.clientWidth);
+    };
     update();
     const observer = new ResizeObserver(update);
     observer.observe(viewport);
@@ -353,22 +355,47 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
     : null;
 
   useEffect(() => {
-    if (!layout.width || !layout.height || !onReady) return;
+    if (!cameraReady || !layout.width || !layout.height || !onReady) return;
 
     const frame = window.requestAnimationFrame(() => {
       onReady();
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [layout.height, layout.width, onReady]);
+  }, [cameraReady, layout.height, layout.width, onReady]);
+
+  const worldSize = layout;
+
+  useEffect(() => {
+    let hasPainted = false;
+    const scheduler = createCameraScheduler({
+      paint: (next) => {
+        if (!worldRef.current) return;
+        worldRef.current.style.transform = `translate(${next.x}px, ${next.y}px) scale(${next.scale})`;
+        if (initialCameraAppliedRef.current && !hasPainted) {
+          hasPainted = true;
+          setCameraReady(true);
+        }
+      },
+      persist: (next) => {
+        if (!initialCameraAppliedRef.current) return;
+        try {
+          window.localStorage.setItem(MAP_VIEW_STORAGE_KEY, serializePersistedMapTransform(next, viewportMode));
+        } catch {
+          // Storage can be unavailable; camera gestures must continue working.
+        }
+      }
+    });
+    cameraSchedulerRef.current = scheduler;
+    return () => {
+      scheduler.dispose();
+      cameraSchedulerRef.current = null;
+    };
+  }, [viewportMode]);
 
   const scheduleTransform = useCallback((next: Transform) => {
     transformRef.current = next;
-    if (animationFrameRef.current !== null) {
-      window.cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-    setTransform({ ...next });
+    cameraSchedulerRef.current?.schedule(next);
   }, []);
 
   const stopCameraAnimation = useCallback(() => {
@@ -441,14 +468,12 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
   );
 
   useEffect(() => {
-    setWorldSize({ width: layout.width, height: layout.height });
-  }, [layout.height, layout.width]);
-
-  useEffect(() => {
     if (!viewportModeReady) return;
     if (!layout.width || !layout.height) return;
     const viewport = viewportRef.current;
     if (!viewport) return;
+    // Navigation temporarily hides the page. Wait for actual dimensions before fitting the camera.
+    if (!viewport.clientWidth || !viewport.clientHeight) return;
 
     if (!initialCameraAppliedRef.current) {
       const persisted = persistedTransformRef.current;
@@ -495,31 +520,25 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
     layout.width,
     safeTopInset,
     setTransformSafe,
-    viewportModeReady
+    viewportModeReady,
+    viewportWidth,
+    viewportHeight
   ]);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !viewportModeReady) return;
-    if (!initialCameraAppliedRef.current) return;
-
-    try {
-      window.localStorage.setItem(
-        MAP_VIEW_STORAGE_KEY,
-        serializePersistedMapTransform(transform, viewportMode)
-      );
-    } catch {
-      // Ignore storage errors and keep map interactions responsive.
-    }
-  }, [transform, viewportMode, viewportModeReady]);
-
-  useEffect(() => {
     return () => {
-      if (animationFrameRef.current !== null) {
-        window.cancelAnimationFrame(animationFrameRef.current);
-      }
       stopCameraAnimation();
     };
   }, [stopCameraAnimation]);
+
+  const handleHoverStart = useCallback((id: string) => {
+    if (!isDesktop || selectedId || pointersRef.current.size > 0) return;
+    setHoveredId(id);
+  }, [isDesktop, selectedId]);
+  const handleHoverEnd = useCallback(() => {
+    if (!isDesktop || selectedId) return;
+    setHoveredId(null);
+  }, [isDesktop, selectedId]);
 
   const focusNode = useCallback(
     (id: string, zoom: boolean) => {
@@ -541,6 +560,11 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
       });
 
       stopCameraAnimation();
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        hasUserMovedRef.current = true;
+        scheduleTransform(target);
+        return;
+      }
       const start = { ...transformRef.current };
       const startedAt = performance.now();
       const duration = 320;
@@ -756,11 +780,12 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
           >
             <div
               ref={worldRef}
+              data-map-world="true"
               className="relative"
               style={{
                 width: layout.width,
                 height: layout.height,
-                transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
+                transform: `translate(${transformRef.current.x}px, ${transformRef.current.y}px) scale(${transformRef.current.scale})`,
                 transformOrigin: "0 0"
               }}
               onPointerDown={(event) => {
@@ -825,14 +850,8 @@ export default function MapView({ nodes, edges, onReady }: MapViewProps) {
                     isHovered={hoveredId === node.id}
                     finalProjectTrack={finalProjectTrack}
                     preview={nodePreviews.get(node.id) ?? null}
-                    onHoverStart={(id) => {
-                      if (!isDesktop || selectedId) return;
-                      setHoveredId(id);
-                    }}
-                    onHoverEnd={() => {
-                      if (!isDesktop || selectedId) return;
-                      setHoveredId(null);
-                    }}
+                    onHoverStart={handleHoverStart}
+                    onHoverEnd={handleHoverEnd}
                   />
                 );
               })}

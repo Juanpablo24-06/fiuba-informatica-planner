@@ -6,7 +6,7 @@ export const MAP_TRANSITION_DURATION_MS = 300;
 export const MAP_BAR_DROP_SETTLE_MS = 12;
 export const MIN_DESTINATION_SETTLE_MS = 300;
 export const MAP_TRANSITION_SNAP_THRESHOLD_PX = 10;
-export const MINIMUM_SECTION_LOADER_MS = 560;
+export const MINIMUM_SECTION_LOADER_MS = 720;
 
 export const isRenderableProgressRect = (
   rect: ProgressSourceRect | null | undefined

@@ -16,7 +16,15 @@
         "set_current_term",
         "add_enrollment",
         "update_enrollment_status",
-        "remove_enrollment"
+        "remove_enrollment",
+        "create_subject",
+        "update_subject",
+        "remove_subject",
+        "create_event",
+        "update_event",
+        "remove_event",
+        "set_planner_commission",
+        "remove_planner_course"
       ]
     },
     "viewer": {

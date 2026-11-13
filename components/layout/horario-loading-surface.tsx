@@ -2,17 +2,19 @@
 
 /**
  * Horario/Agenda loader — "Calendar fill" concept.
- * A 5×4 grid of cells that get filled one by one like someone
+ * A 7×4 grid of cells that get filled one by one like someone
  * is coloring in schedule blocks with a marker. No text.
  */
 export default function HorarioLoadingSurface({ className }: { className?: string }) {
-  const cols = 5;
+  const cols = 7;
   const rows = 4;
   const cells: { delay: number; color: string }[] = [];
 
   const colors = [
     "rgb(var(--color-accent))",
     "rgb(var(--color-accent-2))",
+    "rgb(var(--color-accent-3))",
+    "rgb(var(--color-accent))",
     "rgb(var(--color-accent-3))",
     "rgb(var(--color-accent))",
     "rgb(var(--color-accent-2))",
@@ -33,7 +35,7 @@ export default function HorarioLoadingSurface({ className }: { className?: strin
     <div className={`flex items-center justify-center min-h-[60vh] ${className ?? ""}`}>
       <div className="loader-container w-full max-w-sm px-6">
         {/* Header row placeholders */}
-        <div className="grid grid-cols-5 gap-2 mb-2">
+        <div className="grid grid-cols-7 gap-2 mb-2">
           {colors.map((color, i) => (
             <div
               key={i}
@@ -47,7 +49,7 @@ export default function HorarioLoadingSurface({ className }: { className?: strin
           ))}
         </div>
         {/* Grid cells */}
-        <div className="grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-7 gap-2">
           {cells.map((cell, i) => (
             <div
               key={i}

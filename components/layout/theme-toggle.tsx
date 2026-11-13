@@ -1,9 +1,11 @@
 "use client";
 
 import { MoonStar, SunMedium } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
+import { transitionTheme } from "@/lib/theme-wave";
 import { cn } from "@/lib/utils";
 import {
+  applyAppearancePreferences,
   commitAppearancePreferences,
   readAppearancePreferences,
   resolveTheme,
@@ -33,6 +35,7 @@ export default function ThemeToggle({ className }: { className?: string }) {
     if (!preferences || preferences.theme !== "system") return;
     const query = window.matchMedia("(prefers-color-scheme: dark)");
     const handleSystemChange = () => {
+      applyAppearancePreferences(preferences);
       setPreferences((current) => (current ? { ...current } : current));
     };
     query.addEventListener("change", handleSystemChange);
@@ -48,7 +51,7 @@ export default function ThemeToggle({ className }: { className?: string }) {
     setPreferences(commitAppearancePreferences(nextPreferences));
   };
 
-  const handleToggle = () => {
+  const handleToggle = (event: MouseEvent<HTMLButtonElement>) => {
     if (!preferences) return;
 
     const nextPreferences: AppearancePreferences = {
@@ -56,7 +59,10 @@ export default function ThemeToggle({ className }: { className?: string }) {
       theme: nextTheme
     };
 
-    commitThemeChange(nextPreferences);
+    const bounds = event.currentTarget.getBoundingClientRect();
+    transitionTheme(event.detail === 0
+      ? { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }
+      : { x: event.clientX, y: event.clientY }, () => commitThemeChange(nextPreferences));
   };
 
   return (
@@ -67,11 +73,11 @@ export default function ThemeToggle({ className }: { className?: string }) {
       aria-label={`Cambiar a modo ${nextLabel}`}
       aria-pressed={resolvedTheme === "dark"}
       className={cn(
-        "inline-flex h-10 w-10 items-center justify-center rounded-full text-muted transition-all duration-200 hover:bg-surface-2/65 hover:text-accent active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
+        "header-theme-toggle inline-flex h-10 w-10 items-center justify-center rounded-full text-muted transition-all duration-200 hover:bg-surface-2/65 hover:text-accent active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
         className
       )}
     >
-      <Icon className="h-4 w-4" />
+      <span className="header-theme-icon inline-flex" aria-hidden="true"><Icon className="h-4 w-4" /></span>
     </button>
   );
 }

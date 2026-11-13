@@ -18,10 +18,8 @@ const getErrorStatus = (error: unknown) => {
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "Error desconocido.";
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = requireRoleFromRequest(request, "admin");
   if (!session) {
     return NextResponse.json({ error: "No autorizado." }, { status: 403 });
@@ -44,10 +42,8 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = requireRoleFromRequest(request, "admin");
   if (!session) {
     return NextResponse.json({ error: "No autorizado." }, { status: 403 });

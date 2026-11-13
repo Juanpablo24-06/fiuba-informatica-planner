@@ -1,3 +1,5 @@
+import { finishThemeWave } from "@/lib/theme-wave";
+
 export type ThemePreference = "light" | "dark" | "system";
 export type PalettePreset = "grafito" | "coral" | "esmeralda" | "indigo";
 export type DensityMode = "compacta" | "media" | "amplia";
@@ -13,10 +15,10 @@ export const PALETTE_KEY = "fiuba-palette";
 export const DENSITY_KEY = "fiuba-density";
 
 const APPEARANCE_EVENT = "fiuba:appearance-change";
-const THEME_TRANSITION_LOCK = "data-theme-lock";
+
 
 export const DEFAULT_APPEARANCE: AppearancePreferences = {
-  theme: "system",
+  theme: "light",
   palette: "coral",
   density: "media"
 };
@@ -39,8 +41,12 @@ export const getAutoPaletteForTheme = (theme: ThemePreference): PalettePreset =>
 export const readAppearancePreferences = (): AppearancePreferences => {
   if (typeof window === "undefined") return DEFAULT_APPEARANCE;
 
-  const storedTheme = localStorage.getItem(THEME_KEY);
-  const storedPalette = localStorage.getItem(PALETTE_KEY);
+  let storedTheme: string | null = null;
+  let storedPalette: string | null = null;
+  try {
+    storedTheme = localStorage.getItem(THEME_KEY);
+    storedPalette = localStorage.getItem(PALETTE_KEY);
+  } catch { /* Preferences remain usable when storage is blocked. */ }
   return {
     theme: isThemePreference(storedTheme) ? storedTheme : DEFAULT_APPEARANCE.theme,
     palette: isPalettePreset(storedPalette) ? storedPalette : DEFAULT_APPEARANCE.palette,
@@ -50,26 +56,23 @@ export const readAppearancePreferences = (): AppearancePreferences => {
 
 export const applyAppearancePreferences = (preferences: AppearancePreferences) => {
   if (typeof document === "undefined") return;
+  finishThemeWave();
   const root = document.documentElement;
   const resolved = resolveTheme(preferences.theme);
-  root.setAttribute(THEME_TRANSITION_LOCK, "true");
   root.dataset.theme = resolved;
   root.dataset.palette = preferences.palette;
   root.dataset.density = DEFAULT_APPEARANCE.density;
   root.style.colorScheme = resolved;
 
-  window.requestAnimationFrame(() => {
-    window.requestAnimationFrame(() => {
-      root.removeAttribute(THEME_TRANSITION_LOCK);
-    });
-  });
 };
 
 export const commitAppearancePreferences = (preferences: AppearancePreferences) => {
   if (typeof window !== "undefined") {
+    try {
     localStorage.setItem(THEME_KEY, preferences.theme);
     localStorage.setItem(PALETTE_KEY, preferences.palette);
     localStorage.setItem(DENSITY_KEY, DEFAULT_APPEARANCE.density);
+    } catch { /* Keep the preference for this visit. */ }
   }
 
   const normalizedPreferences = {

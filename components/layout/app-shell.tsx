@@ -7,6 +7,7 @@ import MapLoadingStage from "@/components/map/map-loading-stage";
 import MapSceneBackground from "@/components/map/map-scene-background";
 import MapProgressTransitionLayer from "@/components/layout/map-progress-transition-layer";
 import RouteLoadingSurface from "@/components/layout/route-loading-surface";
+import RouteMotion from "@/components/layout/route-motion";
 import { OFFICIAL_TOTAL_CREDITS, type ProgressSnapshot } from "@/lib/progress";
 import { cn } from "@/lib/utils";
 import {
@@ -27,6 +28,8 @@ export default function AppShell({ children, progress }: AppShellProps) {
   const mapTransitionState = useMapTransitionState();
   const displaySection = getDisplaySection(pathname, mapTransitionState.pendingSection);
   const isMapa = displaySection === "/mapa";
+  const isCalendar = displaySection === "/calendario";
+  const isPlanner = displaySection === "/planificar";
   const pendingNavigationActive = mapTransitionState.transitioning;
   const mapSceneActive =
     isMapa || (pendingNavigationActive && mapTransitionState.loaderKind === "map");
@@ -66,31 +69,37 @@ export default function AppShell({ children, progress }: AppShellProps) {
     <>
       <main
         className={cn(
-          "mx-auto w-full px-6 pb-28",
+          "mx-auto w-full px-3 sm:px-5 lg:px-6 2xl:px-8",
+          isCalendar ? "pb-0" : isPlanner ? "pb-4" : "pb-28",
           pendingNavigationActive && "pointer-events-none",
           mapSceneActive
             ? "max-w-none px-0 pb-0 pt-0"
-            : "max-w-7xl pt-[calc(var(--app-header-height,96px)+0.75rem)]"
+            : "max-w-[1680px] pt-[calc(var(--app-header-height,96px)+0.75rem)]"
         )}
         data-scrollbar-compensate="true"
         data-pending-navigation={pendingNavigationActive ? "true" : "false"}
         data-pending-resolved={pendingNavigationActive ? "false" : "true"}
         style={
           {
-            "--scrollbar-compensation-base-padding": mapSceneActive ? "0px" : "24px"
+            "--scrollbar-compensation-base-padding": mapSceneActive ? "0px" : "clamp(12px, 2vw, 32px)"
           } as CSSProperties
         }
       >
         <div className={cn("relative", mapSceneActive && "min-h-[100svh]")}>
           <div
             aria-hidden={hideRouteContent}
+            inert={hideRouteContent}
             className={cn(
               hideRouteContent
-                ? "pointer-events-none hidden absolute inset-0 z-10"
+                ? "pointer-events-none invisible absolute inset-0 z-10"
                 : "relative z-10"
             )}
           >
-            {children}
+            {isMapa || pathname === "/" || pendingNavigationActive ? (
+              children
+            ) : (
+              <RouteMotion routeKey={pathname}>{children}</RouteMotion>
+            )}
           </div>
 
           {pendingNavigationActive ? <div className="relative z-20">{loadingContent}</div> : null}

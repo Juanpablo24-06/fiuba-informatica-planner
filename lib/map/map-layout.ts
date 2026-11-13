@@ -56,7 +56,7 @@ export const getOrderedTerms = (nodes: MapNode[]) =>
 export const isGenericElectiveNode = (node: MapNode) => GENERIC_ELECTIVE_NAMES.has(node.name);
 export const isCbcClusterNode = (node?: MapNode | null) => node?.display_kind === "cbc_cluster";
 export const isCbcLeafNode = (node?: MapNode | null) =>
-  Boolean(node && !isCbcClusterNode(node) && CBC_SUBJECT_NAMES.has(node.name));
+  Boolean(node && !isCbcClusterNode(node) && (node.cycle?.toLowerCase() === "cbc" || node.type?.toLowerCase() === "cbc" || CBC_SUBJECT_NAMES.has(node.name)));
 
 export const isFinalProjectNode = (node?: MapNode | null) =>
   Boolean(
@@ -64,6 +64,9 @@ export const isFinalProjectNode = (node?: MapNode | null) =>
       (node.display_kind === "final_project" ||
         /Trabajo Integrador Final|Tesis\/Trabajo Profesional/i.test(node.name))
   );
+
+const hasStructuralOrder = (node: MapNode) =>
+  typeof node.term_order === "number" && Number.isFinite(node.term_order);
 
 export const getFinalProjectStage = (node?: MapNode | null) =>
   node?.term === 10 || /II$/i.test(node?.name ?? "") ? "II" : "I";
@@ -88,7 +91,13 @@ export const getDisplayNodeMeta = (node: MapNode) => {
   return `TIF · ${getNodeTerm(node)}° cuatrimestre`;
 };
 
-export const getFixedNodePosition = (node: MapNode) => FIXED_NODE_POSITIONS.get(node.name) ?? null;
+/**
+ * Fixed FIUBA placements are a compatibility fallback only. Once a subject
+ * has an explicit structural order, the layout must derive its position from
+ * that order instead of a name-based coordinate.
+ */
+export const getFixedNodePosition = (node: MapNode) =>
+  hasStructuralOrder(node) ? null : FIXED_NODE_POSITIONS.get(node.name) ?? null;
 
 export const buildEdgeMaps = (edges: MapEdge[]) => {
   const incomingByNode = new Map<string, string[]>();
@@ -113,6 +122,7 @@ export const sortByAnchor = (
 ) => {
   const centerLane = (LANE_COUNT - 1) / 2;
   const getExplicitOrder = (node: MapNode) => {
+    if (hasStructuralOrder(node)) return node.term_order as number;
     if (node.type === "electiva") {
       return ELECTIVE_ORDER_INDEX.get(node.name);
     }
@@ -139,6 +149,16 @@ export const sortByAnchor = (
   };
 
   return [...items].sort((first, second) => {
+    const firstStructuralOrder = hasStructuralOrder(first) ? first.term_order : null;
+    const secondStructuralOrder = hasStructuralOrder(second) ? second.term_order : null;
+    if (firstStructuralOrder !== null || secondStructuralOrder !== null) {
+      if (firstStructuralOrder === null) return 1;
+      if (secondStructuralOrder === null) return -1;
+      if (firstStructuralOrder !== secondStructuralOrder) {
+        return firstStructuralOrder - secondStructuralOrder;
+      }
+    }
+
     const firstIndex = getExplicitOrder(first);
     const secondIndex = getExplicitOrder(second);
     if (
@@ -225,8 +245,17 @@ export const computeHorizontalLayout = (nodes: MapNode[], edges: MapEdge[]): Lay
     let fixedContentWidth = 0;
     let lastColumnGap = SLOT_GAP;
 
-    const fixedNodes = termNodes.filter((node) => getFixedNodePosition(node));
-    const floatingNodes = termNodes.filter((node) => !getFixedNodePosition(node));
+    // Keep all subjects in one ordering system when a term has structural
+    // order data. This avoids mixing ordered nodes with name-based fixed
+    // coordinates in the same period.
+    const hasCbcNodes = termNodes.some((node) => isCbcLeafNode(node) || isCbcClusterNode(node));
+    const hasExplicitTermOrder = hasCbcNodes || termNodes.some(hasStructuralOrder);
+    const fixedNodes = hasExplicitTermOrder
+      ? []
+      : termNodes.filter((node) => getFixedNodePosition(node));
+    const floatingNodes = hasExplicitTermOrder
+      ? termNodes
+      : termNodes.filter((node) => !getFixedNodePosition(node));
 
     if (fixedNodes.length) {
       const fixedRequiredColumns = fixedNodes
@@ -295,7 +324,13 @@ export const computeHorizontalLayout = (nodes: MapNode[], edges: MapEdge[]): Lay
         (node) => node.type === "electiva" && !isGenericElectiveNode(node)
       );
 
-      if (mainNodes.length) {
+      if (hasCbcNodes) {
+        const cbc = mainNodes.filter(isCbcLeafNode);
+        const periods = [...new Set(cbc.map((node) => node.suggested_term ?? 1))].sort((a, b) => a - b);
+        periods.forEach((period) => placeColumn(cbc.filter((node) => (node.suggested_term ?? 1) === period)));
+        placeColumn(mainNodes.filter(isCbcClusterNode));
+        placeColumn(mainNodes.filter((node) => !isCbcLeafNode(node) && !isCbcClusterNode(node)));
+      } else if (mainNodes.length) {
         placeColumn(mainNodes);
       }
 
@@ -303,10 +338,13 @@ export const computeHorizontalLayout = (nodes: MapNode[], edges: MapEdge[]): Lay
         const sameTermElectiveIds = new Set(electiveNodes.map((node) => node.id));
         const levelMemo = new Map<string, number>();
 
+        const visiting = new Set<string>();
         const getElectiveLevel = (nodeId: string): number => {
+          if (visiting.has(nodeId)) return 0;
           const cached = levelMemo.get(nodeId);
           if (typeof cached === "number") return cached;
 
+          visiting.add(nodeId);
           const parents = (incomingByNode.get(nodeId) ?? []).filter((parentId) =>
             sameTermElectiveIds.has(parentId)
           );
@@ -315,6 +353,7 @@ export const computeHorizontalLayout = (nodes: MapNode[], edges: MapEdge[]): Lay
             ? Math.max(...parents.map((parentId) => getElectiveLevel(parentId))) + 1
             : 0;
 
+          visiting.delete(nodeId);
           levelMemo.set(nodeId, nextLevel);
           return nextLevel;
         };

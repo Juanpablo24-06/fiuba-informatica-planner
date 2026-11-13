@@ -1,5 +1,6 @@
 import { CalendarClock, FolderKanban, GraduationCap, Layers3 } from "lucide-react";
 import CalendarSync from "@/components/dashboard/calendar-sync";
+import AdminResponsiveWorkspace from "@/components/dashboard/admin-responsive-workspace";
 import SubjectManager from "@/components/dashboard/subject-manager";
 import TermManager from "@/components/dashboard/term-manager";
 import TermReviewManager from "@/components/dashboard/term-review-manager";
@@ -47,8 +48,8 @@ export default async function AdminPage() {
   const inProgress = currentEnrollments.filter((item) => item.status === "cursando").length;
 
   return (
-    <div className="space-y-6">
-      <section className="panel px-8 py-7">
+    <div className="mx-auto w-full max-w-none space-y-5 2xl:space-y-6">
+      <section className="panel px-4 py-5 sm:px-6 sm:py-6 2xl:px-8 2xl:py-7">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.24em] text-muted">Panel Admin</p>
@@ -62,7 +63,7 @@ export default async function AdminPage() {
           </Badge>
         </div>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-2xl border border-border/75 bg-surface-2 p-4">
             <p className="text-xs uppercase tracking-[0.2em] text-muted">Cuatrimestres</p>
             <div className="mt-2 flex items-center gap-2 text-text">
@@ -96,68 +97,93 @@ export default async function AdminPage() {
         </div>
       </section>
 
-      <div className="grid gap-6 2xl:grid-cols-[1.05fr_1fr]">
-        <Card>
-          <CardHeader>
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-muted">Cuatrimestres</p>
-              <h2 className="text-xl font-semibold">Asistente guiado y configuración actual</h2>
-            </div>
-          </CardHeader>
-          <CardBody>
-            <TermManager
-              currentTerm={currentTerm}
-              terms={terms}
-              subjects={subjects}
-              completedSubjectIds={completedSubjectIds}
-              isAdmin
-            />
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-muted">Revisión post-creación</p>
-              <h2 className="text-xl font-semibold">Ver, agregar, quitar y editar materias por cuatrimestre</h2>
-            </div>
-          </CardHeader>
-          <CardBody>
-            <TermReviewManager
-              terms={terms}
-              subjects={subjects}
-              initialTermId={reviewTerm?.id ?? null}
-              initialEnrollments={reviewEnrollments}
-              initialEvents={reviewEvents}
-              isAdmin
-            />
-          </CardBody>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-muted">Catálogo de materias</p>
-            <h2 className="text-xl font-semibold">Base de materias y ajustes estructurales</h2>
-          </div>
-        </CardHeader>
-        <CardBody>
-          <SubjectManager initialSubjects={subjects} />
-        </CardBody>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-muted">Integraciones</p>
-            <h2 className="text-xl font-semibold">Sincronización de Google Calendar</h2>
-          </div>
-        </CardHeader>
-        <CardBody>
-          <CalendarSync />
-        </CardBody>
-      </Card>
+      <AdminResponsiveWorkspace
+        sections={[
+          {
+            id: "terms",
+            label: "Cuatrimestres",
+            content: (
+              <Card>
+                <CardHeader>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.24em] text-muted">Cuatrimestres</p>
+                    <h2 className="text-xl font-semibold">Asistente guiado y configuración actual</h2>
+                  </div>
+                </CardHeader>
+                <CardBody>
+                  <TermManager
+                    currentTerm={currentTerm}
+                    terms={terms}
+                    subjects={subjects}
+                    completedSubjectIds={completedSubjectIds}
+                    isAdmin
+                  />
+                </CardBody>
+              </Card>
+            )
+          },
+          {
+            id: "review",
+            label: "Cursadas",
+            content: (
+              <Card>
+                <CardHeader>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.24em] text-muted">Revisión post-creación</p>
+                    <h2 className="text-xl font-semibold">Ver, agregar, quitar y editar materias por cuatrimestre</h2>
+                  </div>
+                </CardHeader>
+                <CardBody>
+                  <TermReviewManager
+                    terms={terms}
+                    subjects={subjects}
+                    initialTermId={reviewTerm?.id ?? null}
+                    initialEnrollments={reviewEnrollments}
+                    initialEvents={reviewEvents}
+                    isAdmin
+                  />
+                </CardBody>
+              </Card>
+            )
+          },
+          {
+            id: "subjects",
+            label: "Materias",
+            wide: true,
+            content: (
+              <Card>
+                <CardHeader>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.24em] text-muted">Catálogo de materias</p>
+                    <h2 className="text-xl font-semibold">Base de materias y ajustes estructurales</h2>
+                  </div>
+                </CardHeader>
+                <CardBody>
+                  <SubjectManager initialSubjects={subjects} />
+                </CardBody>
+              </Card>
+            )
+          },
+          {
+            id: "calendar",
+            label: "Integraciones",
+            wide: true,
+            content: (
+              <Card>
+                <CardHeader>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.24em] text-muted">Integraciones</p>
+                    <h2 className="text-xl font-semibold">Sincronización de Google Calendar</h2>
+                  </div>
+                </CardHeader>
+                <CardBody>
+                  <CalendarSync />
+                </CardBody>
+              </Card>
+            )
+          }
+        ]}
+      />
     </div>
   );
 }

@@ -27,12 +27,7 @@ const activeHandler = createMcpHandler(
     serverInfo: {
       name: "fiuba-informatica-plan",
       version: "0.1.0"
-    }
-  },
-  {
-    basePath: "/api",
-    disableSse: true,
-    maxDuration: 60,
+    },
     verboseLogs: false
   }
 );

@@ -1,17 +1,12 @@
-import dynamic from "next/dynamic";
 import AppBackground from "@/components/layout/app-background";
 import AppShell from "@/components/layout/app-shell";
 import ScrollbarCompensationSync from "@/components/layout/scrollbar-compensation-sync";
 import ShortcutHandler from "@/components/layout/shortcut-handler";
 import TopNav from "@/components/layout/top-nav";
+import SynapseLauncher from "@/components/layout/synapse-launcher";
 import { getSession } from "@/lib/auth";
 import { buildProgressSnapshot } from "@/lib/progress";
 import { getLatestEnrollmentStatus, getSubjects } from "@/lib/queries";
-
-const SynapseLauncher = dynamic(() => import("@/components/layout/synapse-launcher"), {
-  ssr: false,
-  loading: () => null
-});
 
 export default async function AppLayout({
   children
@@ -24,7 +19,7 @@ export default async function AppLayout({
   const progress = buildProgressSnapshot(subjects, latestStatusMap);
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden">
+    <div className="relative min-h-screen overflow-x-clip">
       <AppBackground />
       <ScrollbarCompensationSync />
       <TopNav role={session?.role} />

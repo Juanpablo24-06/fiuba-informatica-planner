@@ -13,5 +13,7 @@ describe("route loading surface source", () => {
     expect(componentSource).toContain('pathname.startsWith("/agenda")');
     expect(componentSource).toContain("AdminLoadingSurface");
     expect(componentSource).toContain("HorarioLoadingSurface");
+    expect(componentSource).toContain('pathname.startsWith("/cursos")');
+    expect(componentSource).toContain("CoursesLoadingSurface");
   });
 });

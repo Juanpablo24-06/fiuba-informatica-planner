@@ -19,7 +19,8 @@ describe("harness contract", () => {
   });
 
   it("pins the supported Node major version for local work", () => {
-    expect(read(".nvmrc").trim()).toMatch(/^20/);
+    const packageJson = JSON.parse(read("package.json")) as { engines: { node: string } };
+    expect(read(".nvmrc").trim()).toBe(packageJson.engines.node.split(".")[0]);
   });
 
   it("exposes root agent instructions and docs index", () => {

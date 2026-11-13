@@ -26,7 +26,14 @@ export default defineConfig({
   webServer: {
     command: "npm run dev:harness",
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
+    // Browser QA exercises local UI and mocked writes, never remote sync.
+    env: {
+      GOOGLE_CALENDAR_ID: "",
+      GOOGLE_SERVICE_ACCOUNT_EMAIL: "",
+      GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: "",
+      MEM0_API_KEY: ""
+    },
+    reuseExistingServer: false,
     timeout: 120 * 1000
   }
 });

@@ -12,6 +12,11 @@ type BuildMapGraphInput = {
   subjects: Subject[];
 };
 
+type StructuralSubject = Subject & {
+  deleted_at?: string | null;
+  term_order?: number | null;
+};
+
 const isFinalProjectStage = (subject: { name: string }) =>
   /Trabajo Integrador Final|Tesis\/Trabajo Profesional/i.test(subject.name);
 
@@ -46,13 +51,17 @@ const deriveAggregateStatus = (
 };
 
 export const buildMapGraph = ({ prerequisites, statusMap, subjects }: BuildMapGraphInput) => {
-  const cbcSubjects = subjects
+  // The map normally receives active subjects from the page query. Keep this
+  // guard here as a defensive boundary so an archived record can never become
+  // a node if another caller supplies a broader subject collection.
+  const activeSubjects = (subjects as StructuralSubject[]).filter((subject) => !subject.deleted_at);
+  const cbcSubjects = activeSubjects
     .filter((subject) => isCbcSubject(subject))
     .sort((a, b) => (a.term_suggested ?? 0) - (b.term_suggested ?? 0) || a.name.localeCompare(b.name));
-  const finalProjectStages = subjects
+  const finalProjectStages = activeSubjects
     .filter((subject) => isFinalProjectStage(subject))
     .sort((a, b) => (a.term_suggested ?? 0) - (b.term_suggested ?? 0));
-  const regularSubjects = subjects.filter(
+  const regularSubjects = activeSubjects.filter(
     (subject) => !GENERIC_ELECTIVE_NAMES.has(subject.name) && !isFinalProjectStage(subject)
   );
 
@@ -130,13 +139,6 @@ export const buildMapGraph = ({ prerequisites, statusMap, subjects }: BuildMapGr
     ...(finalProjectNode ? [finalProjectNode] : [])
   ];
   const visibleSubjectIds = new Set(filteredSubjects.map((subject) => subject.id));
-  const cbcUnlockedSubjects = regularSubjects.filter(
-    (subject) =>
-      !isCbcSubject(subject) &&
-      (subject.requirements ?? []).some((requirement) =>
-        requirement.toLowerCase().includes("cbc aprobado")
-      )
-  );
 
   const nodes: MapNode[] = filteredSubjects.map((subject) => {
     const syntheticFinalProject = subject.id === FINAL_PROJECT_NODE_ID;
@@ -152,6 +154,11 @@ export const buildMapGraph = ({ prerequisites, statusMap, subjects }: BuildMapGr
       name: subject.name,
       code: subject.code,
       term: syntheticCbc ? 1 : isCbcSubject(subject) ? 1 : subject.term_suggested,
+      suggested_term: subject.term_suggested,
+      term_order:
+        syntheticCbc || syntheticFinalProject
+          ? null
+          : (subject as StructuralSubject).term_order ?? null,
       type: subject.type,
       cycle: subject.cycle,
       status: status?.status ?? null,
@@ -176,32 +183,51 @@ export const buildMapGraph = ({ prerequisites, statusMap, subjects }: BuildMapGr
 
   const finalProjectStageIds = new Set(finalProjectStages.map((stage) => stage.id));
 
-  const edges: MapEdge[] = [
-    ...prerequisites
-      .filter(
-        (edge) =>
-          visibleSubjectIds.has(edge.prerequisite_id) &&
-          visibleSubjectIds.has(edge.subject_id) &&
-          !finalProjectStageIds.has(edge.prerequisite_id) &&
-          !finalProjectStageIds.has(edge.subject_id)
-      )
-      .map((edge) => ({
-        from: edge.prerequisite_id,
-        to: edge.subject_id
-      })),
+  const normalizedEdges = prerequisites
+    .filter(
+      (edge) =>
+        edge.prerequisite_id !== edge.subject_id &&
+        visibleSubjectIds.has(edge.prerequisite_id) &&
+        visibleSubjectIds.has(edge.subject_id) &&
+        !finalProjectStageIds.has(edge.prerequisite_id) &&
+        !finalProjectStageIds.has(edge.subject_id)
+    )
+    .map((edge) => ({
+      from: edge.prerequisite_id,
+      to: edge.subject_id
+    }));
+
+  // CBC's aggregate node is presentation-only. Preserve its existing
+  // collapse behavior by deriving boundary edges from persisted relations,
+  // never from the free-form `requirements` field.
+  const cbcSubjectIds = new Set(cbcSubjects.map((subject) => subject.id));
+  const cbcBoundaryEdges = normalizedEdges
+    .filter((edge) => cbcSubjectIds.has(edge.from) && !cbcSubjectIds.has(edge.to))
+    .map((edge) => ({
+      from: CBC_CLUSTER_NODE_ID,
+      to: edge.to
+    }));
+
+  const edgeCandidates: MapEdge[] = [
+    ...normalizedEdges,
     ...(cbcNode
       ? cbcSubjects.map((subject) => ({
           from: subject.id,
           to: CBC_CLUSTER_NODE_ID
         }))
       : []),
-    ...(cbcNode
-      ? cbcUnlockedSubjects.map((subject) => ({
-          from: CBC_CLUSTER_NODE_ID,
-          to: subject.id
-        }))
-      : [])
+    ...(cbcNode ? cbcBoundaryEdges : [])
   ];
+  const seenEdges = new Set<string>();
+  const edges = edgeCandidates.filter((edge) => {
+    if (edge.from === edge.to) return false;
+    if (!visibleSubjectIds.has(edge.from) && edge.from !== CBC_CLUSTER_NODE_ID) return false;
+    if (!visibleSubjectIds.has(edge.to) && edge.to !== CBC_CLUSTER_NODE_ID) return false;
+    const key = `${edge.from}:${edge.to}`;
+    if (seenEdges.has(key)) return false;
+    seenEdges.add(key);
+    return true;
+  });
 
   return {
     nodes,

@@ -156,6 +156,27 @@
 
 html {
   overflow-y: auto;
+  scrollbar-color: rgb(var(--color-muted) / 0.58) rgb(var(--color-surface-2) / 0.45);
+  scrollbar-width: thin;
+}
+
+html::-webkit-scrollbar {
+  width: 12px;
+}
+
+html::-webkit-scrollbar-track {
+  background: rgb(var(--color-surface-2) / 0.45);
+}
+
+html::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: rgb(var(--color-muted) / 0.58);
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(var(--color-accent) / 0.72);
 }
 
 html[data-app-section="mapa"],
@@ -168,7 +189,7 @@ body {
   font-family: var(--font-sans), ui-sans-serif, system-ui;
   font-weight: 500;
   line-height: 1.5;
-  overflow-x: hidden;
+  overflow-x: clip;
   transition:
     background-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
     color 220ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -189,11 +210,31 @@ body :is(div, section, article, aside, header, footer, nav, button, a, input, se
     box-shadow 180ms ease;
 }
 
-:root[data-theme-lock="true"] *,
-:root[data-theme-lock="true"] *::before,
-:root[data-theme-lock="true"] *::after {
-  transition: none !important;
-  animation: none !important;
+/* The painting lives inside the existing background stacking context, below all UI. */
+.theme-wave-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  contain: strict;
+}
+
+html[data-theme-wave] :is(.panel, .nav-glass, .dropdown-surface, [class*="bg-surface"]) {
+  transition-property: background-color, border-color, color, box-shadow;
+  transition-duration: 360ms, 360ms, 180ms, 360ms;
+  transition-delay: 0ms;
+  transition-timing-function: cubic-bezier(.4, 0, .2, 1);
+}
+
+html[data-theme-wave] .ambient-orb { transition: none; }
+
+/* A graph can have hundreds of surfaces. Crossfade their colors without
+   interpolating every nested label, badge and shadow during the background wave. */
+html[data-theme-wave] [data-map-world] * { transition: none; }
+html[data-theme-wave] [data-map-world] [data-node-id] {
+  transition: background-color 180ms ease, border-color 180ms ease;
 }
 
 ::selection {
@@ -316,9 +357,33 @@ body :is(div, section, article, aside, header, footer, nav, button, a, input, se
     border-radius: var(--radius-panel);
   }
 
+  .synapse-scrollbar {
+    scrollbar-color: rgb(var(--color-muted) / 0.5) transparent;
+    scrollbar-width: thin;
+  }
+
+  .synapse-scrollbar::-webkit-scrollbar {
+    width: 0.5rem;
+  }
+
+  .synapse-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .synapse-scrollbar::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+    background-color: rgb(var(--color-muted) / 0.48);
+  }
+
+  .synapse-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(var(--color-accent) / 0.7);
+  }
+
   .ambient-orb {
     @apply absolute rounded-full;
-    animation: ambient-orb-drift var(--orb-duration, 22s) ease-in-out infinite;
+    /* Ambient shapes stay still to keep the workspace calm. */
     animation-delay: var(--orb-delay, 0s);
     transform: translateZ(0);
     will-change: translate;
@@ -433,6 +498,25 @@ body :is(div, section, article, aside, header, footer, nav, button, a, input, se
     background-size: 250% 100%;
   }
 
+  /* Shared dropdown treatment: calm surface, accent focus, no native menu chrome. */
+  .dropdown-surface {
+    background: rgb(var(--color-surface) / 0.97);
+    border: 1px solid rgb(var(--color-border) / 0.72);
+    box-shadow:
+      0 20px 48px -26px rgb(var(--shadow-color) / 0.38),
+      0 1px 0 rgb(255 255 255 / 0.56) inset;
+    backdrop-filter: blur(22px) saturate(1.25);
+    border-radius: 24px;
+    animation: dropdown-pop-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  [data-theme="dark"] .dropdown-surface {
+    background: rgb(var(--color-surface) / 0.96);
+    box-shadow:
+      0 24px 52px -24px rgb(0 0 0 / 0.62),
+      0 1px 0 rgb(255 255 255 / 0.05) inset;
+  }
+
   /* ─── Navbar glassmorphism ─── */
   .nav-glass {
     background: rgb(var(--color-surface) / 0.94);
@@ -453,6 +537,18 @@ body :is(div, section, article, aside, header, footer, nav, button, a, input, se
 }
 
 @layer utilities {
+  @keyframes dropdown-pop-in {
+    from {
+      opacity: 0;
+      transform: translateY(-5px) scale(0.985);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
   @keyframes ambient-orb-drift {
     0%,
     100% {
@@ -674,18 +770,60 @@ body :is(div, section, article, aside, header, footer, nav, button, a, input, se
   }
 
   .brand-logo:hover {
-    transform: scale(1.12) rotate(-4deg);
+    transform: scale(1.025);
     box-shadow: 0 8px 24px rgb(var(--color-accent) / 0.3);
   }
 
   .brand-logo-icon {
-    animation: brand-logo-float 3.1s ease-in-out infinite;
+    animation: none;
   }
 
   .brand-logo:hover .brand-logo-icon {
     animation: none;
     transition: transform 300ms ease;
-    transform: scale(1.18) rotate(6deg);
+    transform: scale(1.03);
+  }
+
+  .nav-glass .brand-logo-icon {
+    animation: none;
+    transition: transform 300ms ease;
+  }
+
+  .nav-glass .brand-logo:hover .brand-logo-icon { transform: scale(1.08); }
+
+  .nav-glass .brand-logo-icon path {
+    transition: transform 300ms ease;
+  }
+
+  .nav-glass .brand-logo:hover .brand-logo-icon path:first-child { transform: translateX(1.5px); }
+  .nav-glass .brand-logo:hover .brand-logo-icon path:nth-child(2) { transform: translateX(-1.5px); }
+
+  @keyframes header-theme-reveal {
+    from { opacity: 0; transform: rotate(-55deg) scale(.65); }
+    to { opacity: 1; transform: rotate(0) scale(1); }
+  }
+
+  .header-theme-icon { display: inline-flex; }
+  .header-theme-icon svg { transition: transform 300ms ease; }
+  .header-theme-toggle:is(:hover, :focus-visible) .header-theme-icon svg { transform: rotate(8deg); }
+
+  @keyframes header-profile-nod {
+    0%, 100% { transform: translateY(0); }
+    45% { transform: translateY(1.8px); }
+  }
+
+  .header-profile-trigger:is(:hover, :focus-visible) .header-profile-icon circle {
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .header-theme-icon,
+    .nav-glass .dropdown-surface,
+    .header-profile-trigger .header-profile-icon circle { animation: none !important; }
+    .header-theme-icon svg,
+    .nav-glass .brand-logo,
+    .nav-glass .brand-logo-icon,
+    .nav-glass .brand-logo-icon path { transition: none; transform: none !important; }
   }
 
   /* ─── Shimmer sweep ─── */
@@ -937,6 +1075,8 @@ body :is(div, section, article, aside, header, footer, nav, button, a, input, se
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .loader-traveling-dot { display: none; }
+    .loader-path-trace, .loader-pencil-stroke { stroke-dashoffset: 0; }
     .animate-map-loader-node,
     .animate-map-loader-line,
     .animate-map-loader-pulse,
@@ -954,6 +1094,7 @@ body :is(div, section, article, aside, header, footer, nav, button, a, input, se
     }
   }
 }
+
 
 /* ─── Dark mode — component-level harmony ─── */
 
@@ -1023,4 +1164,80 @@ body :is(div, section, article, aside, header, footer, nav, button, a, input, se
 [data-theme="dark"] textarea:focus {
   border-color: rgb(var(--color-accent) / 0.5);
   box-shadow: 0 0 0 3px rgb(var(--color-accent) / 0.12);
+}
+
+/* Internal scroll areas stay visually quiet until the user enters them. */
+.context-scrollbar,
+body :is(div, section, article, aside)[class*="overflow-auto"],
+body :is(div, section, article, aside)[class*="overflow-y-auto"],
+body :is(div, section, article, aside)[class*="overflow-x-auto"] {
+  scrollbar-color: transparent transparent;
+  scrollbar-width: thin;
+}
+
+.context-scrollbar:hover,
+body :is(div, section, article, aside)[class*="overflow-auto"]:hover,
+body :is(div, section, article, aside)[class*="overflow-y-auto"]:hover,
+body :is(div, section, article, aside)[class*="overflow-x-auto"]:hover {
+  scrollbar-color: rgb(var(--color-muted) / 0.5) transparent;
+}
+
+.context-scrollbar::-webkit-scrollbar,
+body :is(div, section, article, aside)[class*="overflow-auto"]::-webkit-scrollbar,
+body :is(div, section, article, aside)[class*="overflow-y-auto"]::-webkit-scrollbar,
+body :is(div, section, article, aside)[class*="overflow-x-auto"]::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+.context-scrollbar::-webkit-scrollbar-track,
+body :is(div, section, article, aside)[class*="overflow-auto"]::-webkit-scrollbar-track,
+body :is(div, section, article, aside)[class*="overflow-y-auto"]::-webkit-scrollbar-track,
+body :is(div, section, article, aside)[class*="overflow-x-auto"]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.context-scrollbar::-webkit-scrollbar-thumb,
+body :is(div, section, article, aside)[class*="overflow-auto"]::-webkit-scrollbar-thumb,
+body :is(div, section, article, aside)[class*="overflow-y-auto"]::-webkit-scrollbar-thumb,
+body :is(div, section, article, aside)[class*="overflow-x-auto"]::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: transparent;
+}
+
+.context-scrollbar:hover::-webkit-scrollbar-thumb,
+body :is(div, section, article, aside)[class*="overflow-auto"]:hover::-webkit-scrollbar-thumb,
+body :is(div, section, article, aside)[class*="overflow-y-auto"]:hover::-webkit-scrollbar-thumb,
+body :is(div, section, article, aside)[class*="overflow-x-auto"]:hover::-webkit-scrollbar-thumb {
+  background-color: rgb(var(--color-muted) / 0.5);
+}
+
+.context-scrollbar:hover::-webkit-scrollbar-thumb:hover,
+body :is(div, section, article, aside)[class*="overflow-auto"]:hover::-webkit-scrollbar-thumb:hover,
+body :is(div, section, article, aside)[class*="overflow-y-auto"]:hover::-webkit-scrollbar-thumb:hover,
+body :is(div, section, article, aside)[class*="overflow-x-auto"]:hover::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(var(--color-accent) / 0.72);
+}
+
+/* Touch has no stable hover state, so internal scroll areas keep a subtle cue. */
+@media (hover: none), (pointer: coarse) {
+  .context-scrollbar,
+  body :is(div, section, article, aside)[class*="overflow-auto"],
+  body :is(div, section, article, aside)[class*="overflow-y-auto"],
+  body :is(div, section, article, aside)[class*="overflow-x-auto"] {
+    scrollbar-color: rgb(var(--color-muted) / 0.34) transparent;
+  }
+
+  .context-scrollbar::-webkit-scrollbar-thumb,
+  body :is(div, section, article, aside)[class*="overflow-auto"]::-webkit-scrollbar-thumb,
+  body :is(div, section, article, aside)[class*="overflow-y-auto"]::-webkit-scrollbar-thumb,
+  body :is(div, section, article, aside)[class*="overflow-x-auto"]::-webkit-scrollbar-thumb {
+    background-color: rgb(var(--color-muted) / 0.34);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }

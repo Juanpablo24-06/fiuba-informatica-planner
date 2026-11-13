@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import { buildMapGraph } from "@/lib/map/map-graph";
 import type { Subject } from "@/lib/types";
 
-const baseSubject = (overrides: Partial<Subject>): Subject => ({
+type MapSubjectFixture = Subject & {
+  deleted_at?: string | null;
+  term_order?: number | null;
+};
+
+const baseSubject = (overrides: Partial<MapSubjectFixture>): Subject => ({
   id: "subject",
   code: "SUBJ",
   name: "Materia",
@@ -14,8 +19,10 @@ const baseSubject = (overrides: Partial<Subject>): Subject => ({
   type: "obligatoria",
   requirements: null,
   template: null,
+  term_order: null,
+  deleted_at: null,
   ...overrides
-});
+} as Subject);
 
 describe("buildMapGraph", () => {
   it("builds the synthetic CBC and TIF nodes without changing visible edges", () => {
@@ -42,6 +49,7 @@ describe("buildMapGraph", () => {
         id: "reg-1",
         name: "Algoritmos y Estructuras de Datos",
         code: "AED",
+        term_order: 1,
         requirements: ["CBC aprobado"]
       }),
       baseSubject({
@@ -121,5 +129,48 @@ describe("buildMapGraph", () => {
       progress_credits: 6,
       requirements: ["140 créditos", "Defensa aprobada"]
     });
+    expect(graph.nodes.find((node) => node.id === "reg-1")).toMatchObject({ term_order: 1 });
+  });
+
+  it("does not infer CBC boundary edges from free-form requirements", () => {
+    const subjects = [
+      baseSubject({ id: "cbc", name: "Análisis Matemático A", cycle: "cbc", type: "cbc" }),
+      baseSubject({
+        id: "regular",
+        name: "Algoritmos",
+        requirements: ["CBC aprobado"]
+      })
+    ];
+
+    const graph = buildMapGraph({
+      subjects,
+      prerequisites: [],
+      statusMap: new Map()
+    });
+
+    expect(graph.edges).toEqual([{ from: "cbc", to: "__cbc__" }]);
+    expect(graph.edges).not.toContainEqual({ from: "__cbc__", to: "regular" });
+  });
+
+  it("deduplicates persisted edges, ignores self relations, and excludes archived nodes", () => {
+    const subjects = [
+      baseSubject({ id: "a", name: "A" }),
+      baseSubject({ id: "b", name: "B" }),
+      baseSubject({ id: "archived", name: "Archivada", deleted_at: "2026-08-15T00:00:00Z" })
+    ];
+
+    const graph = buildMapGraph({
+      subjects,
+      prerequisites: [
+        { subject_id: "b", prerequisite_id: "a" },
+        { subject_id: "b", prerequisite_id: "a" },
+        { subject_id: "a", prerequisite_id: "a" },
+        { subject_id: "archived", prerequisite_id: "a" }
+      ],
+      statusMap: new Map()
+    });
+
+    expect(graph.nodes.map((node) => node.id)).not.toContain("archived");
+    expect(graph.edges).toEqual([{ from: "a", to: "b" }]);
   });
 });

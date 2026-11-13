@@ -6,7 +6,7 @@ import { MINIMUM_SECTION_LOADER_MS } from "@/components/layout/map-progress-tran
 export type MapTransitionSource = "summary-link" | "top-nav-map" | "top-nav-summary" | null;
 export type LauncherMode = "default" | "compact";
 export type ProgressSlot = "summary" | "map-bottom";
-export type AppSection = "/" | "/mapa" | "/agenda" | "/horario" | "/admin";
+export type AppSection = "/" | "/mapa" | "/cursos" | "/planificar" | "/calendario" | "/agenda" | "/horario" | "/admin";
 export type LoaderKind = "app" | "map" | null;
 export type MapEntryPhase = "idle" | "bar-drop" | "loader";
 export type ProgressSourceRect = {
@@ -62,7 +62,10 @@ export const DEFAULT_MAP_TRANSITION_STATE: MapTransitionState = {
 
 export const getSectionForPathname = (pathname: string): AppSection => {
   if (pathname.startsWith("/mapa")) return "/mapa";
-  if (pathname.startsWith("/agenda") || pathname.startsWith("/horario")) return "/agenda";
+  if (pathname.startsWith("/cursos")) return "/cursos";
+  if (pathname.startsWith("/planificar")) return "/planificar";
+  if (pathname.startsWith("/calendario")) return "/calendario";
+  if (pathname.startsWith("/agenda") || pathname.startsWith("/horario")) return "/calendario";
   if (pathname.startsWith("/admin")) return "/admin";
   return "/";
 };

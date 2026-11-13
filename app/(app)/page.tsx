@@ -69,7 +69,7 @@ export default async function DashboardPage() {
   const nextEventByEnrollment = getNextFutureEventByEnrollment(termEvents, now);
 
   return (
-    <div className="mx-auto w-full max-w-[1380px] space-y-8 pb-8">
+    <div className="mx-auto w-full max-w-none space-y-7 pb-8 2xl:space-y-8">
       {/* ── Header + Progress Bar (full width) ── */}
       <section className="space-y-6 px-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -102,7 +102,7 @@ export default async function DashboardPage() {
       </section>
 
       {/* ── Main content grid ── */}
-      <div className="grid gap-6 xl:grid-cols-[1.7fr_0.9fr]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(20rem,0.85fr)] 2xl:grid-cols-[minmax(0,1.8fr)_minmax(24rem,0.8fr)]">
 
         <section className="px-2">
             <div className="mb-4 flex items-center justify-between gap-4">
@@ -111,7 +111,7 @@ export default async function DashboardPage() {
                 <h2 className="mt-1 text-3xl font-semibold text-text">Cursada actual</h2>
               </div>
               <SectionLink
-                href="/agenda/semana"
+                href="/calendario"
                 prefetch={false}
                 className="text-sm font-semibold text-accent transition hover:text-accent/80"
               >
@@ -124,7 +124,7 @@ export default async function DashboardPage() {
                 No hay materias activas para este cuatrimestre.
               </div>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
                 {enrollments.map((enrollment) => {
                   const nextEvent = nextEventByEnrollment.get(enrollment.id);
                   const schedulePreview = enrollment.schedule.length

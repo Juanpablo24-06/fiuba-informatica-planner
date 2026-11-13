@@ -12,10 +12,16 @@ Estos archivos merecen especial cuidado porque concentran mucha lógica, estado 
   - Mezcla detalle de cursada, navegación y acciones.
 - `components/dashboard/chat-panel.tsx`
   - Mezcla UI, estado conversacional, persistencia y activación de acciones.
-- `app/api/chat/route.ts`
-  - Une validación, contexto, proveedor AI, persistencia y ejecución de acciones.
-- `lib/ai/admin-actions.ts`
-  - Contiene reglas de mutación y normalización sensibles para datos reales.
+- `modules/chat/application/chat.ts`
+  - Coordina streaming, acciones autorizadas, conversación y memoria mediante puertos.
+- `modules/chat/application/admin-actions.ts`
+  - Interpreta acciones y delega las mutaciones a los servicios académico y de planificación.
+- `modules/planning/application/scenarios.ts`
+  - Coordina el ciclo de vida y las referencias de escenarios y selecciones.
+- `modules/academic/application/*` y `modules/academic/adapters/supabase-*`
+  - Las reglas compartidas y la persistencia afectan panel, MCP, GPT Actions y chat.
+
+`app/api/chat/route.ts` y `lib/ai/admin-actions.ts` son entradas/fachadas; la implementación vive en los módulos.
 
 ## Regla Práctica
 

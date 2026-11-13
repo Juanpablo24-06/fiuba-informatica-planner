@@ -37,11 +37,12 @@ export default function MapViewStage({ nodes, edges }: MapViewStageProps) {
       <div
         data-map-view-shell="true"
         aria-hidden={!revealMap}
-        className={
+        inert={!revealMap}
+        className={"transition-opacity duration-300 ease-out motion-reduce:transition-none " + (
           revealMap
             ? "visible opacity-100"
             : "invisible opacity-0"
-        }
+        )}
       >
         <MapView nodes={nodes} edges={edges} onReady={handleReady} />
       </div>

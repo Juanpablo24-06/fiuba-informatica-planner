@@ -1,0 +1,37 @@
+{
+  "name": "fiuba-public-demo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 4173",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.mjs",
+    "harness:smoke": "node tests/browser-smoke.mjs",
+    "build": "vite build && node scripts/finalize.mjs",
+    "harness:ux": "node tests/browser-ux.mjs",
+    "harness:theme": "node tests/browser-theme.mjs"
+  },
+  "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.23",
+    "animejs": "^4.5.0",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.562.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "tailwind-merge": "^2.6.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "@types/node": "^22.20.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "autoprefixer": "^10.5.4",
+    "postcss": "^8.4.39",
+    "tailwindcss": "^3.4.6",
+    "typescript": "^5.5.3",
+    "vite": "^7.2.0"
+  }
+}

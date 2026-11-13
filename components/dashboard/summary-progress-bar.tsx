@@ -45,7 +45,6 @@ const SHARED_BAR_GRID = "md:grid-cols-[19fr_46fr_13fr_10fr_8fr]";
 export default function SummaryProgressBar({
   approvedTotalCredits,
   totalCredits,
-  progressPct: _progressPct,
   approvedCbcCredits,
   totalCbcCredits,
   approvedCbcCourses,

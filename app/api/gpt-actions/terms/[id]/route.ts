@@ -1,3 +1,4 @@
+import { academicErrorStatus } from "@/modules/academic/adapters/http-errors";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import {
@@ -7,10 +8,8 @@ import {
 } from "@/app/api/gpt-actions/_shared";
 import { deleteTerm, termUpdateSchema, updateTerm } from "@/lib/admin/terms";
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const unauthorized = requireGptActionAuth(request);
   if (unauthorized) return unauthorized;
 
@@ -33,15 +32,13 @@ export async function PATCH(
   } catch (error: any) {
     return NextResponse.json(
       { ok: false, error: error.message ?? "No se pudo actualizar el cuatrimestre." },
-      { status: 500 }
+      { status: academicErrorStatus(error) }
     );
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const unauthorized = requireGptActionAuth(request);
   if (unauthorized) return unauthorized;
 
@@ -51,7 +48,7 @@ export async function DELETE(
   } catch (error: any) {
     return NextResponse.json(
       { ok: false, error: error.message ?? "No se pudo eliminar el cuatrimestre." },
-      { status: 500 }
+      { status: academicErrorStatus(error) }
     );
   }
 }

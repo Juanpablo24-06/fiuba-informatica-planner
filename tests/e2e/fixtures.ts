@@ -1,5 +1,14 @@
 import { expect, type Page } from "@playwright/test";
 
+export async function isolatePlannerMutations(page: Page) {
+  // Register before scenario-specific mocks. An unmatched planner request must
+  // never initialize scenarios or mutate the real database during browser QA.
+  await page.route("**/api/planner**", async (route) => route.fulfill({
+    status: 503,
+    json: { error: "La prueba debe definir una respuesta de planificación." }
+  }));
+}
+
 export async function loginAsDemo(page: Page, targetPath = "/") {
   await page.goto("/login", { waitUntil: "domcontentloaded" });
   await expect(

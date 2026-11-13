@@ -82,6 +82,12 @@ export default function CourseWorkspaceDrawer({
   onEventsChange?: (events: Event[]) => void;
 }) {
   const router = useRouter();
+  const [interactive, setInteractive] = useState(false);
+
+  useEffect(() => {
+    setInteractive(true);
+  }, []);
+
   const [localEnrollment, setLocalEnrollment] = useState(enrollment);
   const [localEvents, setLocalEvents] = useState(events);
   const [scheduleDraft, setScheduleDraft] = useState<ScheduleBlockDraft[]>(
@@ -286,7 +292,7 @@ export default function CourseWorkspaceDrawer({
 
   return (
     <Dialog>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogTrigger asChild disabled={!interactive}>{trigger}</DialogTrigger>
       <DialogContent className="h-[90svh] w-[96vw] max-w-6xl overflow-hidden rounded-[1.75rem] border border-border/75 bg-surface p-0 sm:h-[88svh] sm:w-[95vw] sm:rounded-[2.1rem]">
         <div className="flex h-full flex-col">
           <DialogHeader className="border-b border-border/60 px-4 py-4 sm:px-7 sm:py-5">

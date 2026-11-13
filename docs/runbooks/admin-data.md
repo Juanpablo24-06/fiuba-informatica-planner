@@ -4,6 +4,9 @@
 
 - Admin UI: `app/(app)/admin/page.tsx` y `components/dashboard/*manager*.tsx`
 - Rutas API: `app/api/subjects/*`, `app/api/terms/*`, `app/api/enrollments/*`, `app/api/events/*`
+- Casos de uso y schemas: `modules/academic/application/*` y `modules/academic/domain/*`
+- Persistencia: `modules/academic/adapters/supabase-*`; composición: `modules/academic/server.ts`
+- `lib/admin/*` conserva los imports públicos para HTTP, MCP y GPT Actions.
 
 ## Riesgos
 

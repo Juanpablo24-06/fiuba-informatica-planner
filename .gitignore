@@ -8,7 +8,6 @@ test-results
 .playwright
 .playwright-cli
 output
-tsconfig.tsbuildinfo
 
 # local env files
 .env*
@@ -24,3 +23,10 @@ pnpm-debug.log*
 Datos/*.pdf
 Datos/*.PDF
 .vercel
+dist/
+*.tsbuildinfo
+.playwright-mcp/
+sites/
+/.perf-*
+/dummy.png
+/mobile-login-*.png

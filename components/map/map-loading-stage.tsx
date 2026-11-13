@@ -1,5 +1,3 @@
-"use client";
-
 import MapSceneBackground from "@/components/map/map-scene-background";
 
 type MapLoadingStageProps = {

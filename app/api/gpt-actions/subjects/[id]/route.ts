@@ -7,14 +7,13 @@ import {
 } from "@/app/api/gpt-actions/_shared";
 import {
   deleteSubject,
+  restoreSubject,
   subjectUpdateSchema,
   updateSubject
 } from "@/lib/admin/subjects";
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const unauthorized = requireGptActionAuth(request);
   if (unauthorized) return unauthorized;
 
@@ -38,10 +37,8 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const unauthorized = requireGptActionAuth(request);
   if (unauthorized) return unauthorized;
 
@@ -51,6 +48,25 @@ export async function DELETE(
   } catch (error: any) {
     return NextResponse.json(
       { ok: false, error: error.message ?? "No se pudo eliminar la materia." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  const unauthorized = requireGptActionAuth(request);
+  if (unauthorized) return unauthorized;
+
+  try {
+    const subject = await restoreSubject(params.id);
+    if (!subject) {
+      return jsonError(404, "No se encontró una materia archivada con ese id.");
+    }
+    return NextResponse.json({ ok: true, subject, restored: true });
+  } catch (error: any) {
+    return NextResponse.json(
+      { ok: false, error: error.message ?? "No se pudo restaurar la materia." },
       { status: 500 }
     );
   }

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { sealSession, SESSION_COOKIE_NAME } from "@/lib/session";
 
 const isDemoLoginEnabled = () =>
-  process.env.NODE_ENV !== "production" && process.env.DEMO_LOGIN_ENABLED !== "false";
+  process.env.NODE_ENV !== "production" && process.env.DEMO_LOGIN_ENABLED === "true";
 
 export async function POST() {
   if (!isDemoLoginEnabled()) {

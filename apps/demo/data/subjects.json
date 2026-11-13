@@ -1,0 +1,948 @@
+[
+  {
+    "code": "24",
+    "name": "Introducción al Conocimiento de la Sociedad y el Estado",
+    "credits": null,
+    "weekly_hours": 4,
+    "total_hours": 64,
+    "term_suggested": 1,
+    "cycle": "cbc",
+    "type": "obligatoria",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "recuperatorios": 1,
+      "finales": 1,
+      "promocion": false,
+      "notas": "Régimen CBC con final obligatorio."
+    },
+    "prerequisites": []
+  },
+  {
+    "code": "40",
+    "name": "Introducción al Pensamiento Científico",
+    "credits": null,
+    "weekly_hours": 4,
+    "total_hours": 64,
+    "term_suggested": 1,
+    "cycle": "cbc",
+    "type": "obligatoria",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "recuperatorios": 1,
+      "finales": 1,
+      "promocion": false,
+      "notas": "Régimen CBC con final obligatorio."
+    },
+    "prerequisites": []
+  },
+  {
+    "code": "66",
+    "name": "Análisis Matemático A",
+    "credits": null,
+    "weekly_hours": 9,
+    "total_hours": 144,
+    "term_suggested": 1,
+    "cycle": "cbc",
+    "type": "obligatoria",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "recuperatorios": 1,
+      "finales": 1,
+      "promocion": false,
+      "notas": "Régimen CBC con final obligatorio."
+    },
+    "prerequisites": []
+  },
+  {
+    "code": "62",
+    "name": "Álgebra A",
+    "credits": null,
+    "weekly_hours": 9,
+    "total_hours": 144,
+    "term_suggested": 2,
+    "cycle": "cbc",
+    "type": "obligatoria",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "recuperatorios": 1,
+      "finales": 1,
+      "promocion": false,
+      "notas": "Régimen CBC con final obligatorio."
+    },
+    "prerequisites": []
+  },
+  {
+    "code": "03",
+    "name": "Física",
+    "credits": null,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 2,
+    "cycle": "cbc",
+    "type": "obligatoria",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "recuperatorios": 1,
+      "finales": 1,
+      "promocion": false,
+      "notas": "Régimen CBC con final obligatorio."
+    },
+    "prerequisites": []
+  },
+  {
+    "code": "90",
+    "name": "Pensamiento Computacional",
+    "credits": null,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 2,
+    "cycle": "cbc",
+    "type": "obligatoria",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "recuperatorios": 1,
+      "finales": 1,
+      "promocion": false,
+      "notas": "Régimen CBC con final obligatorio."
+    },
+    "prerequisites": []
+  },
+  {
+    "code": "61.03",
+    "name": "Análisis Matemático II",
+    "credits": 8,
+    "weekly_hours": 8,
+    "total_hours": 128,
+    "term_suggested": 3,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": ["CBC aprobado"],
+    "template": {
+      "parciales": 2,
+      "recuperatorios": 1,
+      "finales": 1,
+      "promocion": true,
+      "notas": "Dos parciales o parcial + integrador con recuperatorio."
+    },
+    "prerequisites": []
+  },
+  {
+    "code": "TB021",
+    "name": "Fundamentos de Programación",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 3,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": ["CBC aprobado"],
+    "template": {
+      "parciales": 1,
+      "recuperatorios": 1,
+      "tps": 4,
+      "finales": 1,
+      "promocion": true,
+      "notas": "Controles tempranos + parcial integrador y TPs continuos."
+    },
+    "prerequisites": []
+  },
+  {
+    "code": null,
+    "name": "Introducción al Desarrollo de Software",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 3,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": ["CBC aprobado"],
+    "template": {
+      "tps": 1,
+      "defensas": 1,
+      "notas": "Proyecto inicial con hitos y entregas en equipo."
+    },
+    "prerequisites": []
+  },
+  {
+    "code": "61.08",
+    "name": "Álgebra Lineal",
+    "credits": 8,
+    "weekly_hours": 8,
+    "total_hours": 128,
+    "term_suggested": 4,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": ["CBC aprobado"],
+    "template": {
+      "parciales": 2,
+      "recuperatorios": 1,
+      "finales": 1,
+      "promocion": true,
+      "notas": "Dos parciales con recuperatorio y final si no se promociona."
+    },
+    "prerequisites": []
+  },
+  {
+    "code": "66.70",
+    "name": "Organización del Computador",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 4,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": null,
+    "template": {
+      "parciales": 1,
+      "recuperatorios": 1,
+      "tps": 2,
+      "notas": "TPs/labs más parcial principal."
+    },
+    "prerequisites": ["Fundamentos de Programación", "Introducción al Desarrollo de Software"]
+  },
+  {
+    "code": "75.41",
+    "name": "Algoritmos y Estructuras de Datos",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 4,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "recuperatorios": 1,
+      "tps": 4,
+      "notas": "TPs de programación con parciales teórico-prácticos."
+    },
+    "prerequisites": ["Fundamentos de Programación"]
+  },
+  {
+    "code": "61.09",
+    "name": "Probabilidad y Estadística",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 5,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "recuperatorios": 1,
+      "finales": 1,
+      "notas": "Parciales con recuperatorio; final si no se promociona."
+    },
+    "prerequisites": ["Análisis Matemático II", "Álgebra Lineal"]
+  },
+  {
+    "code": "75.29",
+    "name": "Teoría de Algoritmos",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 5,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "recuperatorios": 1,
+      "notas": "Parciales teóricos con ejercicios o TPs."
+    },
+    "prerequisites": ["Algoritmos y Estructuras de Datos", "Introducción al Desarrollo de Software"]
+  },
+  {
+    "code": "75.08",
+    "name": "Sistemas Operativos",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 5,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "recuperatorios": 1,
+      "tps": 3,
+      "notas": "Laboratorios, TPs y parciales."
+    },
+    "prerequisites": ["Organización del Computador"]
+  },
+  {
+    "code": "75.07",
+    "name": "Paradigmas de Programación",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 5,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "recuperatorios": 1,
+      "tps": 3,
+      "notas": "TPs por paradigma y parciales teórico-prácticos."
+    },
+    "prerequisites": ["Algoritmos y Estructuras de Datos", "Introducción al Desarrollo de Software"]
+  },
+  {
+    "code": "75.15",
+    "name": "Base de Datos",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 6,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "recuperatorios": 1,
+      "tps": 2,
+      "notas": "Modelado, SQL y parciales."
+    },
+    "prerequisites": ["Organización del Computador", "Paradigmas de Programación"]
+  },
+  {
+    "code": "75.12",
+    "name": "Modelación Numérica",
+    "credits": 4,
+    "weekly_hours": 4,
+    "total_hours": 64,
+    "term_suggested": 6,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "recuperatorios": 1,
+      "tps": 1,
+      "notas": "Parciales con ejercicios y TPs computacionales."
+    },
+    "prerequisites": ["Análisis Matemático II", "Álgebra Lineal"]
+  },
+  {
+    "code": "75.42",
+    "name": "Taller de Programación",
+    "credits": 8,
+    "weekly_hours": 8,
+    "total_hours": 128,
+    "term_suggested": 6,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": null,
+    "template": {
+      "tps": 1,
+      "defensas": 1,
+      "notas": "Proyecto grupal con hitos y evaluación final."
+    },
+    "prerequisites": ["Algoritmos y Estructuras de Datos", "Organización del Computador", "Paradigmas de Programación"]
+  },
+  {
+    "code": "75.09",
+    "name": "Ingeniería de Software I",
+    "credits": 8,
+    "weekly_hours": 8,
+    "total_hours": 128,
+    "term_suggested": 6,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "recuperatorios": 1,
+      "tps": 1,
+      "notas": "Parciales y entregas de análisis y diseño."
+    },
+    "prerequisites": ["Paradigmas de Programación"]
+  },
+  {
+    "code": "75.06",
+    "name": "Ciencia de Datos",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 7,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": null,
+    "template": {
+      "parciales": 1,
+      "tps": 1,
+      "notas": "Proyecto con datasets y evaluaciones parciales."
+    },
+    "prerequisites": ["Probabilidad y Estadística", "Base de Datos", "Modelación Numérica", "Teoría de Algoritmos"]
+  },
+  {
+    "code": "75.44",
+    "name": "Gestión del Desarrollo de Sistemas Informáticos",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 7,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "tps": 1,
+      "notas": "Evaluaciones sobre planificación y control de proyectos."
+    },
+    "prerequisites": ["Ingeniería de Software I"]
+  },
+  {
+    "code": "75.59",
+    "name": "Programación Concurrente",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 7,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "tps": 2,
+      "notas": "TPs prácticos y parciales."
+    },
+    "prerequisites": ["Sistemas Operativos", "Taller de Programación"]
+  },
+  {
+    "code": "75.43",
+    "name": "Redes",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 7,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "tps": 1,
+      "notas": "Parciales y ejercicios prácticos."
+    },
+    "prerequisites": ["Sistemas Operativos"]
+  },
+  {
+    "code": "62.03",
+    "name": "Física para Informática",
+    "credits": 4,
+    "weekly_hours": 4,
+    "total_hours": 64,
+    "term_suggested": 8,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": ["120 créditos"],
+    "template": {
+      "parciales": 2,
+      "recuperatorios": 1,
+      "finales": 1,
+      "notas": "Parciales con recuperatorio y final si no se promociona."
+    },
+    "prerequisites": []
+  },
+  {
+    "code": null,
+    "name": "Empresas de Base Tecnológica I",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 8,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": ["120 créditos"],
+    "template": {
+      "parciales": 1,
+      "tps": 1,
+      "notas": "Evaluaciones teórico-prácticas y trabajos."
+    },
+    "prerequisites": []
+  },
+  {
+    "code": "75.10",
+    "name": "Ingeniería de Software II",
+    "credits": 8,
+    "weekly_hours": 8,
+    "total_hours": 128,
+    "term_suggested": 8,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": null,
+    "template": {
+      "parciales": 1,
+      "tps": 1,
+      "notas": "Proyecto de diseño con parciales."
+    },
+    "prerequisites": ["Base de Datos", "Ingeniería de Software I", "Taller de Programación"]
+  },
+  {
+    "code": "75.74",
+    "name": "Sistemas Distribuidos I",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 8,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "tps": 1,
+      "notas": "TPs y parciales sobre sistemas distribuidos."
+    },
+    "prerequisites": ["Programación Concurrente", "Redes"]
+  },
+  {
+    "code": null,
+    "name": "Taller de Seguridad Informática",
+    "credits": 8,
+    "weekly_hours": 8,
+    "total_hours": 128,
+    "term_suggested": 9,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": null,
+    "template": {
+      "parciales": 1,
+      "tps": 2,
+      "notas": "Trabajo práctico y parciales teóricos."
+    },
+    "prerequisites": ["Redes"]
+  },
+  {
+    "code": null,
+    "name": "Trabajo Integrador Final I",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 9,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": ["140 créditos"],
+    "template": {
+      "tps": 1,
+      "defensas": 1,
+      "notas": "Trabajo integrador con entregables y defensa final."
+    },
+    "prerequisites": []
+  },
+  {
+    "code": null,
+    "name": "Empresas de Base Tecnológica II",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 10,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": null,
+    "template": {
+      "parciales": 1,
+      "tps": 1,
+      "notas": "Proyecto o evaluación teórico-práctica."
+    },
+    "prerequisites": ["Empresas de Base Tecnológica I"]
+  },
+  {
+    "code": null,
+    "name": "Trabajo Integrador Final II",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 10,
+    "cycle": "segundo",
+    "type": "obligatoria",
+    "requirements": ["Continúa"],
+    "template": {
+      "tps": 1,
+      "defensas": 1,
+      "notas": "Continuación del trabajo integrador."
+    },
+    "prerequisites": ["Trabajo Integrador Final I"]
+  },
+  {
+    "code": null,
+    "name": "Lenguajes y Compiladores I",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 9,
+    "cycle": "segundo",
+    "type": "electiva",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "tps": 1,
+      "notas": "Electiva con parciales y prácticas."
+    },
+    "prerequisites": ["Organización del Computador", "Paradigmas de Programación", "Teoría de Algoritmos"]
+  },
+  {
+    "code": null,
+    "name": "Fundamentos Matemáticos de la Criptografía",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 9,
+    "cycle": "segundo",
+    "type": "electiva",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "tps": 1,
+      "notas": "Electiva con parciales teóricos."
+    },
+    "prerequisites": ["Álgebra Lineal"]
+  },
+  {
+    "code": null,
+    "name": "Criptografía I",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 9,
+    "cycle": "segundo",
+    "type": "electiva",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "tps": 1,
+      "notas": "Electiva con parciales y ejercicios."
+    },
+    "prerequisites": ["Álgebra Lineal", "Teoría de Algoritmos"]
+  },
+  {
+    "code": null,
+    "name": "Criptografía II",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 9,
+    "cycle": "segundo",
+    "type": "electiva",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "tps": 1,
+      "notas": "Electiva avanzada con parciales."
+    },
+    "prerequisites": ["Fundamentos Matemáticos de la Criptografía", "Criptografía I"]
+  },
+  {
+    "code": null,
+    "name": "Sistemas Distribuidos II",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 9,
+    "cycle": "segundo",
+    "type": "electiva",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "tps": 1,
+      "notas": "Electiva con TPs y parciales."
+    },
+    "prerequisites": ["Sistemas Distribuidos I"]
+  },
+  {
+    "code": null,
+    "name": "Técnicas de Ingeniería Inversa",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 9,
+    "cycle": "segundo",
+    "type": "electiva",
+    "requirements": null,
+    "template": {
+      "parciales": 1,
+      "tps": 2,
+      "notas": "Electiva práctica con TPs."
+    },
+    "prerequisites": ["Criptografía I", "Taller de Seguridad Informática"]
+  },
+  {
+    "code": null,
+    "name": "Criptoanálisis",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 9,
+    "cycle": "segundo",
+    "type": "electiva",
+    "requirements": null,
+    "template": {
+      "parciales": 1,
+      "tps": 2,
+      "notas": "Electiva práctica con TPs."
+    },
+    "prerequisites": ["Criptografía I", "Taller de Seguridad Informática"]
+  },
+  {
+    "code": null,
+    "name": "Ingeniería de Datos",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 9,
+    "cycle": "segundo",
+    "type": "electiva",
+    "requirements": null,
+    "template": {
+      "parciales": 1,
+      "tps": 1,
+      "notas": "Proyecto con datasets a gran escala."
+    },
+    "prerequisites": ["Ciencia de Datos", "Ingeniería de Software II"]
+  },
+  {
+    "code": null,
+    "name": "Optimización Convexa",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 9,
+    "cycle": "segundo",
+    "type": "electiva",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "tps": 1,
+      "notas": "Electiva con parciales teóricos."
+    },
+    "prerequisites": ["Ciencia de Datos"]
+  },
+  {
+    "code": null,
+    "name": "Aprendizaje Automático",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 9,
+    "cycle": "segundo",
+    "type": "electiva",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "tps": 1,
+      "notas": "Modelos supervisados y evaluación."
+    },
+    "prerequisites": ["Ciencia de Datos"]
+  },
+  {
+    "code": null,
+    "name": "Aprendizaje Profundo",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 10,
+    "cycle": "segundo",
+    "type": "electiva",
+    "requirements": null,
+    "template": {
+      "parciales": 1,
+      "tps": 1,
+      "notas": "Redes neuronales profundas y prácticas."
+    },
+    "prerequisites": ["Aprendizaje Automático"]
+  },
+  {
+    "code": null,
+    "name": "Aprendizaje por Refuerzo",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 10,
+    "cycle": "segundo",
+    "type": "electiva",
+    "requirements": null,
+    "template": {
+      "parciales": 1,
+      "tps": 1,
+      "notas": "Electiva con prácticas de RL."
+    },
+    "prerequisites": ["Aprendizaje Automático"]
+  },
+  {
+    "code": null,
+    "name": "Simulación",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 9,
+    "cycle": "segundo",
+    "type": "electiva",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "tps": 1,
+      "notas": "Simulación con parciales."
+    },
+    "prerequisites": ["Probabilidad y Estadística", "Modelación Numérica"]
+  },
+  {
+    "code": null,
+    "name": "Sistemas Complejos",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 9,
+    "cycle": "segundo",
+    "type": "electiva",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "tps": 1,
+      "notas": "Modelos complejos con parciales."
+    },
+    "prerequisites": ["Probabilidad y Estadística", "Modelación Numérica"]
+  },
+  {
+    "code": null,
+    "name": "Redes Complejas",
+    "credits": 4,
+    "weekly_hours": 4,
+    "total_hours": 64,
+    "term_suggested": 10,
+    "cycle": "segundo",
+    "type": "electiva",
+    "requirements": null,
+    "template": {
+      "parciales": 1,
+      "tps": 1,
+      "notas": "Electiva con enfoque en redes complejas."
+    },
+    "prerequisites": ["Sistemas Complejos", "Teoría Algorítmica de Juegos"]
+  },
+  {
+    "code": null,
+    "name": "Teoría Algorítmica de Juegos",
+    "credits": 4,
+    "weekly_hours": 4,
+    "total_hours": 64,
+    "term_suggested": 9,
+    "cycle": "segundo",
+    "type": "electiva",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "tps": 1,
+      "notas": "Electiva con teoría de juegos algorítmica."
+    },
+    "prerequisites": ["Probabilidad y Estadística", "Teoría de Algoritmos"]
+  },
+  {
+    "code": null,
+    "name": "Teoría de Computabilidad",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 10,
+    "cycle": "segundo",
+    "type": "electiva",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "tps": 1,
+      "notas": "Electiva teórica con parciales."
+    },
+    "prerequisites": ["Lenguajes y Compiladores I", "Teoría de Algoritmos"]
+  },
+  {
+    "code": null,
+    "name": "Teoría de la Información",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 10,
+    "cycle": "segundo",
+    "type": "electiva",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "tps": 1,
+      "notas": "Electiva teórica con parciales."
+    },
+    "prerequisites": ["Probabilidad y Estadística", "Teoría de Algoritmos"]
+  },
+  {
+    "code": null,
+    "name": "Computación Cuántica",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 10,
+    "cycle": "segundo",
+    "type": "electiva",
+    "requirements": null,
+    "template": {
+      "parciales": 1,
+      "tps": 1,
+      "notas": "Electiva con evaluaciones teórico-prácticas."
+    },
+    "prerequisites": ["Probabilidad y Estadística"]
+  },
+  {
+    "code": null,
+    "name": "Lenguajes y Compiladores II",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 10,
+    "cycle": "segundo",
+    "type": "electiva",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "tps": 1,
+      "notas": "Electiva avanzada con prácticas."
+    },
+    "prerequisites": ["Lenguajes y Compiladores I", "Sistemas Operativos"]
+  },
+  {
+    "code": "61.11",
+    "name": "Análisis Matemático III",
+    "credits": 6,
+    "weekly_hours": 6,
+    "total_hours": 96,
+    "term_suggested": 9,
+    "cycle": "segundo",
+    "type": "electiva",
+    "requirements": null,
+    "template": {
+      "parciales": 2,
+      "tps": 1,
+      "notas": "Electiva matemática con parciales."
+    },
+    "prerequisites": ["Análisis Matemático II", "Álgebra Lineal"]
+  },
+  {
+    "code": null,
+    "name": "Arquitectura de Software",
+    "credits": 4,
+    "weekly_hours": 4,
+    "total_hours": 64,
+    "term_suggested": 9,
+    "cycle": "segundo",
+    "type": "electiva",
+    "requirements": null,
+    "template": {
+      "parciales": 1,
+      "tps": 1,
+      "notas": "Electiva sobre arquitectura y patrones."
+    },
+    "prerequisites": ["Ingeniería de Software I"]
+  }
+]

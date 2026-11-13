@@ -1,0 +1,14 @@
+import PlannerWorkspace from "@/components/planner/planner-workspace";
+import { getSession } from "@/lib/auth";
+import { getCurrentTerm, getEnrollmentsForTerm, getEventsForTerm, getTerms } from "@/lib/queries";
+
+export default async function CalendarioPage({ searchParams }: { searchParams: Promise<{ term?: string }> }) {
+  const requestedTermId = (await searchParams).term;
+  const [session, terms, currentTerm] = await Promise.all([getSession(), getTerms(), getCurrentTerm()]);
+  const term = terms.find((item) => item.id === requestedTermId) ?? currentTerm;
+  const [enrollments, events] = term
+    ? await Promise.all([getEnrollmentsForTerm(term.id), getEventsForTerm(term.id)])
+    : [[], []];
+
+  return <PlannerWorkspace term={term} terms={terms} termWasExplicit={Boolean(requestedTermId)} enrollments={enrollments} events={events} isAdmin={session?.role === "admin"} mode="calendar" />;
+}

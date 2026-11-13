@@ -1,0 +1,7 @@
+.playwright-mcp/
+dummy.png
+mobile-login-current.png
+mobile-login-full-current.png
+playwright-report/
+test-results/
+tsconfig.tsbuildinfo

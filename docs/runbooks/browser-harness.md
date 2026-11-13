@@ -30,6 +30,8 @@ El browser harness existe para validar la UI real y no depender solo de lectura 
 
 La automatización puede tocar flujos reales de la app. En este repo no se asume modo solo lectura por defecto. Si una prueba o una sesión headed entra en admin o dispara acciones, puede impactar datos reales o integraciones reales.
 
+Playwright inicia su propio servidor y deshabilita Google Calendar y Mem0 con variables de entorno vacías; no altera `.env.local`. Los tests de planificación instalan respuestas mock antes de navegar, porque incluso un GET puede inicializar un escenario. Las pruebas de admin usan payloads inválidos rechazados antes de persistir. El puerto 3100 debe estar libre para garantizar este aislamiento.
+
 ## Artefactos
 
 - `playwright-report/`
