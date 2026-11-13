@@ -23,6 +23,7 @@ Ninguna herramienta fue la única autora del diseño o del código; el resultado
 
 
 
+
 ## Elegir modalidad
 
 El código completo de ambas versiones está incluido. La **demo pública** usa datos ficticios guardados en el navegador; la **modalidad normal** conserva contraseñas, base de datos y APIs. La elección se configura al arrancar, sin un selector de modalidad visible en la página.

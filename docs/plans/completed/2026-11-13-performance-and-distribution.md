@@ -16,7 +16,7 @@ Optimizar mapa, entrada y onda de tema conservando identidad, loaders e interacc
 - [x] Optimizar tema, cámara, revelado y carga de módulos.
 - [x] Integrar las dos modalidades por configuración y documentarlas.
 - [x] Verificar tipos, lint, pruebas y builds; revisar exposición de datos.
-- [ ] Publicar repositorios y demo de Sites; verificar referencias y entrega.
+- [x] Publicar repositorios y demo de Sites; verificar referencias y entrega.
 
 ## Restricciones
 Se conserva la indicación previa de no usar navegador; la verificación de esta iteración emplea pruebas automatizadas sin navegador, mediciones dirigidas, builds y HTTP. No configurar proveedores de IA ni conectar la demo a la computadora o servicios privados. No eliminar trabajo local previo.
@@ -46,3 +46,9 @@ Se conserva la indicación previa de no usar navegador; la verificación de esta
 - Demo: 10 pruebas de datos, permisos, persistencia, rutas y aislamiento; tipos y build correctos. Sitio publicado con la optimización, sin MCP ni túneles.
 - La copia pública se prepara con una lista de código y configuración, conserva licencia/atribuciones e historial independiente. Escaneo de firmas de credenciales y coincidencias con valores de entorno locales sin hallazgos; PDFs, entornos, respaldos y metadatos de hosting excluidos.
 - Verificación final: 313 pruebas (94 archivos), typecheck, lint y build normal con Next 16.4.6 correctos. Demo: 10 pruebas, tipos y build correctos también desde una instalación limpia del repositorio público. Cero alertas de npm audit en ambos paquetes. Sites versión 6 publicada; HTTP 200 en acceso, mapa y calendario con el bundle nuevo. La comprobación visual en navegador queda pendiente por indicación expresa del usuario.
+
+## Entrega
+- Privado: main actualizado en 7db8af5; público: main actualizado en bc054c5, conservando su historial independiente. Ambos incluyen demo y modalidad normal completas.
+- El build normal de la copia pública sin entorno privado también pasó. HTTP local: /login 200 con campo de contraseña, /mapa y /api/subjects redirigen al login, /api/auth/demo devuelve 404 en producción.
+- Demo publicada: https://fiuba-plan-demo.stillfudge8.chatgpt.site (Sites versión 6). Sin proveedores de IA configurados, MCP ni túneles; preferencias y ejemplos permanecen en el navegador del visitante.
+- Las comprobaciones automáticas de GitHub se ejecutan al subir ambas ramas main. No se realizó validación visual en navegador en esta iteración.
