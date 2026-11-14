@@ -2,6 +2,8 @@
 
 Aplicación web con demo pública y modalidad normal con contraseña para seguir la carrera de Ingeniería en Informática de FIUBA. El proyecto hoy ya no es solo un dashboard: incluye resumen académico, mapa interactivo de correlatividades, agenda integrada, panel admin y un asistente interno para consultar o editar información académica.
 
+**[Probar la demo online](https://fiuba-plan-demo.stillfudge8.chatgpt.site/login)** — sin instalar nada, con datos ficticios guardados en tu navegador.
+
 ## Licencia y uso
 
 El código se publica bajo licencia MIT. Si querés monetizar este proyecto directamente, empaquetarlo como producto comercial o incluirlo dentro de un servicio pago, por favor contactá primero al mantenedor para charlar colaboración, atribución, soporte o un acuerdo comercial separado.
@@ -34,7 +36,7 @@ npm run demo:install
 npm run dev:demo
 ```
 
-Para la demo no se necesitan tokens, cuentas, IA ni base de datos. `npm run build:demo` genera `apps/demo/dist`, listo para hosting estático. [Abrir la demo publicada](https://fiuba-plan-demo.stillfudge8.chatgpt.site).
+Para la demo no se necesitan tokens, cuentas, IA ni base de datos. `npm run build:demo` genera `apps/demo/dist`, listo para hosting estático. [Abrir la demo publicada](https://fiuba-plan-demo.stillfudge8.chatgpt.site/login).
 
 Para uso normal, seguir el setup inferior y configurar `APP_MODE=standard`. El ejemplo de entorno propone `APP_MODE=demo`; los comandos `dev`, `build` y `start` respetan esa preferencia. También hay comandos explícitos `dev:standard`, `build:standard` y `start:standard`. Las instalaciones que no definan `APP_MODE` conservan su funcionamiento normal.
 
